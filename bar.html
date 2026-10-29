@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Scroll progress bar — variations [D-BAR]</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  @font-face{
+    font-family:"Redaction 35";
+    font-style:italic;
+    font-weight:400;
+    font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff) format("woff");
+  }
+  :root{
+    --ink:#161616;
+    --ink-2:#4a4a4a;
+    --ink-3:#6e6e6e;
+    --mut:#767676;
+    --line:#ececec;
+    --line-2:#e7e7e7;
+    --paper:#ffffff;
+
+    --r-sm:8px;
+    --r-md:14px;
+    --r-lg:20px;
+    --r-pill:99px;
+
+    --shadow-pop:0 18px 40px -22px rgba(22,22,22,.28);
+
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-md:32px;
+    --t-sub-lg:40px;
+    --t-label:12px;
+
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --serif:"Redaction 35",Georgia,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+
+    /* Tail length as a real token rather than a number sprinkled through five
+       gradients — every variation below reads from this, so dragging it once
+       re-tunes all of them together. */
+    --tail:150px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  ::selection{background:#e5e5e5;}
+  .mono{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);}
+  .wrap{max-width:960px;margin:0 auto;padding:0 32px;}
+
+  header{padding:72px 0 40px;border-bottom:1px solid var(--line);}
+  h1{font-size:var(--t-sub-lg);font-weight:600;letter-spacing:-.03em;line-height:1.1;margin:14px 0 18px;}
+  h1 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);}
+  header p{color:var(--mut);font-size:var(--t-body);line-height:1.6;max-width:62ch;}
+
+  /* ---- driver ---- */
+  .driver{
+    position:sticky;top:0;z-index:20;background:var(--paper);
+    border-bottom:1px solid var(--line);padding:18px 0;
+  }
+  .driver .row{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+  .driver label{flex:1;display:flex;align-items:center;gap:14px;min-width:280px;min-height:44px;}
+  .driver input[type=range]{flex:1;accent-color:var(--ink);min-height:44px;cursor:pointer;}
+  .driver output{font-family:var(--mono);font-size:var(--t-label);color:var(--ink);min-width:5ch;text-align:right;}
+  .tgl{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.1em;text-transform:uppercase;
+    min-height:44px;padding:0 20px;border-radius:var(--r-pill);cursor:pointer;
+    border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);
+    transition:border-color .2s,color .2s;
+  }
+  .tgl[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);}
+  .tgl:focus-visible{outline:2px solid var(--ink-2);outline-offset:2px;}
+
+  /* ---- one variation ---- */
+  .v{padding:40px 0;border-bottom:1px solid var(--line);}
+  .v-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;}
+  .v-head b{font-size:var(--t-sub);font-weight:600;letter-spacing:-.015em;}
+  .v p{color:var(--mut);font-size:16px;line-height:1.6;max-width:64ch;margin-bottom:22px;}
+
+  /* The stage stands in for the top edge of a case page: the bar sits on the
+     same hairline the real nav sits under, so the contrast reads honestly. */
+  /* Square top corners on purpose: on the real page the bar runs to the
+     viewport edge, so a rounded corner here would clip the start of the
+     fade and make every variation look shorter than it is. */
+  .stage{
+    position:relative;border:1px solid var(--line);
+    border-radius:0 0 var(--r-md) var(--r-md);
+    background:var(--paper);overflow:hidden;
+  }
+  .stage-nav{
+    display:flex;align-items:baseline;justify-content:space-between;
+    padding:20px 24px;border-bottom:1px solid var(--line);
+  }
+  .stage-nav span{font-weight:600;font-size:15px;}
+  .stage-nav i{font-style:normal;color:var(--ink-3);font-size:14px;margin-left:22px;}
+  .stage-body{padding:26px 24px 30px;color:var(--line-2);}
+  .stage-body u{display:block;height:9px;border-radius:var(--r-pill);background:var(--line);text-decoration:none;margin-bottom:11px;}
+  .stage-body u:nth-child(2){width:88%;}
+  .stage-body u:nth-child(3){width:72%;}
+
+  .bar{
+    position:absolute;left:0;top:0;height:2px;
+    /* --p is 0..1, written by JS. Everything else is pure CSS so each
+       variation is a paste-able one-liner. */
+    --p:0;
+    pointer-events:none;
+  }
+
+  /* A — what ships today. Included as the control, not as a candidate. */
+  .bar.a{width:calc(var(--p) * 100%);background:var(--ink-3);}
+
+  /* B — comet. The tail is a share of the bar, so at 10% scroll it is a
+     10%-long smudge and at 100% it is a full-width ramp. Reads as speed. */
+  .bar.b{
+    width:calc(var(--p) * 100%);
+    background:linear-gradient(90deg,transparent 0%,var(--ink) 100%);
+  }
+
+  /* C — fixed-length trailing fade. Same idea as B, but the fade is --tail
+     long no matter how far you have scrolled, so the head always looks the
+     same weight. The steadier of the two "faded tail" readings. */
+  .bar.c{
+    width:calc(var(--p) * 100%);
+    background:linear-gradient(90deg,transparent 0,var(--ink) var(--tail));
+  }
+
+  /* D — the other reading of "tail": the LEADING edge dissolves, so the bar
+     has no hard stop and never announces exactly where you are. Softest of
+     the five, and the only one with no crisp terminal at all. */
+  .bar.d{
+    width:calc(var(--p) * 100%);
+    background:linear-gradient(90deg,
+      var(--ink) 0,
+      var(--ink) calc(100% - var(--tail)),
+      transparent 100%);
+  }
+
+  /* E — trailing fade plus a head that sits proud. The dot is the only part
+     that carries real weight, so the bar can stay very light and still be
+     findable. Costs a pseudo-element. */
+  .bar.e{
+    width:calc(var(--p) * 100%);
+    background:linear-gradient(90deg,transparent 0,var(--ink-3) var(--tail));
+  }
+  .bar.e::after{
+    content:"";position:absolute;right:0;top:50%;
+    width:6px;height:6px;margin-top:-3px;margin-right:-1px;
+    border-radius:var(--r-pill);background:var(--ink);
+    /* the dot has width even when the bar does not, so it would sit on the
+       page at 0% scroll. x40 fades it in over the first 2.5% and clamps. */
+    opacity:calc(var(--p) * 40);
+  }
+
+  footer{padding:56px 0 90px;color:var(--mut);font-size:16px;line-height:1.7;}
+  footer b{color:var(--ink);font-weight:600;}
+
+  @media (max-width:640px){
+    .wrap{padding:0 20px;}
+    h1{font-size:var(--t-sub-md);}
+    :root{--tail:90px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    /* nothing here animates on a timer — the bars only move when you drag or
+       scroll — so there is no motion to suppress. The auto sweep is the one
+       exception and it is opt-in, defaulting off. */
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="mono">D-BAR</span>
+    <h1>Scroll progress bar, <em>five tails.</em></h1>
+    <p>The bar that ships today is a flat 2px fill in <span class="mono" style="text-transform:none;letter-spacing:0">--ink-3</span> with a hard right edge. &ldquo;Faded tail&rdquo; has two readings — the <em>trailing</em> end can dissolve, or the <em>leading</em> edge can. Both are below. Drag the slider to park every bar at the same position, or turn on the sweep to watch them move together.</p>
+  </div>
+</header>
+
+<div class="driver">
+  <div class="wrap">
+    <div class="row">
+      <label>
+        <span class="mono">Progress</span>
+        <input id="p" type="range" min="0" max="100" value="34" step="1" aria-label="Scroll progress">
+        <output id="pv">34%</output>
+      </label>
+      <label style="flex:0 1 320px;min-width:240px">
+        <span class="mono">Tail</span>
+        <input id="t" type="range" min="20" max="400" value="150" step="10" aria-label="Tail length in pixels">
+        <output id="tv">150px</output>
+      </label>
+      <button class="tgl" id="sweep" aria-pressed="false">Sweep</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap" id="vars"></main>
+
+<footer class="wrap">
+  <p>Tail length is one token, <b>--tail</b>, shared by C, D and E — the slider above retunes all three at once. Whichever you pick becomes four lines in each case page, replacing <b>.progress{…background:var(--ink-3)}</b>.</p>
+</footer>
+
+<script>
+const VARS = [
+  { k:'a', name:'A — Hard edge',
+    sub:'what ships today',
+    why:'The control. Flat --ink-3, hard stop. Precise, and at 2px on white it is easy to miss entirely.' },
+  { k:'b', name:'B — Comet',
+    sub:'proportional tail',
+    why:'The fade is a share of the bar, so the tail grows as you scroll. Feels fastest, but early in the page the whole bar is faint — it is weakest exactly where a reader is most likely to look for it.' },
+  { k:'c', name:'C — Fixed trailing fade',
+    sub:'tail is --tail long, always',
+    why:'Same gesture as B with a constant-length fade, so the head keeps the same weight at 5% and at 95%. The steadier of the two trailing-fade readings.' },
+  { k:'d', name:'D — Dissolving head',
+    sub:'the other reading of &ldquo;tail&rdquo;',
+    why:'Solid from the left, fading out at the leading edge. No hard terminal anywhere, so it never states your position precisely — it suggests it. Quietest of the five.' },
+  { k:'e', name:'E — Faded tail + head dot',
+    sub:'trailing fade, weighted head',
+    why:'C, plus a 6px dot riding the leading edge. The dot carries the contrast so the line itself can stay very light. The only variation that adds an element rather than just a gradient.' },
+];
+
+const host = document.getElementById('vars');
+host.innerHTML = VARS.map(v => `
+  <section class="v">
+    <div class="v-head"><b>${v.name}</b><span class="mono">${v.sub}</span></div>
+    <p>${v.why}</p>
+    <div class="stage">
+      <div class="bar ${v.k}" data-bar></div>
+      <div class="stage-nav"><span>Ravindra&nbsp;Pratap.</span><div><i>Work</i><i>About</i><i>Contact</i></div></div>
+      <div class="stage-body"><u></u><u></u><u></u></div>
+    </div>
+  </section>`).join('');
+
+const bars = [...document.querySelectorAll('[data-bar]')];
+const pIn  = document.getElementById('p');
+const pOut = document.getElementById('pv');
+const tIn  = document.getElementById('t');
+const tOut = document.getElementById('tv');
+const sweepBtn = document.getElementById('sweep');
+
+function setP(pct){
+  const p = Math.max(0, Math.min(100, pct)) / 100;
+  bars.forEach(b => b.style.setProperty('--p', p.toFixed(4)));
+  pOut.textContent = Math.round(p * 100) + '%';
+}
+function setTail(px){
+  document.documentElement.style.setProperty('--tail', px + 'px');
+  tOut.textContent = px + 'px';
+}
+
+pIn.addEventListener('input', () => setP(+pIn.value));
+tIn.addEventListener('input', () => setTail(+tIn.value));
+
+/* Sweep is opt-in and off by default, so the page is static unless asked —
+   which is also why there is nothing for prefers-reduced-motion to disable. */
+let raf = 0;
+sweepBtn.addEventListener('click', () => {
+  const on = sweepBtn.getAttribute('aria-pressed') !== 'true';
+  sweepBtn.setAttribute('aria-pressed', String(on));
+  if (!on) { cancelAnimationFrame(raf); return; }
+  const t0 = performance.now();
+  const tick = now => {
+    /* 6s round trip, ping-pong so it lingers at both ends */
+    const x = ((now - t0) / 6000) % 2;
+    const pct = (x < 1 ? x : 2 - x) * 100;
+    pIn.value = Math.round(pct);
+    setP(pct);
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+});
+
+setP(+pIn.value);
+setTail(+tIn.value);
+</script>
+</body>
+</html>

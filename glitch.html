@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>The convert word — glitch + pointer [D-GLITCH]</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  @font-face{
+    font-family:"Redaction 35";
+    font-style:italic;
+    font-weight:400;
+    font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff) format("woff");
+  }
+  :root{
+    --ink:#161616;
+    --ink-2:#4a4a4a;
+    --ink-3:#6e6e6e;
+    --mut:#767676;
+    --line:#ececec;
+    --line-2:#e7e7e7;
+    --paper:#ffffff;
+
+    --r-sm:8px;
+    --r-md:14px;
+    --r-pill:99px;
+
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-md:32px;
+    --t-sub-lg:40px;
+    --t-head:56px;
+    --t-head-lg:64px;
+    --t-label:12px;
+    --w-head:450;
+
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --serif:"Redaction 35",Georgia,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+
+    /* Sampled from the hero, not invented. The aurora shader mixes three OKLCH
+       stops — CA green 150, CB cyan 205, CC magenta 318 — all declared at
+       L .88, where CB and CC fall outside sRGB and never make it to the
+       screen. A render of the revealed hero is 80.9% chromatic but spans only
+       hues 135-210: the magenta is in the ramp and has never once been
+       visible. Pulled to L .62 all three land in gamut and read on paper, so
+       the tear shows the colour the hero is made of but cannot display. */
+    --g-a:#00a149;   /* CA green   150, oklch(.62 .171 150) */
+    --g-b:#cb00f7;   /* CC magenta 318, oklch(.62 .301 318) */
+    --g-c:#0098a4;   /* CB cyan    205, oklch(.62 .106 205) */
+
+    /* One multiplier drives every duration below, so the speed slider
+       retunes all three variations together instead of three separately. */
+    --k:1;
+    --gd:calc(.34s * var(--k));   /* one glitch pass, played twice */
+    --cd:calc(.92s * var(--k));   /* the whole pointer moment       */
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  ::selection{background:#e5e5e5;}
+  .mono{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);}
+  .wrap{max-width:960px;margin:0 auto;padding:0 32px;}
+
+  header{padding:72px 0 40px;border-bottom:1px solid var(--line);}
+  header h1{font-size:var(--t-sub-lg);font-weight:600;letter-spacing:-.03em;line-height:1.1;margin:14px 0 18px;}
+  header h1 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);}
+  header p{color:var(--mut);font-size:var(--t-body);line-height:1.6;max-width:62ch;}
+  header p + p{margin-top:14px;}
+  header b{color:var(--ink);font-weight:600;}
+
+  /* ---- driver ---- */
+  .driver{
+    position:sticky;top:0;z-index:20;background:var(--paper);
+    border-bottom:1px solid var(--line);padding:18px 0;
+  }
+  .driver .row{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+  .driver label{flex:1;display:flex;align-items:center;gap:14px;min-width:260px;min-height:44px;}
+  .driver input[type=range]{flex:1;accent-color:var(--ink);min-height:44px;cursor:pointer;}
+  .driver output{font-family:var(--mono);font-size:var(--t-label);color:var(--ink);min-width:5ch;text-align:right;}
+  .tgl{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.1em;text-transform:uppercase;
+    min-height:44px;padding:0 20px;border-radius:var(--r-pill);cursor:pointer;
+    border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);
+    transition:border-color .2s,color .2s;
+  }
+  .tgl[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);}
+  .tgl:focus-visible{outline:2px solid var(--ink-2);outline-offset:2px;}
+
+  /* ---- one variation ---- */
+  .v{padding:40px 0;border-bottom:1px solid var(--line);}
+  .v-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;}
+  .v-head b{font-size:var(--t-sub);font-weight:600;letter-spacing:-.015em;}
+  .v > p{color:var(--mut);font-size:16px;line-height:1.6;max-width:64ch;margin-bottom:22px;}
+
+  /* The stage is the hero line at hero size on hero paper — the only way to
+     judge a 64px glitch is at 64px. */
+  .stage{
+    border:1px solid var(--line);border-radius:var(--r-md);
+    background:var(--paper);padding:54px 24px 62px;
+  }
+  .line{
+    font-family:var(--sans);font-size:var(--t-head-lg);line-height:1.05;
+    letter-spacing:-.035em;font-weight:var(--w-head);text-align:center;
+  }
+
+  /* ============ the word ============
+     Same declaration as index.html's h1 .convert, plus position:relative so
+     the pointer has something to hang off. */
+  .convert{
+    font-family:var(--serif);
+    color:var(--ink-2);
+    font-style:italic;
+    font-weight:400;
+    letter-spacing:-.01em;
+    font-size:inherit;line-height:inherit;
+    background:none;border:0;padding:0;margin:0;
+    cursor:pointer;position:relative;
+  }
+  .convert:focus-visible{outline:2px solid var(--ink-2);outline-offset:4px;border-radius:var(--r-sm);}
+  /* The glitch layers clip and shift .w; the pointer is its sibling so it
+     never gets caught in the tear. */
+  /* isolate, so B's z-index:-1 ghosts land behind the word but still in front
+     of the page background. Without a stacking context here they fall all the
+     way through to the root and get painted over by the paper. */
+  .w{position:relative;display:inline-block;isolation:isolate;}
+
+  /* ---- the pointer, shared by all four ----
+     A 14x21 bitmap, so it scales in em with the heading and stays on a hard
+     pixel grid at every breakpoint. The fingertip is the top-left pixel,
+     which is why the whole sprite hangs down-right of the word's corner. */
+  .cur{
+    position:absolute;right:-.28em;bottom:-.36em;
+    width:.46em;line-height:0;color:var(--ink);
+    opacity:0;pointer-events:none;
+  }
+  .cur-svg{display:block;width:100%;height:auto;}
+  /* Two elements, not one: the entrance and the press live on .cur while the
+     glitch lives on the svg inside it. Both animate transform, and two
+     animations on the same element do not compose — the later one would simply
+     win and eat the other. */
+  .playing .cur{animation:cur var(--cd) steps(1,end) 1;}
+  .playing .cur-svg{animation:cur-jolt var(--gd) steps(1,end) 2;}
+  /* The pointer takes the same hits as the word, on the same beat: it is part
+     of the picture being corrupted, not a label sitting safely on top of it. */
+  @keyframes cur-jolt{
+    0%,100%{transform:none;filter:none;}
+    20%{transform:translate(-.11em,.022em);
+        filter:drop-shadow(.045em 0 var(--g-b)) drop-shadow(-.03em 0 var(--g-a));}
+    45%{transform:translate(.06em,-.018em);
+        filter:drop-shadow(-.04em 0 var(--g-a)) drop-shadow(.025em 0 var(--g-c));}
+    70%{transform:translate(-.03em,0);
+        filter:drop-shadow(.03em 0 var(--g-b));}
+  }
+  /* steps(1,end) everywhere: a cursor does not ease. It is at one pixel, then
+     it is at another. Anything smooth reads as a floating illustration. */
+  @keyframes cur{
+    0%  {opacity:0;transform:translate(.18em,.18em);}
+    10% {opacity:1;transform:translate(0,0);}
+    46% {opacity:1;transform:translate(0,0);}
+    54% {opacity:1;transform:translate(.03em,.03em) scale(.92);} /* the press */
+    66% {opacity:1;transform:translate(0,0);}
+    88% {opacity:1;transform:translate(0,0);}
+    100%{opacity:0;transform:translate(0,0);}
+  }
+
+  /* ---- the tear, shared by all three ----
+     Two complementary bands of the same word, sliding against each other.
+     The original goes transparent so nothing doubles up and no opaque
+     rectangle is needed — which matters, because on the real page the
+     aurora can be behind this.
+
+     Geometry lives here once; the three treatments below only set colour,
+     through the custom properties the keyframes read. Defaults are the
+     resting ink, so an unstyled .tear glitches in pure monochrome. */
+  .tear{
+    --c-t:var(--ink-2);  --c-b:var(--ink-2);
+    --fr-t:none;  --fr-t2:none;
+    --fr-b:none;  --fr-b2:none;
+  }
+  .tear.playing .w{color:transparent;}
+  .tear.playing .w::before,
+  .tear.playing .w::after{
+    content:attr(data-word);
+    position:absolute;left:0;top:0;white-space:nowrap;color:var(--ink-2);
+  }
+  .tear.playing .w::before{clip-path:inset(-.3em 0 46% 0);animation:tear-t var(--gd) steps(1,end) 2;}
+  .tear.playing .w::after {clip-path:inset(54% 0 -.4em 0);animation:tear-b var(--gd) steps(1,end) 2;}
+  /* 0% and 100% return to --ink-2 rather than to the treatment colour: the
+     animation is shorter than .playing, so whatever sits at 100% is what the
+     word wears for the last stretch before the class comes off. */
+  @keyframes tear-t{
+    0%,100%{transform:translate(0,0);color:var(--ink-2);text-shadow:none;}
+    20%{transform:translate(-.14em,-.012em);color:var(--c-t);text-shadow:var(--fr-t);}
+    45%{transform:translate(.07em,0);      color:var(--c-t);text-shadow:var(--fr-t2);}
+    70%{transform:translate(-.04em,.012em);color:var(--c-t);text-shadow:var(--fr-t);}
+  }
+  @keyframes tear-b{
+    0%,100%{transform:translate(0,0);color:var(--ink-2);text-shadow:none;}
+    20%{transform:translate(.11em,.012em);  color:var(--c-b);text-shadow:var(--fr-b);}
+    45%{transform:translate(-.06em,0);      color:var(--c-b);text-shadow:var(--fr-b2);}
+    70%{transform:translate(.035em,-.01em); color:var(--c-b);text-shadow:var(--fr-b);}
+  }
+
+  /* A — fringe. The word stays ink and the colour is all in the edges, the way
+     a misregistered print looks. Least colour of the three. */
+  .k-fringe{
+    --fr-t:.055em 0 var(--g-b), -.032em 0 var(--g-a);
+    --fr-t2:-.045em 0 var(--g-a), .028em 0 var(--g-c);
+    --fr-b:-.05em 0 var(--g-a), .03em 0 var(--g-b);
+    --fr-b2:.04em 0 var(--g-b), -.025em 0 var(--g-c);
+  }
+
+  /* B — bands. The halves themselves take the two ends of the aurora ramp, so
+     the word is briefly the green/magenta it will open into. */
+  .k-bands{
+    --c-t:var(--g-a);
+    --c-b:var(--g-b);
+  }
+
+  /* C — both. Coloured halves and coloured edges: the loudest reading, and the
+     only one where no part of the word is still ink mid-glitch. */
+  .k-both{
+    --c-t:var(--g-a);
+    --c-b:var(--g-b);
+    --fr-t:.05em 0 var(--g-b), -.03em 0 var(--g-c);
+    --fr-t2:-.04em 0 var(--g-c), .03em 0 var(--g-b);
+    --fr-b:-.048em 0 var(--g-a), .03em 0 var(--g-c);
+    --fr-b2:.04em 0 var(--g-c), -.028em 0 var(--g-a);
+  }
+  footer{padding:56px 0 90px;color:var(--mut);font-size:16px;line-height:1.7;}
+  footer b{color:var(--ink);font-weight:600;}
+  footer p + p{margin-top:12px;}
+
+  @media (max-width:900px){
+    .line{font-size:var(--t-head);}
+  }
+  @media (max-width:640px){
+    .wrap{padding:0 20px;}
+    header h1{font-size:var(--t-sub-md);}
+    .line{font-size:var(--t-sub-lg);}
+    .stage{padding:38px 16px 46px;}
+  }
+  /* Everything here is a timed animation on a decorative hint, so under
+     reduce there is nothing worth keeping — the word is still a button. */
+  @media (prefers-reduced-motion:reduce){
+    .playing .cur,.playing .cur-svg,
+    .tear.playing .w::before,.tear.playing .w::after{animation:none !important;}
+    /* .w goes transparent to make room for the two bands, so with the bands
+       not animating it has to be put back or the word disappears. */
+    .tear.playing .w{color:var(--ink-2) !important;}
+    .tear.playing .w::before,.tear.playing .w::after{content:none !important;}
+    .tgl{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="mono">D-GLITCH</span>
+    <h1>The tear, <em>three amounts of colour.</em></h1>
+    <p>Same tear in all three, and the pointer now takes the hits with it — it jitters and splits on the word&rsquo;s beat instead of sitting safely on top. What changes below is <b>how much colour the tear leaks</b>.</p>
+    <p>The colours are not invented. The aurora mixes three OKLCH stops — green 150, cyan 205, magenta 318 — all at L&nbsp;.88, where the cyan and the magenta fall outside sRGB. A render of the revealed hero is 80.9% chromatic but covers only hues 135&ndash;210: <b>the magenta is in the ramp and has never once been on screen</b>. Pulled to L&nbsp;.62 all three land in gamut, so the tear shows what the hero is made of rather than what it manages to display.</p>
+    <p>Click any <em>convert.</em> to play it once, or use the controls.</p>
+  </div>
+</header>
+
+<div class="driver">
+  <div class="wrap">
+    <div class="row">
+      <label>
+        <span class="mono">Speed</span>
+        <input id="k" type="range" min="50" max="220" value="100" step="5" aria-label="Duration multiplier">
+        <output id="kv">1.00&times;</output>
+      </label>
+      <label style="flex:0 1 300px;min-width:230px">
+        <span class="mono">Every</span>
+        <input id="iv" type="range" min="2" max="14" value="5" step="1" aria-label="Loop interval in seconds">
+        <output id="ivv">5s</output>
+      </label>
+      <button class="tgl" id="play">Play all</button>
+      <button class="tgl" id="loop" aria-pressed="false">Loop</button>
+    </div>
+  </div>
+</div>
+
+<main class="wrap" id="vars"></main>
+
+<footer class="wrap">
+  <p>Whichever wins becomes one <b>&lt;span class="w"&gt;</b> + one inline <b>&lt;svg&gt;</b> inside the existing <b>#trigger</b> button, plus a keyframe block. The pointer art is markup, not an image file — it inherits <b>currentColor</b> and sits on a hard pixel grid at any size.</p>
+  <p>On the real page the hint stops for good after the first click: the visitor has found the word, and the aurora it opens is behind it from then on.</p>
+</footer>
+
+<script>
+const CUR = '<svg class="cur-svg" viewBox="0 0 14 21" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><g fill="var(--paper)"><rect x="5" y="1" width="2" height="19"/><rect x="8" y="8" width="2" height="12"/><rect x="11" y="10" width="2" height="10"/><rect x="1" y="12" width="4" height="2"/><rect x="7" y="12" width="1" height="8"/><rect x="10" y="12" width="1" height="8"/><rect x="2" y="14" width="3" height="2"/><rect x="3" y="16" width="2" height="2"/><rect x="4" y="18" width="1" height="2"/></g><g fill="currentColor"><rect x="5" y="0" width="2" height="1"/><rect x="4" y="1" width="1" height="11"/><rect x="7" y="1" width="1" height="11"/><rect x="8" y="7" width="2" height="1"/><rect x="10" y="8" width="1" height="4"/><rect x="11" y="9" width="2" height="1"/><rect x="13" y="10" width="1" height="11"/><rect x="1" y="11" width="3" height="1"/><rect x="0" y="12" width="1" height="2"/><rect x="1" y="14" width="1" height="2"/><rect x="2" y="16" width="1" height="2"/><rect x="3" y="18" width="1" height="3"/><rect x="4" y="20" width="9" height="1"/></g></svg>';
+
+const VARS = [
+  { k:'k-fringe', name:'A — Fringe',
+    sub:'ink word, coloured edges',
+    why:'The word stays ink and all the colour sits in the edges, the way a misregistered print does. Least colour of the three, and the only one that never stops looking like the site.' },
+  { k:'k-bands', name:'B — Bands',
+    sub:'the halves take the ramp',
+    why:'The two torn halves themselves become the ends of the aurora ramp — green above, magenta below. For half a second the word is the thing it opens into.' },
+  { k:'k-both', name:'C — Both',
+    sub:'coloured halves + coloured edges',
+    why:'Loudest reading. Coloured halves with a second colour fringing off them, so no part of the word is still ink mid-glitch.' },
+];
+
+const host = document.getElementById('vars');
+host.innerHTML = VARS.map(v => `
+  <section class="v">
+    <div class="v-head"><b>${v.name}</b><span class="mono">${v.sub}</span></div>
+    <p>${v.why}</p>
+    <div class="stage">
+      <div class="line">I make designs that <button type="button" class="convert tear ${v.k}" data-play><span class="w" data-word="convert.">convert.</span><i class="cur">${CUR}</i></button></div>
+    </div>
+  </section>`).join('');
+
+const words = [...document.querySelectorAll('[data-play]')];
+const kIn = document.getElementById('k'),  kOut  = document.getElementById('kv');
+const iIn = document.getElementById('iv'), iOut  = document.getElementById('ivv');
+const playBtn = document.getElementById('play');
+const loopBtn = document.getElementById('loop');
+
+/* The longest animation is the pointer, so the class has to outlive it. */
+const total = () => 920 * (+kIn.value / 100) + 60;
+
+function play(el){
+  /* Re-adding a class that is already there does not restart an animation.
+     Removing it and forcing a reflow does. */
+  el.classList.remove('playing');
+  void el.offsetWidth;
+  el.classList.add('playing');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('playing'), total());
+}
+const playAll = () => words.forEach(play);
+
+words.forEach(el => el.addEventListener('click', () => play(el)));
+playBtn.addEventListener('click', playAll);
+
+function setK(v){
+  document.documentElement.style.setProperty('--k', (v/100).toFixed(2));
+  kOut.textContent = (v/100).toFixed(2) + '\u00d7';
+}
+function setIv(v){ iOut.textContent = v + 's'; if (timer) startLoop(); }
+
+let timer = 0;
+function startLoop(){ clearInterval(timer); timer = setInterval(playAll, +iIn.value * 1000); }
+
+loopBtn.addEventListener('click', () => {
+  const on = loopBtn.getAttribute('aria-pressed') !== 'true';
+  loopBtn.setAttribute('aria-pressed', String(on));
+  if (on){ playAll(); startLoop(); } else { clearInterval(timer); timer = 0; }
+});
+
+kIn.addEventListener('input', () => setK(+kIn.value));
+iIn.addEventListener('input', () => setIv(+iIn.value));
+
+setK(+kIn.value);
+setIv(+iIn.value);
+</script>
+</body>
+</html>

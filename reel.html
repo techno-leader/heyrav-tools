@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Reel bench — horizontal axis, scroll span A/B/C</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  /* D-REEL — the evidence reel with the feed axis turned horizontal, benched at
+     three scroll spans. Tokens are the case-irbs.html subset the reel touches;
+     nothing here is a new value. */
+  :root{
+    --ink:#161616;
+    --ink-2:#4a4a4a;
+    --ink-3:#6e6e6e;
+    --mut:#767676;
+    --line:#ececec;
+    --paper:#ffffff;
+    --surface:#fafafa;
+    --ink-inv:#1b1b1b;
+    --mut-inv:#8e8e8e;
+    --r-lg:20px;
+    --r-pill:99px;
+    --r-device:34px;
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-lg:40px;
+    --t-label:12px;
+    --w-head:450;
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  /* the .snap-stop machinery below is inert without this — case-viewryt.html's
+     declaration verbatim. Each stop is parked where its callout is centred. */
+  html{scroll-behavior:smooth;scroll-snap-type:y proximity;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);overflow-x:hidden;}
+
+  /* ---------------- bench chrome ---------------- */
+  .bench-head{max-width:1180px;margin:0 auto;padding:80px 44px 0;}
+  .bench-head h1{font-weight:var(--w-head);font-size:var(--t-sub-lg);line-height:1.1;letter-spacing:-.025em;max-width:22ch;}
+  .bench-head p{color:var(--mut);font-size:var(--t-body);line-height:1.55;margin-top:18px;max-width:62ch;}
+  .tag{
+    position:sticky;top:0;z-index:40;background:var(--paper);border-bottom:1px solid var(--line);
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.2em;text-transform:uppercase;
+    color:var(--ink-3);padding:14px 44px;
+  }
+  .tag b{color:var(--ink);font-weight:400;}
+  .rule{max-width:1180px;margin:0 auto;border-top:1px solid var(--line);}
+
+  /* ---------------- evidence reel ---------------- */
+  /* Ported from case-irbs.html. Two declarations differ, and only two:
+     .ev-feed runs as a row, and .ev-slide is a full screen wide instead of
+     80vh tall. Everything else — the sticky stage, the .shot device, the
+     callout track, the progress bar — is byte-identical. */
+  .evidence{display:block;margin-top:44px;}
+  .ev-scrolly{position:relative;height:var(--span,515vh);}
+  .snap-stop{position:absolute;left:0;width:1px;height:1px;scroll-snap-align:start;}
+  .ev-stage{
+    position:sticky;top:0;height:100vh;
+    display:grid;grid-template-columns:minmax(250px,330px) auto;grid-template-rows:auto;
+    justify-content:center;align-content:center;align-items:center;
+    max-width:1180px;margin:0 auto;padding:56px 44px 0;
+  }
+  .ev-caps{grid-column:1;grid-row:1;align-self:start;justify-self:stretch;display:grid;padding-right:44px;}
+  .ev-cap{grid-area:1/1;display:flex;flex-direction:column;align-items:flex-end;text-align:right;gap:8px;opacity:0;transition:opacity .5s ease;}
+  .ev-cap.on{opacity:1;}
+  .ev-cap i{font-style:normal;font-family:var(--mono);font-size:10.5px;letter-spacing:.2em;color:var(--ink-3);text-transform:uppercase;}
+  .ev-cap b{font-family:var(--sans);font-weight:var(--w-head);font-size:var(--t-sub-lg);line-height:1.14;letter-spacing:-.025em;}
+  .ev-shots{grid-column:2;grid-row:1;display:flex;justify-content:center;height:min(76vh,880px);}
+  .ev-gut{grid-column:1;grid-row:1;position:relative;align-self:stretch;height:100%;}
+  .shot{position:relative;margin:0;padding:0;height:100%;aspect-ratio:9/19.5;
+    border-width:2px;border-style:solid;border-radius:var(--r-device);box-shadow:none;}
+  .shot.dark{border-color:var(--ink-inv);background:var(--ink-inv);}
+  .ev-screen{position:absolute;inset:0;border-radius:calc(var(--r-device) - 2px);overflow:hidden;}
+  .shot.dark .ev-screen{background:var(--ink-inv);}
+  /* the axis change: a row, spanning the full height of the screen */
+  .ev-feed{position:absolute;left:0;top:0;height:100%;display:flex;flex-direction:row;will-change:transform;}
+  .ev-slide{flex:0 0 auto;width:var(--slide-w,100%);height:100%;display:flex;flex-direction:column;justify-content:center;gap:14px;overflow:hidden;}
+  .ev-slide img{display:block;width:100%;height:auto;flex:0 0 auto;}
+  .wire{flex:1 1 0;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:14px;padding:0 18px;overflow:hidden;}
+  .wire i{display:block;flex:0 0 auto;height:10px;border-radius:var(--r-pill);}
+  .shot.dark .wire i{background:color-mix(in srgb, var(--mut-inv) 26%, var(--ink-inv));}
+  .shot .pbar{position:absolute;right:-16px;top:14%;bottom:14%;width:3px;border-radius:var(--r-pill);overflow:hidden;}
+  .shot.dark .pbar{background:color-mix(in srgb, var(--mut-inv) 22%, var(--ink-inv));}
+  .shot .pbar i{position:absolute;left:0;top:0;width:100%;height:0;border-radius:var(--r-pill);}
+  .shot.dark .pbar i{background:var(--mut-inv);}
+  .co{position:absolute;top:0;left:0;right:44px;margin-left:auto;width:auto;max-width:100%;text-align:right;opacity:0;will-change:transform,opacity;}
+  .co span{display:block;font-size:var(--t-body);line-height:1.55;color:var(--mut);}
+  @media (max-width:1180px){
+    .ev-stage{grid-template-columns:minmax(200px,265px) auto;padding:56px 24px 0;}
+    .ev-shots{height:min(76vh,820px);}
+    .co{right:26px;}
+    .ev-caps{padding-right:26px;}
+  }
+  @media (max-width:900px){
+    .bench-head{padding:80px 22px 0;}
+    .tag{padding:14px 22px;}
+    .ev-scrolly{height:var(--span-m,450vh);}
+    .ev-stage{grid-template-columns:1fr;grid-template-rows:auto auto auto;align-items:start;justify-content:stretch;padding:100px 22px 0;}
+    .ev-caps{grid-column:1;grid-row:1;justify-self:stretch;align-self:auto;padding-right:0;margin-bottom:16px;}
+    .ev-cap{flex-direction:row;align-items:baseline;text-align:left;gap:12px;}
+    .ev-cap b{font-size:var(--t-sub);}
+    .ev-shots{grid-column:1;grid-row:2;height:52vh;}
+    .shot .pbar{right:-10px;}
+    .ev-gut{display:contents;}
+    .co{
+      position:relative;top:auto;left:auto;right:auto;margin-left:0;max-width:none;text-align:left;
+      grid-column:1;grid-row:3;display:none;opacity:1;transform:none !important;
+      padding-left:18px;border-left:1px solid var(--line);margin-top:18px;
+    }
+    .co.on{display:block;}
+  }
+  @media (prefers-reduced-motion: reduce){
+    html{scroll-behavior:auto;scroll-snap-type:none;}
+    .snap-stop{scroll-snap-align:none;}
+    .ev-cap{transition:none;}
+  }
+</style>
+</head>
+<body>
+
+<div class="bench-head">
+  <h1>Reel bench — the feed turned sideways</h1>
+  <p>Same sticky frame, same scroll-driven progress, same vertical callout track. The five specimens now travel left&nbsp;&rarr;&nbsp;right inside the phone instead of bottom&nbsp;&rarr;&nbsp;top. Three scroll spans below; the shipped page is currently 515vh.</p>
+</div>
+
+<!-- A -->
+<div class="tag">Variant <b>A</b> &nbsp;·&nbsp; 200vh &nbsp;·&nbsp; ~40vh per specimen &nbsp;·&nbsp; fastest</div>
+<div class="evidence">
+  <div class="ev-scrolly" style="--span:200vh;--span-m:180vh">
+    <div class="ev-stage">
+      <div class="ev-gut">
+        <div class="co" data-shot="0"><span>Requests, pinned rooms and common rooms live on one screen — nothing needs a second app open beside it.</span></div>
+        <div class="co" data-shot="1"><span>A real calendar, not a blind request — students see every existing booking before choosing a slot.</span></div>
+        <div class="co" data-shot="2"><span>Status is colour-coded — pending, approved, rejected — so a secretary never has to open a request to know where it stands.</span></div>
+        <div class="co" data-shot="3"><span>Pinned rooms surface first; the rest are grouped by the same room types laid out in Context.</span></div>
+        <div class="co" data-shot="4"><span>Every field a secretary needs to decide fast — name, designation, date, time, purpose — travels with the request.</span></div>
+      </div>
+      <div class="ev-shots">
+        <figure class="shot dark">
+          <div class="ev-screen">
+            <div class="ev-feed">
+              <img data-fault="0" src="assets/irbs/ev-01-home.jpg" alt="IRBS home — requests, pinned rooms and common rooms">
+              <img data-fault="1" src="assets/irbs/ev-02-calendar.jpg" alt="Yoga Room slot calendar showing an existing booking">
+              <img data-fault="2" src="assets/irbs/ev-03-history.jpg" alt="Booking history — colour-coded pending, approved and rejected requests">
+              <img data-fault="3" src="assets/irbs/ev-04-roomlist.jpg" alt="Room list grouped by pinned, common and club rooms">
+              <img data-fault="4" src="assets/irbs/ev-05-request.jpg" alt="Booking request form for the Yoga Room">
+            </div>
+          </div>
+          <div class="pbar"><i></i></div>
+        </figure>
+      </div>
+      <div class="ev-caps">
+        <div class="ev-cap"><i>Screen 01</i><b>Home</b></div>
+        <div class="ev-cap"><i>Screen 02</i><b>Slot calendar</b></div>
+        <div class="ev-cap"><i>Screen 03</i><b>Booking history</b></div>
+        <div class="ev-cap"><i>Screen 04</i><b>Room list</b></div>
+        <div class="ev-cap"><i>Screen 05</i><b>Request form</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="rule"></div>
+
+<!-- B -->
+<div class="tag">Variant <b>B</b> &nbsp;·&nbsp; 300vh &nbsp;·&nbsp; ~60vh per specimen &nbsp;·&nbsp; brisk</div>
+<div class="evidence">
+  <div class="ev-scrolly" style="--span:300vh;--span-m:270vh">
+    <div class="ev-stage">
+      <div class="ev-gut">
+        <div class="co" data-shot="0"><span>Requests, pinned rooms and common rooms live on one screen — nothing needs a second app open beside it.</span></div>
+        <div class="co" data-shot="1"><span>A real calendar, not a blind request — students see every existing booking before choosing a slot.</span></div>
+        <div class="co" data-shot="2"><span>Status is colour-coded — pending, approved, rejected — so a secretary never has to open a request to know where it stands.</span></div>
+        <div class="co" data-shot="3"><span>Pinned rooms surface first; the rest are grouped by the same room types laid out in Context.</span></div>
+        <div class="co" data-shot="4"><span>Every field a secretary needs to decide fast — name, designation, date, time, purpose — travels with the request.</span></div>
+      </div>
+      <div class="ev-shots">
+        <figure class="shot dark">
+          <div class="ev-screen">
+            <div class="ev-feed">
+              <img data-fault="0" src="assets/irbs/ev-01-home.jpg" alt="IRBS home — requests, pinned rooms and common rooms">
+              <img data-fault="1" src="assets/irbs/ev-02-calendar.jpg" alt="Yoga Room slot calendar showing an existing booking">
+              <img data-fault="2" src="assets/irbs/ev-03-history.jpg" alt="Booking history — colour-coded pending, approved and rejected requests">
+              <img data-fault="3" src="assets/irbs/ev-04-roomlist.jpg" alt="Room list grouped by pinned, common and club rooms">
+              <img data-fault="4" src="assets/irbs/ev-05-request.jpg" alt="Booking request form for the Yoga Room">
+            </div>
+          </div>
+          <div class="pbar"><i></i></div>
+        </figure>
+      </div>
+      <div class="ev-caps">
+        <div class="ev-cap"><i>Screen 01</i><b>Home</b></div>
+        <div class="ev-cap"><i>Screen 02</i><b>Slot calendar</b></div>
+        <div class="ev-cap"><i>Screen 03</i><b>Booking history</b></div>
+        <div class="ev-cap"><i>Screen 04</i><b>Room list</b></div>
+        <div class="ev-cap"><i>Screen 05</i><b>Request form</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="rule"></div>
+
+<!-- C -->
+<div class="tag">Variant <b>C</b> &nbsp;·&nbsp; 400vh &nbsp;·&nbsp; ~80vh per specimen &nbsp;·&nbsp; moderate</div>
+<div class="evidence">
+  <div class="ev-scrolly" style="--span:400vh;--span-m:360vh">
+    <div class="ev-stage">
+      <div class="ev-gut">
+        <div class="co" data-shot="0"><span>Requests, pinned rooms and common rooms live on one screen — nothing needs a second app open beside it.</span></div>
+        <div class="co" data-shot="1"><span>A real calendar, not a blind request — students see every existing booking before choosing a slot.</span></div>
+        <div class="co" data-shot="2"><span>Status is colour-coded — pending, approved, rejected — so a secretary never has to open a request to know where it stands.</span></div>
+        <div class="co" data-shot="3"><span>Pinned rooms surface first; the rest are grouped by the same room types laid out in Context.</span></div>
+        <div class="co" data-shot="4"><span>Every field a secretary needs to decide fast — name, designation, date, time, purpose — travels with the request.</span></div>
+      </div>
+      <div class="ev-shots">
+        <figure class="shot dark">
+          <div class="ev-screen">
+            <div class="ev-feed">
+              <img data-fault="0" src="assets/irbs/ev-01-home.jpg" alt="IRBS home — requests, pinned rooms and common rooms">
+              <img data-fault="1" src="assets/irbs/ev-02-calendar.jpg" alt="Yoga Room slot calendar showing an existing booking">
+              <img data-fault="2" src="assets/irbs/ev-03-history.jpg" alt="Booking history — colour-coded pending, approved and rejected requests">
+              <img data-fault="3" src="assets/irbs/ev-04-roomlist.jpg" alt="Room list grouped by pinned, common and club rooms">
+              <img data-fault="4" src="assets/irbs/ev-05-request.jpg" alt="Booking request form for the Yoga Room">
+            </div>
+          </div>
+          <div class="pbar"><i></i></div>
+        </figure>
+      </div>
+      <div class="ev-caps">
+        <div class="ev-cap"><i>Screen 01</i><b>Home</b></div>
+        <div class="ev-cap"><i>Screen 02</i><b>Slot calendar</b></div>
+        <div class="ev-cap"><i>Screen 03</i><b>Booking history</b></div>
+        <div class="ev-cap"><i>Screen 04</i><b>Room list</b></div>
+        <div class="ev-cap"><i>Screen 05</i><b>Request form</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+<div class="rule"></div>
+<div style="height:30vh"></div>
+
+<script>
+/* ---- evidence reel, horizontal feed ----
+   Ported from case-irbs.html's evidenceReel(). The specimen geometry is now
+   read on X (offsetLeft / offsetWidth / scrollWidth) and the feed is moved with
+   translateX, but scroll progress p, the caption swap, the fade curve and the
+   de-stacking pass are all unchanged.
+
+   The callout track is the one thing that could not be translated directly.
+   It used to follow each image's own vertical centre inside the feed — with a
+   row feed the images no longer move on Y at all, so there is nothing to
+   follow. It gets a synthetic vertical track instead: callout i is centred
+   when p reaches i/(n-1), one screen-height apart. Same motion, driven by the
+   same p. */
+function evidenceReel(sc){
+  const screen = sc.querySelector('.ev-screen');
+  const feed   = sc.querySelector('.ev-feed');
+  const bar    = sc.querySelector('.pbar i');
+  const gut    = sc.querySelector('.ev-gut');
+  const clamp01 = v => Math.min(Math.max(v, 0), 1);
+
+  /* give every specimen its own screen, and pad the leftover space with a few
+     quiet bars so a short image never sits in a blank frame */
+  const imgs = [...feed.querySelectorAll('img')];
+  const WIRE = [[.45,1,.78],[1,.82,.6],[.9,.68,.95],[.5,.88,.7]];  /* bar widths */
+  imgs.forEach((img, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'ev-slide';
+    slide.dataset.fault = img.dataset.fault;
+    feed.insertBefore(slide, img);
+    const wire = at => {
+      const w = document.createElement('div');
+      w.className = 'wire';
+      WIRE[(i + at) % WIRE.length].forEach(width => {
+        const b = document.createElement('i');
+        b.style.width = (width * 100) + '%';
+        w.append(b);
+      });
+      return w;
+    };
+    slide.append(wire(0), img, wire(1));
+  });
+
+  const shots  = [...feed.children];
+  const cos    = [...sc.querySelectorAll('.co')];
+  const capsBox = sc.querySelector('.ev-caps');
+  const caps   = [...sc.querySelectorAll('.ev-cap')];
+  /* one snap stop per specimen now that each owns a screen */
+  const marks = shots.map((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'snap-stop';
+    d.dataset.shot = i;
+    sc.insertBefore(d, sc.firstChild);
+    return d;
+  });
+  let m = null, ticking = false;
+
+  function measure(){
+    const screenW = screen.clientWidth, screenH = screen.clientHeight;
+    if(!screenW || !shots[0].offsetWidth) return false;
+    /* each slide is exactly one screen wide, so the row is n screens long */
+    const travel = feed.scrollWidth - screenW;
+    if(travel <= 0) return false;
+    const span = sc.offsetHeight - innerHeight;
+    const n = shots.length;
+    m = {
+      screenW, screenH, travel, span, n,
+      lefts: shots.map(s => s.offsetLeft),
+      ws:    shots.map(s => s.offsetWidth),
+      /* a line can cover a run of specimens: [first, last] */
+      range: cos.map(c => [+c.dataset.shot, +(c.dataset.thru ?? c.dataset.shot)]),
+      /* synthetic vertical track — one screen-height between callouts */
+      step:   screenH,
+      vtravel: (n - 1) * screenH,
+      vmids:  shots.map((_, i) => screenH / 2 + i * screenH)
+    };
+    /* park a snap point where each specimen is best framed */
+    marks.forEach(mk => {
+      const i = +mk.dataset.shot;
+      const p = (m.lefts[i] + m.ws[i] / 2 - screenW / 2) / travel;
+      mk.style.top = clamp01(p) * span + 'px';
+    });
+    return true;
+  }
+
+  function update(){
+    ticking = false;
+    if(!m && !measure()) return;
+    const p = Math.min(Math.max(-sc.getBoundingClientRect().top / (m.span || 1), 0), 1);
+    const shift = p * m.travel;
+
+    feed.style.transform = 'translateX(' + -shift + 'px)';
+    bar.style.height = (p * 100) + '%';
+
+    /* how much of shot i is inside the frame right now, 0..1 */
+    const cover = i => {
+      const left = m.lefts[i] - shift, right = left + m.ws[i];
+      const vis = Math.min(right, m.screenW) - Math.max(left, 0);
+      return Math.max(0, vis) / Math.min(m.ws[i], m.screenW);
+    };
+
+    /* heading follows whichever shot fills the frame most */
+    let near = 0, best = -1;
+    m.lefts.forEach((_, i) => { const c = cover(i); if(c > best){ best = c; near = i; } });
+    const fault = +shots[near].dataset.fault;
+    caps.forEach((c, i) => c.classList.toggle('on', i === fault));
+
+    /* a line shared by several specimens tracks the one currently filling the
+       frame, weighted by coverage, so it holds steady while the images change */
+    const anchorOf = ([a, b]) => {
+      let num = 0, den = 0;
+      for(let s = a; s <= b; s++){
+        const wgt = Math.max(cover(s), 0.001);
+        num += wgt * m.vmids[s];
+        den += wgt;
+      }
+      return num / den;
+    };
+    /* summed, not maxed — across a seam the two specimens each half-fill the
+       frame, and the line they share should not dip as it passes */
+    const covOf = ([a, b]) => { let t = 0; for(let s = a; s <= b; s++) t += cover(s); return Math.min(t, 1); };
+
+    /* stacked layout shows one callout at a time: whichever range sits nearest the playhead */
+    if(innerWidth <= 900){
+      let act = 0, bd = Infinity;
+      m.range.forEach((r, i) => {
+        const a = (r[0] + r[1]) / 2 / Math.max(m.n - 1, 1);
+        const d = Math.abs(a - p);
+        if(d < bd){ bd = d; act = i; }
+      });
+      cos.forEach((c, i) => { c.style.opacity = ''; c.classList.toggle('on', i === act); });
+      return;
+    }
+
+    /* keep the callout track clear of the heading parked at the top of the column */
+    const off = screen.getBoundingClientRect().top - gut.getBoundingClientRect().top;
+    const floor = capsBox.offsetHeight + 26;
+    const vshift = p * m.vtravel;
+    const placed = [];
+    cos.forEach((c, i) => {
+      c.classList.remove('on');
+      const half = c.offsetHeight / 2;
+      const y = Math.min(Math.max(anchorOf(m.range[i]) - vshift, floor + half), m.screenH - half - 8);
+      /* a callout is full strength while its specimens hold the frame, and fades as they leave */
+      const o = clamp01((covOf(m.range[i]) - 0.3) / 0.45);
+      c.style.opacity = o;
+      if(o > 0.02) placed.push({c, y, half});
+      else c.style.transform = 'translateY(' + (off + y - half) + 'px)';
+    });
+    /* two callouts can be on screen together during a handoff and both hit the
+       same clamp — nudge them apart so they never stack */
+    placed.sort((a, b) => a.y - b.y);
+    for(let i = 1; i < placed.length; i++){
+      const need = placed[i-1].y + placed[i-1].half + 18 + placed[i].half;
+      if(placed[i].y < need) placed[i].y = need;
+    }
+    placed.forEach(q => { q.c.style.transform = 'translateY(' + (off + q.y - q.half) + 'px)'; });
+  }
+
+  function remeasure(){ m = null; update(); }
+
+  addEventListener('scroll', () => { if(!ticking){ ticking = true; requestAnimationFrame(update); } }, {passive:true});
+  addEventListener('resize', remeasure);
+  addEventListener('load', remeasure);
+  imgs.forEach(s => s.complete || s.addEventListener('load', remeasure, {once:true}));
+  update();
+}
+document.querySelectorAll('.ev-scrolly').forEach(evidenceReel);
+</script>
+</body>
+</html>

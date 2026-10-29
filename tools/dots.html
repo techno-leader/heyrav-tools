@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Dot Matrix - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script src="brand.js"></script>
+<script>
+/* Dot Matrix - any image read as tone and re-set as dots: halftone, ascii, or
+   flat dots. The lattice can stay flat, wrap round a cylinder or a globe, and
+   turn in 3D. Dots arrive by a sweep (scale, scatter or fall) and a scan line
+   can pass over them - the face-ID idea from the brief, applied to heyrav's
+   own mark, drawings and photo. Circles are batched into one path per alpha
+   step, so 20k dots stay cheap. */
+
+const SIZES = [['fill','fill'],[[1440,500],'1440 × 500 hero band'],[[1440,900],'1440 × 900 desktop'],[[1200,675],'1200 × 675 post'],[[1080,1080],'1080 × 1080 square'],[[1080,1350],'1080 × 1350 portrait']];
+const BG = [['#ffffff','paper'],['#161616','ink'],['#0d1b4c','night'],['#f5f5f5','wash']];
+const FG = [['#161616','ink'],['#ffffff','paper'],['#bbfff0','mint'],['#6e6e6e','ink 3']];
+const GLOW = [['#ffffff','white'],['#bbfff0','mint'],['oklch(.62 .171 150)','glitch green'],['oklch(.62 .301 318)','glitch magenta']];
+
+let img = null, dropImg = null, field = null, fieldKey = '', pts = [], ptsKey = '', animT0 = 0;
+
+async function source(S) {
+  if (S.source === 'image') return dropImg;
+  if (S.source === 'word') {
+    await document.fonts.load('600 200px Onest').catch(()=>{});
+    const c = document.createElement('canvas'), x = c.getContext('2d'); x.font = '600 200px Onest, sans-serif';
+    const w = Math.ceil(x.measureText(S.word || ' ').width) + 20; c.width = w; c.height = 240;
+    x.font = '600 200px Onest, sans-serif'; x.fillStyle = '#fff'; x.fillRect(0,0,w,240); x.fillStyle = '#000'; x.textBaseline = 'middle'; x.fillText(S.word || ' ', 10, 125);
+    return c;
+  }
+  if (S.source === 'master') return BRAND.img('master', '#000', '#fff');
+  if (S.source === 'masterGrid') return BRAND.img('master', '#000', '#fff', true);
+  if (['symbol','lockup','D'].includes(S.source)) return BRAND.img(S.source, '#000');
+  if (S.source === 'photo') return Kit.loadImage('../assets/about/frame.webp').catch(() => null);
+  if (S.source.startsWith('lab:')) return Kit.loadImage('../assets/lab/001/' + S.source.slice(4) + '.png').catch(() => null);
+  return null;
+}
+async function rebuild(S, W, H) {
+  const key = [S.source, S.word, S.fit, S.soft, W, H, !!dropImg].join('|');
+  if (key !== fieldKey) {
+    fieldKey = key; img = await source(S);
+    if (!img) { field = null; Kit.toast('source failed to load - serve the folder over http'); }
+    else try { field = Kit.inkField(img, W, H, { fit: S.fit, blur: S.soft }); } catch { field = null; Kit.toast('this image cannot be read on file:// - serve the folder over http'); }
+    ptsKey = '';
+  }
+  lattice(S, W, H);
+  T.draw();
+}
+// the lattice: one entry per dot, tone sampled once
+function lattice(S, W, H) {
+  const key = [fieldKey, S.cell, S.pattern, S.jitter, S.contrast, S.gamma, S.invert, S.cut, S.base].join('|');
+  if (key === ptsKey || !field) return;
+  ptsKey = key; pts = [];
+  const c = S.cell, r = Kit.rng(7), hex = S.pattern === 'hex';
+  const dy = hex ? c*Math.sqrt(3)/2 : c;
+  for (let j = 0, y = dy/2; y < H; y += dy, j++) for (let x = (hex && j % 2 ? c : c/2); x < W; x += c) {
+    let px = x, py = y;
+    if (S.pattern === 'noise' || S.jitter) { const k = S.pattern === 'noise' ? .5 : S.jitter/100*.5; px += (r() - .5)*2*c*k; py += (r() - .5)*2*c*k; }
+    let v = field.lerp(px, py);
+    v = Kit.clamp((v - .5)*S.contrast + .5); v = Math.pow(v, S.gamma); if (S.invert) v = 1 - v;
+    if (v < S.cut/100) { if (!S.base) continue; v = S.base/100; }
+    pts.push({ x: px, y: py, v, a: r(), b: r(), c: r() });
+  }
+}
+
+/* ---- 3D ---- */
+function project(S, W, H, t) {
+  const yaw = (S.turn + t*S.spin*40)*Math.PI/180, pitch = S.tilt*Math.PI/180;
+  const cy = Math.cos(yaw), sy = Math.sin(yaw), cp = Math.cos(pitch), sp = Math.sin(pitch);
+  const f = 1200/Math.max(.05, S.persp), zoom = S.zoom/100, R = Math.min(W, H)*.36;
+  return (p, out) => {
+    let X, Y, Z, nx, nz, ny = 0;
+    const u = p.x/W - .5, v = p.y/H - .5, lift = p.v*S.extrude;
+    if (S.proj === 'flat') { X = p.x - W/2; Y = p.y - H/2; Z = lift; nx = 0; nz = 1; }
+    else if (S.proj === 'wrap') {
+      const th = u*Math.PI*2*S.cover/100, Rr = R + lift; X = Math.sin(th)*Rr; Z = Math.cos(th)*Rr; Y = v*H*(R*Math.PI*2*S.cover/100)/W; nx = Math.sin(th); nz = Math.cos(th);
+    } else {
+      const lon = u*Math.PI*2*S.cover/100, lat = v*Math.PI*Math.min(1, S.cover/50), Rr = R + lift;
+      X = Math.cos(lat)*Math.sin(lon)*Rr; Y = Math.sin(lat)*Rr; Z = Math.cos(lat)*Math.cos(lon)*Rr;
+      nx = Math.cos(lat)*Math.sin(lon); ny = Math.sin(lat); nz = Math.cos(lat)*Math.cos(lon);
+    }
+    // yaw about Y, then pitch about X
+    const x1 = X*cy + Z*sy, z1 = -X*sy + Z*cy;
+    const y2 = Y*cp - z1*sp, z2 = Y*sp + z1*cp;
+    const nz1 = -nx*sy + nz*cy, nz2 = ny*sp + nz1*cp;
+    const s = f/(f - z2)*zoom;
+    out[0] = W/2 + x1*s; out[1] = H/2 + y2*s; out[2] = s; out[3] = nz2; out[4] = z2;
+  };
+}
+
+/* ---- frame ---- */
+const o = [0,0,0,0,0];
+function frame(ctx, W, H, t, S, ptr, exporting) {
+  ctx.fillStyle = S.bg; ctx.fillRect(0, 0, W, H);
+  if (!pts.length) return;
+  const P = project(S, W, H, S.spin ? t : 0);
+  // sweep: 0..1 arrival per dot
+  let at = exporting ? 1e9 : t - animT0;
+  const dur = S.sweep, soft = S.soft2/100;
+  if (S.loop && !exporting) { const per = dur*2 + 2.4; at = at % per; if (at > dur + 1.2) at = (dur + 1.2) - (at - dur - 1.2) + 0; }
+  const order = p => S.from === 'top' ? p.y/H : S.from === 'left' ? p.x/W : S.from === 'centre' ? Math.hypot(p.x/W - .5, p.y/H - .5)*1.4 : p.a;
+  const scanY = ((t*S.scanSpeed*.25) % 1.6) - .3;
+  const buckets = new Map(); const glowB = [];
+  const shape = S.dot, maxR = S.cell*S.dsize/100/2;
+  const ramp = S.ramp || ' .:-=+*#%@';
+  const glyphs = [];
+  const hov = ptr && ptr.in && !exporting && S.pointer !== 'none';
+  for (const p of pts) {
+    const k0 = order(p)*(1 - soft)*dur, k = dur*soft || .001;
+    let a = Kit.clamp((at - k0)/k);
+    if (Kit.reduced && !T.clock.on) a = 1;
+    if (a <= 0) continue;
+    const e = S.entry === 'fall' ? Kit.ease.back(a) : Kit.ease.out(a);
+    P(p, o);
+    let x = o[0], y = o[1], s = o[2], facing = o[3];
+    if (S.proj !== 'flat' && facing < 0) { if (!S.backDots) continue; }
+    if (S.entry === 'scatter') { const ang = p.b*Math.PI*2, d = (1 - e)*S.scatter*(.4 + p.c); x += Math.cos(ang)*d; y += Math.sin(ang)*d; }
+    if (S.entry === 'fall') y -= (1 - e)*S.fallH*(.6 + p.c*.6);
+    if (hov) { const dx = x - ptr.x, dy = y - ptr.y, d = Math.hypot(dx, dy), R = S.radius;
+      if (d < R) { const f = (1 - d/R)**2; if (S.pointer === 'repel') { x += dx/(d || 1)*f*R*.35; y += dy/(d || 1)*f*R*.35; } else s *= 1 + f*1.2; } }
+    let tone = S.sizeBy === 'tone' ? p.v : 1;
+    let alpha = S.sizeBy === 'opacity' ? p.v : 1;
+    if (S.proj !== 'flat') { alpha *= facing < 0 ? S.backAlpha/100 : (.35 + .65*Math.max(0, facing)**.6); }
+    let glow = 0;
+    if (S.scan && !exporting) { const sv = S.from === 'left' ? p.x/W : p.y/H; glow = Math.exp(-(((sv - scanY)/.035)**2)); }
+    const r = Math.max(.35, maxR*Math.sqrt(tone)*s*(S.entry === 'scale' ? e : 1)*(1 + glow*.6));
+    alpha *= S.entry === 'scale' ? 1 : e;
+    if (alpha < .02) continue;
+    if (shape === 'glyph') { glyphs.push(x, y, p.v, alpha, glow); continue; }
+    const q = Math.min(7, Math.round(alpha*7));
+    let b = buckets.get(q); if (!b) buckets.set(q, b = []); b.push(x, y, r);
+    if (glow > .15) glowB.push(x, y, r, glow);
+  }
+  ctx.fillStyle = S.fg; ctx.strokeStyle = S.fg; ctx.lineWidth = Math.max(.75, S.cell*.12);
+  for (const [q, b] of buckets) {
+    ctx.globalAlpha = q/7; ctx.beginPath();
+    for (let i = 0; i < b.length; i += 3) dotPath(ctx, shape, b[i], b[i+1], b[i+2]);
+    shape === 'line' || shape === 'plus' || shape === 'ring' ? ctx.stroke() : ctx.fill();
+  }
+  if (glyphs.length) {
+    ctx.font = `500 ${Math.round(S.cell*1.25)}px ${getComputedStyle(document.body).getPropertyValue('--mono')}`;
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    for (let i = 0; i < glyphs.length; i += 5) {
+      const ch = ramp[Math.min(ramp.length - 1, Math.floor(glyphs[i+2]*ramp.length))];
+      ctx.globalAlpha = glyphs[i+3]; ctx.fillStyle = glyphs[i+4] > .2 ? S.glow : S.fg; ctx.fillText(ch, glyphs[i], glyphs[i+1]);
+    }
+  }
+  if (glowB.length) {
+    ctx.fillStyle = S.glow; ctx.shadowColor = S.glow; ctx.shadowBlur = 8;
+    for (let i = 0; i < glowB.length; i += 4) { ctx.globalAlpha = glowB[i+3]; ctx.beginPath(); dotPath(ctx, 'circle', glowB[i], glowB[i+1], glowB[i+2]); ctx.fill(); }
+    ctx.shadowBlur = 0;
+  }
+  ctx.globalAlpha = 1;
+}
+function dotPath(ctx, shape, x, y, r) {
+  if (shape === 'square') ctx.rect(x - r, y - r, r*2, r*2);
+  else if (shape === 'line') { ctx.moveTo(x - r, y + r); ctx.lineTo(x + r, y - r); }
+  else if (shape === 'plus') { ctx.moveTo(x - r, y); ctx.lineTo(x + r, y); ctx.moveTo(x, y - r); ctx.lineTo(x, y + r); }
+  else if (shape === 'ring') { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI*2); }
+  else { ctx.moveTo(x + r, y); ctx.arc(x, y, r, 0, Math.PI*2); }
+}
+function svgOut(W, H, t, S) {
+  const P = project(S, W, H, S.spin ? t : 0), out = [], maxR = S.cell*S.dsize/100/2;
+  for (const p of pts) {
+    P(p, o); if (S.proj !== 'flat' && o[3] < 0 && !S.backDots) continue;
+    let alpha = S.sizeBy === 'opacity' ? p.v : 1;
+    if (S.proj !== 'flat') alpha *= o[3] < 0 ? S.backAlpha/100 : (.35 + .65*Math.max(0, o[3])**.6);
+    const r = Math.max(.35, maxR*Math.sqrt(S.sizeBy === 'tone' ? p.v : 1)*o[2]);
+    const op = alpha < .99 ? ` opacity="${alpha.toFixed(2)}"` : '';
+    out.push(S.dot === 'square' ? `<rect x="${(o[0]-r).toFixed(1)}" y="${(o[1]-r).toFixed(1)}" width="${(2*r).toFixed(1)}" height="${(2*r).toFixed(1)}"${op}/>` : `<circle cx="${o[0].toFixed(1)}" cy="${o[1].toFixed(1)}" r="${r.toFixed(2)}"${op}/>`);
+  }
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${S.bg}"/><g fill="${S.fg}">${out.join('')}</g></svg>`;
+}
+
+const T = Kit.tool({
+  title: 'Dot Matrix', slug: 'heyrav-dot-matrix',
+  lede: 'Any image re-set as dots - flat, wrapped round a cylinder or a globe - arriving by a sweep, crossed by a scan.',
+  size: S => S.size,
+  presets: {
+    Halftone: {},
+    Globe: { proj:'globe', cover:60, base:10, cell:7, dsize:80, tilt:-14, spin:.35, bg:'#161616', fg:'#ffffff', backDots:true, backAlpha:12, fit:.9, scan:true, glow:'#bbfff0' },
+    Wrap: { proj:'wrap', cover:60, cell:6, tilt:12, turn:-24, spin:0, extrude:18, bg:'#0d1b4c', fg:'#ffffff', scan:true, source:'photo', fit:1.25, contrast:2, cut:22 },
+    ASCII: { dot:'glyph', cell:11, bg:'#161616', fg:'#bbfff0', sizeBy:'flat', source:'photo', fit:1.1, contrast:1.8, cut:12, invert:true },
+    Relief: { proj:'flat', tilt:38, turn:-18, persp:1, extrude:40, cell:7, dsize:70, zoom:115, soft:2, source:'lab:gate', fit:1, contrast:1.4, cut:6 },
+    Fall: { entry:'fall', from:'top', sweep:2.2, soft2:70, loop:true, cell:9, dsize:86 },
+  },
+  groups: [
+    { name: 'setup', controls: [
+      { k:'size', type:'select', label:'size', value:'fill', options:SIZES, rand:false },
+      { k:'source', type:'select', label:'source', value:'master', rand:false, options:[['master','the master - D holding the lockup'],['masterGrid','the master, with its grid'],['symbol','the swash and dot'],['lockup','the lockup - swash + name'],['D','the D'],['photo','photo - the mark on the wall'],['word','a word'],['lab:gate','drawing - gate'],['lab:haveli','drawing - haveli'],['lab:palace','drawing - palace'],['lab:umbrella','drawing - umbrella'],['image','your image']],
+        help:'The photo is the About frame; the drawings are the Udaipur line art from the component lab.' },
+      { k:'word', type:'text', label:'word', value:'heyrav', rand:false, when:S=>S.source==='word' },
+      { type:'file', label:'image', when:S=>S.source==='image', prompt:'drop an image here', sub:'a face, a product shot, a logo',
+        onFile: async f => { dropImg = await Kit.loadImage(URL.createObjectURL(f)); fieldKey = ''; T.set('source','image'); T.commit('source'); } },
+      { k:'fit', type:'range', label:'fit', min:.2, max:1.6, step:.01, value:.78, fmt:v=>Math.round(v*100)+'%', rand:[.6,1.2] },
+      { k:'soft', type:'range', label:'source blur', min:0, max:20, value:0, unit:'px', adv:true, rand:[0,4] },
+    ]},
+    { name: 'dots', controls: [
+      { k:'pattern', type:'seg', label:'pattern', value:'grid', options:['grid','hex','noise'] },
+      { k:'cell', type:'range', label:'density', min:4, max:32, value:9, unit:'px', rand:[5,16], help:'Distance between dots. Small values on a large canvas cost frames.' },
+      { k:'dot', type:'seg', label:'dot', value:'circle', options:[['circle','●'],['square','■'],['ring','○'],['line','╱'],['plus','+'],['glyph','A']] },
+      { k:'ramp', type:'text', label:'glyph ramp', value:' .:-=+*#%@', rand:false, when:S=>S.dot==='glyph', help:'Lightest to darkest. Try "heyrav" or " ░▒▓█".' },
+      { k:'dsize', type:'range', label:'dot size', min:10, max:140, value:92, unit:'%', rand:[50,110] },
+      { k:'sizeBy', type:'seg', label:'tone drives', value:'tone', options:[['tone','size'],['opacity','opacity'],['flat','nothing']] },
+      { k:'jitter', type:'range', label:'jitter', min:0, max:100, value:0, unit:'%', adv:true, rand:[0,40] },
+    ]},
+    { name: 'tone', closed:true, controls: [
+      { k:'contrast', type:'range', label:'contrast', min:.4, max:3, step:.05, value:1.2, rand:[.8,2] },
+      { k:'gamma', type:'range', label:'gamma', min:.3, max:3, step:.05, value:1, rand:[.6,1.6] },
+      { k:'cut', type:'range', label:'cutoff', min:0, max:60, value:6, unit:'%', rand:[0,20], help:'Dots lighter than this are dropped, so empty paper stays empty.' },
+      { k:'base', type:'range', label:'paper dots', min:0, max:40, value:0, unit:'%', rand:[0,15], help:'Keeps a faint dot on empty paper too, so a globe or a cylinder reads as a whole surface.' },
+      { k:'invert', type:'toggle', label:'invert', value:false, rand:false },
+    ]},
+    { name: 'view', controls: [
+      { k:'proj', type:'seg', label:'projection', value:'flat', options:['flat','wrap','globe'], help:'Wrap bends the image round a cylinder; globe maps it onto a sphere.' },
+      { k:'cover', type:'range', label:'coverage', min:10, max:100, value:70, unit:'%', when:S=>S.proj!=='flat', rand:[30,100] },
+      { k:'turn', type:'range', label:'turn', min:-90, max:90, value:0, unit:'°', rand:[-40,40] },
+      { k:'tilt', type:'range', label:'tilt', min:-70, max:70, value:0, unit:'°', rand:[-30,40] },
+      { k:'persp', type:'range', label:'perspective', min:0, max:2, step:.05, value:.5, adv:true, rand:[.2,1.2] },
+      { k:'zoom', type:'range', label:'view scale', min:40, max:180, value:100, unit:'%', adv:true, rand:false },
+      { k:'extrude', type:'range', label:'extrude', min:0, max:120, value:0, unit:'px', rand:[0,40], help:'Push dark dots toward the viewer.' },
+      { k:'spin', type:'range', label:'turntable', min:0, max:2, step:.05, value:0, rand:[0,.6], help:'Keeps turning while playing.' },
+      { k:'backDots', type:'toggle', label:'show the hidden dots', value:false, when:S=>S.proj!=='flat' },
+      { k:'backAlpha', type:'range', label:'hidden dot opacity', min:0, max:60, value:14, unit:'%', when:S=>S.proj!=='flat'&&S.backDots },
+    ]},
+    { name: 'colour', controls: [
+      { k:'bg', type:'color', label:'background', value:'#ffffff', options:BG },
+      { k:'fg', type:'color', label:'dots', value:'#161616', options:FG, rand:S=>S.bg==='#ffffff'||S.bg==='#f5f5f5'?'#161616':'#ffffff' },
+    ]},
+    { name: 'animate', controls: [
+      { type:'button', label:'Replay', run: api => { animT0 = api.clock.t; if (!api.clock.on) api.clock.start(); } },
+      { k:'entry', type:'seg', label:'entry', value:'scale', options:['scale','scatter','fall'] },
+      { k:'from', type:'seg', label:'sweep from', value:'top', options:['top','left','centre','random'] },
+      { k:'sweep', type:'range', label:'sweep time', min:.2, max:5, step:.05, value:1.4, unit:' s', rand:[.6,2.6] },
+      { k:'soft2', type:'range', label:'softness', min:2, max:100, value:30, unit:'%', rand:[10,70], help:'How long each dot takes, as a share of the sweep. Low is a hard wipe.' },
+      { k:'scatter', type:'range', label:'scatter', min:0, max:600, value:180, unit:'px', when:S=>S.entry==='scatter' },
+      { k:'fallH', type:'range', label:'fall height', min:20, max:900, value:280, unit:'px', when:S=>S.entry==='fall' },
+      { k:'loop', type:'toggle', label:'loop - in, hold, back out', value:false },
+      { k:'scan', type:'toggle', label:'scan line', value:false, help:'A glow that crosses the dots along the sweep axis.' },
+      { k:'scanSpeed', type:'range', label:'scan speed', min:.1, max:3, step:.05, value:1, when:S=>S.scan, rand:[.4,1.6] },
+      { k:'glow', type:'color', label:'scan colour', value:'#bbfff0', options:GLOW, when:S=>S.scan||S.dot==='glyph' },
+    ]},
+    { name: 'pointer', closed:true, controls: [
+      { k:'pointer', type:'seg', label:'pointer', value:'repel', options:['none','repel','lens'], rand:false },
+      { k:'radius', type:'range', label:'radius', min:40, max:400, value:140, unit:'px', rand:false },
+    ]},
+    { name: 'export', controls: [
+      { type:'buttons', buttons:[
+        { label:'Copy SVG', run: api => api.copy(svgOut(api.view.W, api.view.H, api.clock.t, api.S), 'svg copied - paste into Figma') },
+        { label:'PNG @2x', run: api => api.png(2) },
+      ]},
+      { type:'button', label:'Record 6s WebM', run: api => api.record(6) },
+      { type:'button', label:'Copy link to this state', run: api => api.link() },
+      { type:'note', text:'SVG export is the settled frame, without the sweep or the scan.' },
+    ]},
+  ],
+  draw: frame,
+  svg: svgOut,
+  onResize: (W, H, S) => rebuild(S, W, H),
+});
+T.on((k, S) => {
+  rebuild(S, T.view.W, T.view.H);
+  if (['entry','from','sweep','soft2','scatter','fallH','preset','*','source','proj'].includes(k)) animT0 = T.clock.t;
+});
+</script>
+</body>
+</html>

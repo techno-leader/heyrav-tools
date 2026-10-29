@@ -1,0 +1,778 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Evidence reel — animation lab</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16141f;
+    --lav:#8f7ff0;
+    --lav-deep:#6a58e0;
+    --mut:#8b87a0;
+    --line:#eceaf6;
+    --paper:#ffffff;
+
+    /* live knobs — every one of these is driven by the panel */
+    --runVh:820vh;
+    --frameVh:88vh;
+    --frameMax:880px;
+    --ar:9/19.5;
+    --fbw:2px;
+    --frad:34px;
+    --slideVh:80vh;
+    --wireGap:14px;
+    --wirePad:18px;
+    --wireBar:10px;
+    --wireTone:hsl(255 40% 96.5%);
+    --colW:330px;
+    --colGap:44px;
+    --annBody:15px;
+    --annLead:1.55;
+    --capSize:27px;
+    --capDur:500ms;
+    --capEase:cubic-bezier(.4,0,.2,1);
+    --panelW:412px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--paper);color:var(--ink);
+    font-family:"Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    overflow-x:hidden;padding-right:var(--panelW);
+  }
+  body.nopanel{padding-right:0;}
+
+  /* ---------- the reel under test: same structure as case-viewryt.html ---------- */
+  .ev-scrolly{position:relative;height:var(--runVh);}
+  .ev-snap{position:absolute;left:0;width:1px;height:1px;scroll-snap-align:start;}
+  .ev-stage{
+    position:sticky;top:0;height:100vh;
+    display:grid;grid-template-columns:minmax(180px,var(--colW)) auto;grid-template-rows:auto;
+    justify-content:center;align-content:center;align-items:center;
+    max-width:1180px;margin:0 auto;padding:56px 44px 0;
+  }
+  .ev-caps{grid-column:1;grid-row:1;align-self:start;justify-self:stretch;display:grid;padding-right:var(--colGap);}
+  .ev-cap{grid-area:1/1;display:flex;flex-direction:column;align-items:flex-end;text-align:right;gap:8px;opacity:0;transition:opacity var(--capDur) var(--capEase);}
+  .ev-cap.on{opacity:1;}
+  .ev-cap i{font-style:normal;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.2em;color:var(--lav);text-transform:uppercase;}
+  .ev-cap b{font-family:"Space Grotesk",sans-serif;font-weight:600;font-size:var(--capSize);line-height:1.14;letter-spacing:-.02em;}
+
+  .ev-shots{grid-column:2;grid-row:1;display:flex;justify-content:center;height:min(var(--frameVh),var(--frameMax));}
+  .shot{
+    position:relative;margin:0;padding:0;height:100%;aspect-ratio:var(--ar);
+    border:var(--fbw) solid var(--line);border-radius:var(--frad);background:var(--paper);
+  }
+  .ev-screen{position:absolute;inset:0;border-radius:calc(var(--frad) - 2px);overflow:hidden;background:var(--paper);}
+  .ev-feed{position:absolute;left:0;top:0;width:100%;display:flex;flex-direction:column;will-change:transform;}
+  /* one specimen per screen, so every fault gets the same share of attention */
+  .ev-slide{height:var(--slideVh);display:flex;flex-direction:column;justify-content:center;gap:var(--wireGap);overflow:hidden;}
+  .ev-slide img{display:block;width:100%;height:auto;flex:0 0 auto;}
+  /* filler so a short specimen never floats in an empty screen — it reads as
+     the rest of the page continuing, and stays quiet enough to ignore */
+  .wire{flex:1 1 0;min-height:0;display:flex;flex-direction:column;justify-content:center;
+    gap:var(--wireGap);padding:0 var(--wirePad);overflow:hidden;}
+  .wire i{display:block;flex:0 0 auto;height:var(--wireBar);border-radius:99px;background:var(--wireTone);}
+  body.nowire .wire{display:none;}
+  .shot .pbar{position:absolute;right:-16px;top:14%;bottom:14%;width:3px;border-radius:99px;background:#efedf9;overflow:hidden;}
+  .shot .pbar i{position:absolute;left:0;top:0;width:100%;height:0;background:var(--lav);border-radius:99px;}
+  body.norail .pbar{display:none;}
+
+  .ev-gut{grid-column:1;grid-row:1;position:relative;align-self:stretch;height:100%;}
+  .co{
+    position:absolute;top:0;left:0;right:var(--colGap);margin-left:auto;
+    width:auto;max-width:100%;text-align:right;opacity:0;
+    will-change:transform,opacity;
+  }
+  .co span{display:block;font-size:var(--annBody);line-height:var(--annLead);color:var(--mut);}
+
+  /* generous runway so the pin has somewhere to start and finish */
+  .pad{height:90vh;display:grid;place-items:center;color:var(--mut);font-size:13px;letter-spacing:.08em;text-transform:uppercase;}
+
+  /* ---------- control panel ---------- */
+  .panel{
+    position:fixed;top:0;right:0;bottom:0;width:var(--panelW);z-index:60;
+    background:#fbfbfd;border-left:1px solid #e6e4ef;
+    display:flex;flex-direction:column;
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11.5px;color:#2a2735;
+  }
+  body.nopanel .panel{transform:translateX(100%);}
+  .panel-top{padding:12px 14px;border-bottom:1px solid #e6e4ef;background:#fff;}
+  .panel-body{flex:1;overflow-y:auto;padding:4px 14px 80px;}
+  .panel h1{font-size:12px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;margin-bottom:10px;}
+
+  .row{display:flex;align-items:center;gap:8px;}
+  .row + .row{margin-top:7px;}
+  .row label{flex:0 0 116px;color:#6c6880;line-height:1.3;}
+  .row input[type=range]{flex:1;min-width:0;accent-color:var(--lav);height:18px;}
+  .row input[type=number],.row select{
+    flex:0 0 72px;font-family:inherit;font-size:11px;padding:3px 5px;
+    border:1px solid #ddd9e8;border-radius:5px;background:#fff;color:inherit;
+  }
+  .row select{flex:1;}
+  .unit{flex:0 0 22px;color:#a5a1b5;font-size:10px;}
+
+  fieldset{border:1px solid #e6e4ef;border-radius:9px;padding:11px 11px 12px;margin:12px 0 0;background:#fff;}
+  legend{padding:0 6px;font-size:10px;letter-spacing:.12em;text-transform:uppercase;color:var(--lav-deep);font-weight:600;}
+  .sel{font-size:10px;color:#a5a1b5;margin:-2px 0 9px;}
+
+  button{
+    font-family:inherit;font-size:10.5px;letter-spacing:.04em;
+    border:1px solid #ddd9e8;background:#fff;color:#2a2735;
+    border-radius:6px;padding:0 10px;min-height:26px;cursor:pointer;
+  }
+  button:hover{border-color:var(--lav);color:var(--lav-deep);}
+  button.pri{background:var(--lav);border-color:var(--lav);color:#fff;}
+  button.pri:hover{background:var(--lav-deep);color:#fff;}
+  button.ok{border-color:#3ba55d;color:#3ba55d;}
+  .btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+
+  .bez{margin-top:10px;}
+  .bez canvas{display:block;width:100%;max-width:230px;height:230px;background:#fff;border:1px solid #e6e4ef;border-radius:8px;cursor:grab;touch-action:none;}
+  .bez canvas:active{cursor:grabbing;}
+  .bez .val{margin-top:6px;display:flex;align-items:center;gap:6px;}
+  .bez .val code{flex:1;font-size:10px;color:#6c6880;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .bez .presets{display:flex;gap:4px;flex-wrap:wrap;margin-top:6px;}
+  .bez .presets button{padding:0 7px;min-height:22px;font-size:9.5px;}
+
+  .scrub{display:flex;align-items:center;gap:8px;margin-top:8px;}
+  .scrub input[type=range]{flex:1;accent-color:var(--lav-deep);}
+  #out{
+    margin-top:8px;width:100%;height:130px;resize:vertical;
+    font-family:inherit;font-size:10px;line-height:1.5;color:#2a2735;
+    border:1px solid var(--lav);border-radius:6px;padding:7px 8px;background:#fff;
+  }
+  .readout{margin-top:8px;font-size:10px;line-height:1.6;color:#6c6880;white-space:pre-wrap;
+    background:#f4f3f9;border-radius:6px;padding:7px 8px;max-height:118px;overflow:auto;}
+  .toggle{position:fixed;top:12px;right:12px;z-index:61;}
+
+  @media (prefers-reduced-motion:reduce){
+    .ev-cap{transition:none;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+
+<button class="toggle" id="toggle">hide panel</button>
+
+<div class="pad">scroll down — evidence reel below</div>
+
+<div class="evidence">
+  <div class="ev-scrolly">
+    <div class="ev-snap" data-shot="0"></div>
+    <div class="ev-snap" data-shot="2"></div>
+    <div class="ev-snap" data-shot="4"></div>
+    <div class="ev-snap" data-shot="6"></div>
+
+    <div class="ev-stage">
+      <div class="ev-gut">
+        <!-- data-thru lets one line carry both specimens of a fault -->
+        <div class="co" data-shot="0">
+          <span>Nothing in the type scale separates a claim from a caption — the body copy even reads larger than the subhead above it.</span>
+        </div>
+        <div class="co" data-shot="1">
+          <span>The heatmap puts 55% of attention on the photo and only 5% on the subhead carrying the promise.</span>
+        </div>
+        <div class="co" data-shot="2" data-thru="3">
+          <span>Copy itself is very dense and technical, which needed simpler illustrations.</span>
+        </div>
+        <div class="co" data-shot="4" data-thru="5">
+          <span>Stock models and synthetic imagery represented the audience age group, but didn't feel emotionally connecting.</span>
+        </div>
+        <div class="co" data-shot="6" data-thru="7">
+          <span>Unnecessary drop shadows on elements, comic illustrations and a broken colour palette all needed to be fixed.</span>
+        </div>
+      </div>
+
+      <div class="ev-shots">
+        <figure class="shot">
+          <div class="ev-screen">
+            <div class="ev-feed">
+              <img data-fault="0" src="assets/viewryt/f03-hero.jpg" alt="">
+              <img data-fault="0" src="assets/viewryt/f03-heat.jpg" alt="">
+              <img data-fault="1" src="assets/viewryt/f02-flow.jpg" alt="">
+              <img data-fault="1" src="assets/viewryt/f02-dense.jpg" alt="">
+              <img data-fault="2" src="assets/viewryt/f01-collage.jpg" alt="">
+              <img data-fault="2" src="assets/viewryt/f01-hero.jpg" alt="">
+              <img data-fault="3" src="assets/viewryt/f04-shadow.jpg" alt="">
+              <img data-fault="3" src="assets/viewryt/f04-comic.jpg" alt="">
+            </div>
+          </div>
+          <div class="pbar"><i></i></div>
+        </figure>
+      </div>
+
+      <div class="ev-caps">
+        <div class="ev-cap"><i>Fault 01</i><b>Improper hierarchy</b></div>
+        <div class="ev-cap"><i>Fault 02</i><b>Cognitive overload</b></div>
+        <div class="ev-cap"><i>Fault 03</i><b>Poor targeting</b></div>
+        <div class="ev-cap"><i>Fault 04</i><b>Style inconsistency</b></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="pad">end of reel</div>
+
+<aside class="panel">
+  <div class="panel-top">
+    <h1>Evidence reel — lab</h1>
+    <div class="scrub">
+      <button id="play">play</button>
+      <input type="range" id="scrub" min="0" max="1000" value="0">
+      <span id="pval" style="flex:0 0 40px;text-align:right;color:#6c6880">0.000</span>
+    </div>
+    <div class="readout" id="readout">—</div>
+    <div class="btns">
+      <button class="pri" id="copyall">copy ALL values</button>
+      <button id="reset">reset to shipped</button>
+    </div>
+    <textarea id="out" hidden readonly spellcheck="false"></textarea>
+  </div>
+  <div class="panel-body" id="controls"></div>
+</aside>
+
+<script>
+/* ------------------------------------------------------------------
+   Animation lab for the ViewRyt evidence reel.
+   Everything the shipped page hard-codes is a knob here, so the timing
+   and easing can be dialled in by feel and then copied back as values.
+------------------------------------------------------------------- */
+
+/* values as they ship in case-viewryt.html today */
+const SHIPPED = {
+  runVh:820, snap:'proximity', playSec:14,
+  scrollEase:[0,0,1,1],
+  /* frame stays a touch shorter than a slide so only one specimen is on screen */
+  frameVh:76, frameMax:880, arW:9, arH:19.5, fbw:2, frad:34, rail:1,
+  slideVh:80, wire:1, wireBar:10, wireGap:14, wirePad:18, wireTint:96.5,
+  fadeStart:0.30, fadeRamp:0.45, annEase:[0,0,1,1],
+  follow:1, clampTop:26, clampBot:8, annGap:18,
+  colW:330, colGap:44, annBody:15, annLead:1.55,
+  capSize:27, capDur:500, capEase:[.4,0,.2,1]
+};
+const STORE = 'evlab';
+const CFG = structuredClone(SHIPPED);
+/* tuning survives a reload — losing a session of dialling in is miserable */
+try { Object.assign(CFG, JSON.parse(localStorage.getItem(STORE) || '{}')); } catch(e){}
+
+/* how each knob is presented, grouped by the element it belongs to */
+const GROUPS = [
+  {id:'run', title:'01 — scroll run', sel:'.ev-scrolly', fields:[
+    {k:'runVh',  label:'run length',   min:200, max:2000, step:10,  unit:'vh'},
+    {k:'playSec',label:'preview time', min:3,   max:40,   step:.5,  unit:'s'},
+    {k:'snap',   label:'scroll-snap',  type:'select', options:['none','proximity','mandatory']},
+    {k:'scrollEase', label:'scroll → film travel', type:'bezier'}
+  ]},
+  {id:'frame', title:'02 — phone frame', sel:'.shot', fields:[
+    {k:'frameVh', label:'height',      min:40, max:100, step:1,  unit:'vh'},
+    {k:'frameMax',label:'height cap',  min:400,max:1400,step:10, unit:'px'},
+    {k:'arW',     label:'ratio width', min:4,  max:16,  step:.1, unit:''},
+    {k:'arH',     label:'ratio height',min:8,  max:30,  step:.1, unit:''},
+    {k:'fbw',     label:'border',      min:0,  max:8,   step:.5, unit:'px'},
+    {k:'frad',    label:'radius',      min:0,  max:64,  step:1,  unit:'px'},
+    {k:'rail',    label:'progress rail', type:'select', options:['0','1']}
+  ]},
+  {id:'feed', title:'03 — specimen slides', sel:'.ev-slide / .wire', fields:[
+    {k:'slideVh',  label:'screen per fault', min:40, max:130, step:1, unit:'vh'},
+    {k:'wire',     label:'wireframe filler', type:'select', options:['0','1']},
+    {k:'wireTint', label:'wire lightness',   min:88, max:99.5, step:.5, unit:'%'},
+    {k:'wireBar',  label:'wire bar height',  min:4,  max:24,  step:1, unit:'px'},
+    {k:'wireGap',  label:'wire bar gap',     min:4,  max:40,  step:1, unit:'px'},
+    {k:'wirePad',  label:'wire side inset',  min:0,  max:60,  step:2, unit:'px'}
+  ]},
+  {id:'ann', title:'04 — annotations', sel:'.co', fields:[
+    {k:'fadeStart', label:'fade-in at coverage', min:0, max:.9, step:.01, unit:''},
+    {k:'fadeRamp',  label:'ramp width',          min:.05,max:1, step:.01, unit:''},
+    {k:'follow',    label:'follow the film',     min:0,  max:1.5,step:.05,unit:'×'},
+    {k:'clampTop',  label:'clear of heading',    min:0,  max:120,step:2,  unit:'px'},
+    {k:'clampBot',  label:'bottom inset',        min:0,  max:80, step:2,  unit:'px'},
+    {k:'annGap',    label:'min gap apart',       min:0,  max:80, step:2,  unit:'px'},
+    {k:'colGap',    label:'gap to frame',        min:0,  max:120,step:2,  unit:'px'},
+    {k:'colW',      label:'text column',         min:200,max:520,step:5,  unit:'px'},
+    {k:'annBody',   label:'body size',           min:10, max:26, step:.5, unit:'px'},
+    {k:'annLead',   label:'body leading',        min:1.1,max:2,  step:.05,unit:''},
+    {k:'annEase',   label:'coverage → opacity',  type:'bezier'}
+  ]},
+  {id:'cap', title:'05 — fault heading', sel:'.ev-cap', fields:[
+    {k:'capSize', label:'size',      min:16, max:52,   step:1,  unit:'px'},
+    {k:'capDur',  label:'swap time', min:0,  max:1600, step:20, unit:'ms'},
+    {k:'capEase', label:'swap curve', type:'bezier'}
+  ]}
+];
+
+const BEZ_PRESETS = {
+  linear:[0,0,1,1], ease:[.25,.1,.25,1], 'in-out':[.4,0,.2,1],
+  snappy:[.2,0,0,1], 'out-expo':[.16,1,.3,1], overshoot:[.34,1.56,.64,1]
+};
+
+/* ---- cubic-bezier as a y-of-x function, Newton solved ---- */
+function bezier(p){
+  const [x1,y1,x2,y2] = p;
+  const cx=3*x1, bx=3*(x2-x1)-cx, ax=1-cx-bx;
+  const cy=3*y1, by=3*(y2-y1)-cy, ay=1-cy-by;
+  const X=t=>((ax*t+bx)*t+cx)*t, dX=t=>(3*ax*t+2*bx)*t+cx, Y=t=>((ay*t+by)*t+cy)*t;
+  return x=>{
+    if(x<=0) return 0;
+    if(x>=1) return 1;
+    let t=x;
+    for(let i=0;i<8;i++){
+      const e=X(t)-x;
+      if(Math.abs(e)<1e-6) break;
+      const d=dX(t);
+      if(Math.abs(d)<1e-6) break;
+      t-=e/d;
+    }
+    return Y(Math.min(Math.max(t,0),1));
+  };
+}
+const clamp01 = v => Math.min(Math.max(v,0),1);
+const r3 = v => Math.round(v*1000)/1000;
+const cssBez = p => 'cubic-bezier(' + p.map(r3).join(',') + ')';
+
+/* ---- draggable curve editor ---- */
+function makeBezier(key, onChange){
+  const wrap = document.createElement('div');
+  wrap.className = 'bez';
+  const cv = document.createElement('canvas');
+  const val = document.createElement('div');
+  val.className = 'val';
+  const code = document.createElement('code');
+  const copy = document.createElement('button');
+  copy.textContent = 'copy';
+  val.append(code, copy);
+  const pre = document.createElement('div');
+  pre.className = 'presets';
+  Object.keys(BEZ_PRESETS).forEach(name => {
+    const b = document.createElement('button');
+    b.textContent = name;
+    b.onclick = () => { CFG[key] = [...BEZ_PRESETS[name]]; draw(); onChange(); };
+    pre.append(b);
+  });
+  wrap.append(cv, val, pre);
+
+  const S = 230, PAD = 26, BOX = S - PAD*2;
+  const toPx = (x,y) => [PAD + x*BOX, PAD + (1-y)*BOX];
+  const toUnit = (px,py) => [(px-PAD)/BOX, 1-(py-PAD)/BOX];
+
+  function draw(){
+    const dpr = devicePixelRatio || 1;
+    cv.width = S*dpr; cv.height = S*dpr;
+    cv.style.height = S + 'px';
+    const c = cv.getContext('2d');
+    c.setTransform(dpr,0,0,dpr,0,0);
+    c.clearRect(0,0,S,S);
+
+    /* unit box + quarter grid */
+    c.strokeStyle = '#f0eef7'; c.lineWidth = 1;
+    for(let i=0;i<=4;i++){
+      const t=i/4, [ax,ay]=toPx(t,0), [bx,by]=toPx(t,1);
+      c.beginPath(); c.moveTo(ax,ay); c.lineTo(bx,by); c.stroke();
+      const [cx1,cy1]=toPx(0,t), [cx2,cy2]=toPx(1,t);
+      c.beginPath(); c.moveTo(cx1,cy1); c.lineTo(cx2,cy2); c.stroke();
+    }
+    c.strokeStyle = '#e0dcee';
+    c.strokeRect(PAD, PAD, BOX, BOX);
+    /* linear reference */
+    c.setLineDash([3,3]); c.strokeStyle = '#e0dcee';
+    c.beginPath(); c.moveTo(...toPx(0,0)); c.lineTo(...toPx(1,1)); c.stroke();
+    c.setLineDash([]);
+
+    const p = CFG[key];
+    /* handle arms */
+    c.strokeStyle = '#cfc7f2'; c.lineWidth = 1.5;
+    c.beginPath(); c.moveTo(...toPx(0,0)); c.lineTo(...toPx(p[0],p[1])); c.stroke();
+    c.beginPath(); c.moveTo(...toPx(1,1)); c.lineTo(...toPx(p[2],p[3])); c.stroke();
+
+    /* the curve itself */
+    const f = bezier(p);
+    c.strokeStyle = '#6a58e0'; c.lineWidth = 2; c.beginPath();
+    for(let i=0;i<=80;i++){
+      const x=i/80, [px,py]=toPx(x, f(x));
+      i ? c.lineTo(px,py) : c.moveTo(px,py);
+    }
+    c.stroke();
+
+    /* handles */
+    [[p[0],p[1]],[p[2],p[3]]].forEach(([x,y]) => {
+      const [px,py] = toPx(x,y);
+      c.beginPath(); c.arc(px,py,6,0,7); c.fillStyle='#fff'; c.fill();
+      c.lineWidth=2; c.strokeStyle='#8f7ff0'; c.stroke();
+    });
+
+    code.textContent = cssBez(p);
+  }
+
+  let drag = null;
+  cv.addEventListener('pointerdown', e => {
+    const r = cv.getBoundingClientRect();
+    const px = (e.clientX-r.left)*(S/r.width), py = (e.clientY-r.top)*(S/r.height);
+    const p = CFG[key];
+    const d0 = Math.hypot(...toPx(p[0],p[1]).map((v,i)=>v-[px,py][i]));
+    const d1 = Math.hypot(...toPx(p[2],p[3]).map((v,i)=>v-[px,py][i]));
+    drag = d0 < d1 ? 0 : 1;
+    cv.setPointerCapture(e.pointerId);
+    move(e);
+  });
+  cv.addEventListener('pointermove', e => { if(drag !== null) move(e); });
+  cv.addEventListener('pointerup', () => { drag = null; });
+  function move(e){
+    const r = cv.getBoundingClientRect();
+    const px = (e.clientX-r.left)*(S/r.width), py = (e.clientY-r.top)*(S/r.height);
+    let [x,y] = toUnit(px,py);
+    x = clamp01(x);
+    y = Math.min(Math.max(y,-0.6),1.6);      /* allow overshoot, it reads as snap */
+    CFG[key][drag*2] = r3(x);
+    CFG[key][drag*2+1] = r3(y);
+    draw(); onChange();
+  }
+
+  copy.onclick = () => copyText(cssBez(CFG[key]), copy);
+  return {el:wrap, draw};
+}
+
+/* ---- build the panel ---- */
+const bezEditors = {};
+const numInputs = {};
+
+function buildPanel(){
+  const host = document.getElementById('controls');
+  host.innerHTML = '';
+  GROUPS.forEach(g => {
+    const fs = document.createElement('fieldset');
+    const lg = document.createElement('legend');
+    lg.textContent = g.title;
+    const sel = document.createElement('div');
+    sel.className = 'sel';
+    sel.textContent = g.sel;
+    fs.append(lg, sel);
+
+    g.fields.forEach(f => {
+      if(f.type === 'bezier'){
+        const lab = document.createElement('div');
+        lab.className = 'row';
+        lab.innerHTML = '<label style="flex:1">' + f.label + '</label>';
+        fs.append(lab);
+        const ed = makeBezier(f.k, apply);
+        bezEditors[f.k] = ed;
+        fs.append(ed.el);
+        return;
+      }
+      const row = document.createElement('div');
+      row.className = 'row';
+      const lab = document.createElement('label');
+      lab.textContent = f.label;
+      row.append(lab);
+
+      if(f.type === 'select'){
+        const s = document.createElement('select');
+        f.options.forEach(o => s.add(new Option(o,o)));
+        s.value = String(CFG[f.k]);
+        s.onchange = () => { CFG[f.k] = s.value; apply(); };
+        numInputs[f.k] = s;
+        row.append(s);
+      } else {
+        const rg = document.createElement('input');
+        rg.type='range'; rg.min=f.min; rg.max=f.max; rg.step=f.step; rg.value=CFG[f.k];
+        const nb = document.createElement('input');
+        nb.type='number'; nb.min=f.min; nb.max=f.max; nb.step=f.step; nb.value=CFG[f.k];
+        const sync = v => { CFG[f.k] = +v; rg.value = v; nb.value = v; apply(); };
+        rg.oninput = () => sync(rg.value);
+        nb.oninput = () => sync(nb.value);
+        const u = document.createElement('span');
+        u.className='unit'; u.textContent = f.unit;
+        numInputs[f.k] = {rg, nb};
+        row.append(rg, nb, u);
+      }
+      fs.append(row);
+    });
+
+    const btns = document.createElement('div');
+    btns.className = 'btns';
+    const cb = document.createElement('button');
+    cb.textContent = 'copy ' + g.id + ' values';
+    cb.onclick = () => copyText(dump(g), cb);
+    btns.append(cb);
+    fs.append(btns);
+    host.append(fs);
+  });
+  Object.values(bezEditors).forEach(e => e.draw());
+}
+
+function syncInputs(){
+  GROUPS.forEach(g => g.fields.forEach(f => {
+    const inp = numInputs[f.k];
+    if(!inp) return;
+    if(f.type === 'select') inp.value = String(CFG[f.k]);
+    else { inp.rg.value = CFG[f.k]; inp.nb.value = CFG[f.k]; }
+  }));
+  Object.values(bezEditors).forEach(e => e.draw());
+}
+
+/* ---- copy helpers ---- */
+function fmt(k){
+  const v = CFG[k];
+  return Array.isArray(v) ? cssBez(v) : v;
+}
+function dump(g){
+  const lines = [g.title + '   (' + g.sel + ')'];
+  g.fields.forEach(f => lines.push('  ' + f.k + ': ' + fmt(f.k) + (f.unit || '')));
+  return lines.join('\n');
+}
+function dumpAll(){
+  return 'EVIDENCE REEL — tuned values\n\n' + GROUPS.map(dump).join('\n\n');
+}
+function flash(btn, msg){
+  const old = btn.dataset.label || btn.textContent;
+  btn.dataset.label = old;
+  btn.textContent = msg;
+  btn.classList.add('ok');
+  setTimeout(() => { btn.textContent = old; btn.classList.remove('ok'); }, 1300);
+}
+/* clipboard access is blocked in plenty of contexts, so the text is always
+   dropped into a selectable box as well — the values can never get stranded */
+function copyText(t, btn){
+  const box = document.getElementById('out');
+  box.value = t;
+  box.hidden = false;
+  box.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch(e){ ok = false; }
+  if(ok){ flash(btn, 'copied ✓'); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t)
+      .then(() => flash(btn, 'copied ✓'))
+      .catch(() => flash(btn, 'select below ↓'));
+  } else {
+    flash(btn, 'select below ↓');
+  }
+}
+
+/* ---- push config into CSS + remeasure ---- */
+const root = document.documentElement;
+function apply(){
+  const s = root.style;
+  s.setProperty('--runVh', CFG.runVh + 'vh');
+  s.setProperty('--frameVh', CFG.frameVh + 'vh');
+  s.setProperty('--frameMax', CFG.frameMax + 'px');
+  s.setProperty('--ar', CFG.arW + '/' + CFG.arH);
+  s.setProperty('--fbw', CFG.fbw + 'px');
+  s.setProperty('--frad', CFG.frad + 'px');
+  s.setProperty('--slideVh', CFG.slideVh + 'vh');
+  s.setProperty('--wireBar', CFG.wireBar + 'px');
+  s.setProperty('--wireGap', CFG.wireGap + 'px');
+  s.setProperty('--wirePad', CFG.wirePad + 'px');
+  s.setProperty('--wireTone', 'hsl(255 40% ' + CFG.wireTint + '%)');
+  document.body.classList.toggle('nowire', String(CFG.wire) === '0');
+  s.setProperty('--colW', CFG.colW + 'px');
+  s.setProperty('--colGap', CFG.colGap + 'px');
+  s.setProperty('--annBody', CFG.annBody + 'px');
+  s.setProperty('--annLead', CFG.annLead);
+  s.setProperty('--capSize', CFG.capSize + 'px');
+  s.setProperty('--capDur', CFG.capDur + 'ms');
+  s.setProperty('--capEase', cssBez(CFG.capEase));
+  root.style.setProperty('scroll-snap-type', CFG.snap === 'none' ? 'none' : 'y ' + CFG.snap);
+  document.body.classList.toggle('norail', String(CFG.rail) === '0');
+  try { localStorage.setItem(STORE, JSON.stringify(CFG)); } catch(e){}
+  reel.remeasure();
+}
+
+/* ---- the reel engine, same maths as the shipped page plus the knobs ---- */
+const reel = (function(){
+  const sc = document.querySelector('.ev-scrolly');
+  const screen = sc.querySelector('.ev-screen');
+  const feed = sc.querySelector('.ev-feed');
+  const bar = sc.querySelector('.pbar i');
+  const gut = sc.querySelector('.ev-gut');
+
+  /* give every specimen its own screen, and pad the leftover space with a few
+     quiet bars so a short image never sits in a blank frame */
+  const imgs = [...feed.querySelectorAll('img')];
+  const WIRE = [[.45,1,.78],[1,.82,.6],[.9,.68,.95],[.5,.88,.7]];  /* bar widths */
+  imgs.forEach((img, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'ev-slide';
+    slide.dataset.fault = img.dataset.fault;
+    feed.insertBefore(slide, img);
+    const wire = at => {
+      const w = document.createElement('div');
+      w.className = 'wire';
+      WIRE[(i + at) % WIRE.length].forEach(width => {
+        const b = document.createElement('i');
+        b.style.width = (width * 100) + '%';
+        w.append(b);
+      });
+      return w;
+    };
+    slide.append(wire(0), img, wire(1));
+  });
+  const shots = [...feed.children];
+  const cos = [...sc.querySelectorAll('.co')];
+  const capsBox = sc.querySelector('.ev-caps');
+  const caps = [...sc.querySelectorAll('.ev-cap')];
+  /* one snap stop per specimen now that each owns a screen */
+  sc.querySelectorAll('.ev-snap').forEach(el => el.remove());
+  const marks = shots.map((_, i) => {
+    const d = document.createElement('div');
+    d.className = 'ev-snap';
+    d.dataset.shot = i;
+    sc.insertBefore(d, sc.firstChild);
+    return d;
+  });
+  const out = document.getElementById('readout');
+  const scrub = document.getElementById('scrub');
+  const pval = document.getElementById('pval');
+  let m = null, ticking = false;
+
+  function measure(){
+    const screenH = screen.clientHeight;
+    if(!screenH || !shots[0].offsetHeight) return false;
+    const travel = feed.scrollHeight - screenH;
+    if(travel <= 0) return false;
+    const span = sc.offsetHeight - innerHeight;
+    m = {
+      screenH, travel, span,
+      tops: shots.map(s => s.offsetTop),
+      hs: shots.map(s => s.offsetHeight),
+      /* a line can cover a run of specimens: [first, last] */
+      range: cos.map(c => [+c.dataset.shot, +(c.dataset.thru ?? c.dataset.shot)]),
+      /* annotations line up with the image itself, not the screen it sits in */
+      mids: imgs.map(img => img.offsetTop + img.offsetHeight/2)
+    };
+    marks.forEach(mk => {
+      const i = +mk.dataset.shot;
+      const p = (m.tops[i] + m.hs[i]/2 - screenH/2) / travel;
+      mk.style.top = clamp01(p) * span + 'px';
+    });
+    return true;
+  }
+
+  function update(){
+    ticking = false;
+    if(!m && !measure()) return;
+    const p = clamp01(-sc.getBoundingClientRect().top / (m.span || 1));
+    const pe = bezier(CFG.scrollEase)(p);
+    const shift = pe * m.travel;
+
+    feed.style.transform = 'translateY(' + -shift + 'px)';
+    bar.style.height = (p*100) + '%';
+
+    const cover = i => {
+      const top = m.tops[i] - shift, bot = top + m.hs[i];
+      const vis = Math.min(bot, m.screenH) - Math.max(top, 0);
+      return Math.max(0, vis) / Math.min(m.hs[i], m.screenH);
+    };
+
+    let near = 0, best = -1;
+    m.tops.forEach((_, i) => { const c = cover(i); if(c > best){ best = c; near = i; } });
+    const fault = +shots[near].dataset.fault;
+    caps.forEach((c,i) => c.classList.toggle('on', i === fault));
+
+    const off = screen.getBoundingClientRect().top - gut.getBoundingClientRect().top;
+    const floor = capsBox.offsetHeight + CFG.clampTop;
+    const ease = bezier(CFG.annEase);
+    /* a line shared by two specimens tracks the one currently filling the frame,
+       weighted by coverage, so it holds steady while the images change under it */
+    const anchorOf = ([a,b]) => {
+      let num = 0, den = 0;
+      for(let s=a; s<=b; s++){
+        const wgt = Math.max(cover(s), 0.001);
+        num += wgt * m.mids[s];
+        den += wgt;
+      }
+      return num/den;
+    };
+    /* summed, not maxed — across the seam the two specimens each half-fill the
+       frame, and the line they share should not dip as it passes */
+    const covOf = ([a,b]) => { let t = 0; for(let s=a; s<=b; s++) t += cover(s); return Math.min(t, 1); };
+
+    const lit = [], placed = [];
+    cos.forEach((c,i) => {
+      const half = c.offsetHeight/2;
+      const y = Math.min(Math.max(anchorOf(m.range[i]) - shift*CFG.follow, floor + half), m.screenH - half - CFG.clampBot);
+      const o = ease(clamp01((covOf(m.range[i]) - CFG.fadeStart) / CFG.fadeRamp));
+      c.style.opacity = o;
+      if(o > 0.02){
+        placed.push({c, y, half});
+        lit.push(c.textContent.trim().slice(0,28) + ' ' + o.toFixed(2));
+      } else {
+        c.style.transform = 'translateY(' + (off + y - half) + 'px)';
+      }
+    });
+    /* two annotations can share a specimen and both hit the same clamp on the way
+       in or out — nudge them apart so they never stack */
+    placed.sort((a,b) => a.y - b.y);
+    for(let i=1;i<placed.length;i++){
+      const need = placed[i-1].y + placed[i-1].half + CFG.annGap + placed[i].half;
+      if(placed[i].y < need) placed[i].y = need;
+    }
+    placed.forEach(q => { q.c.style.transform = 'translateY(' + (off + q.y - q.half) + 'px)'; });
+
+    scrub.value = Math.round(p*1000);
+    pval.textContent = p.toFixed(3);
+    out.textContent =
+      'p ' + p.toFixed(3) + '  →  eased ' + pe.toFixed(3) + '\n' +
+      'film travel ' + Math.round(shift) + ' / ' + Math.round(m.travel) + 'px\n' +
+      'heading: ' + caps[fault].querySelector('b').textContent + '\n' +
+      'lit (' + lit.length + '):\n  ' + (lit.join('\n  ') || '—');
+  }
+
+  addEventListener('scroll', () => { if(!ticking){ ticking = true; requestAnimationFrame(update); } }, {passive:true});
+  addEventListener('resize', () => { m = null; update(); });
+  addEventListener('load', () => { m = null; update(); });
+  imgs.forEach(s => s.complete || s.addEventListener('load', () => { m = null; update(); }, {once:true}));
+
+  /* scrub drives real scroll so nothing can drift out of sync */
+  function seek(p){
+    if(!m && !measure()) return;
+    const base = sc.getBoundingClientRect().top + scrollY;
+    scrollTo({top: base + p*m.span, behavior:'instant'});
+  }
+  scrub.oninput = () => seek(scrub.value/1000);
+
+  return {
+    update,
+    remeasure(){ m = null; update(); },
+    seek,
+    span(){ return m ? m.span : 0; }
+  };
+})();
+
+/* ---- play: sweep the whole run so the feel can be judged in motion ---- */
+let playing = null;
+document.getElementById('play').onclick = function(){
+  if(playing){ cancelAnimationFrame(playing); playing = null; this.textContent = 'play'; return; }
+  this.textContent = 'stop';
+  const btn = this, t0 = performance.now(), dur = CFG.playSec*1000;
+  const prev = getComputedStyle(root).scrollSnapType;
+  root.style.setProperty('scroll-snap-type','none');   /* snap would fight the sweep */
+  const step = now => {
+    const k = (now-t0)/dur;
+    if(k >= 1){ reel.seek(1); playing = null; btn.textContent = 'play'; root.style.setProperty('scroll-snap-type', prev); return; }
+    reel.seek(k);
+    playing = requestAnimationFrame(step);
+  };
+  playing = requestAnimationFrame(step);
+};
+
+document.getElementById('copyall').onclick = function(){ copyText(dumpAll(), this); };
+document.getElementById('reset').onclick = () => {
+  Object.assign(CFG, structuredClone(SHIPPED));
+  try { localStorage.removeItem(STORE); } catch(e){}
+  syncInputs(); apply();
+};
+document.getElementById('toggle').onclick = function(){
+  document.body.classList.toggle('nopanel');
+  this.textContent = document.body.classList.contains('nopanel') ? 'show panel' : 'hide panel';
+  reel.remeasure();
+};
+
+buildPanel();
+apply();
+</script>
+</body>
+</html>

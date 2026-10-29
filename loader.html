@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Loader bench — the picker wheel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  @font-face{
+    font-family:"Redaction 35";
+    font-style:italic; font-weight:400; font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff) format("woff");
+  }
+  /* Tokens copied verbatim from index.html — a bench that drifts from the
+     system is measuring the wrong thing. */
+  :root{
+    --ink:#161616; --ink-2:#4a4a4a; --ink-3:#6e6e6e; --mut:#767676;
+    --line:#ececec; --line-2:#e7e7e7; --paper:#ffffff;
+    --sel:#bbfff0;
+    --r-sm:8px; --r-md:14px; --r-lg:20px; --r-pill:99px;
+    --shadow-pop:0 18px 40px -22px rgba(22,22,22,.28);
+    --t-body:18px; --t-sub:24px; --t-sub-md:32px; --t-sub-lg:40px;
+    --t-head:56px; --t-head-lg:64px; --t-label:12px;
+    --w-head:450;
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --serif:"Redaction 35",Georgia,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:var(--sans); color:var(--ink); background:var(--paper);
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--sel);}
+
+  /* ============================ the stage ============================
+     A real viewport-sized box rather than the page itself, so the control
+     panel can sit beside it and the loader can be replayed without a
+     reload. Everything inside is exactly what would ship. */
+  .stage{
+    position:relative; overflow:hidden;
+    width:100%; height:100vh;
+    background:var(--paper);
+  }
+
+  /* ---------------- the hero underneath (index.html, verbatim) -------- */
+  .hero{
+    position:absolute; inset:0; z-index:10;
+    display:flex; flex-direction:column; justify-content:center;
+    pointer-events:none;
+  }
+  .wrap{width:100%; max-width:1180px; margin-inline:auto; padding:0 44px;}
+  h1{
+    /* one token, because the drum has to collapse to exactly this on landing
+       and a second literal would let the two drift apart silently */
+    --lh:1.05;
+    font-family:var(--sans); font-size:var(--t-head-lg);
+    line-height:var(--lh); letter-spacing:-0.035em; font-weight:var(--w-head);
+    max-width:13ch; margin-inline:auto; text-align:center;
+  }
+  h1 .convert{
+    font-family:var(--serif); color:var(--ink-2);
+    font-style:italic; font-weight:400; letter-spacing:-.01em;
+    font-size:inherit; line-height:inherit;
+    background:none; border:0; padding:0; margin:0;
+    pointer-events:auto; cursor:pointer;
+  }
+  @media (max-width:900px){ h1{font-size:var(--t-head);} }
+  /* The gutter steps with the type on index.html. Leaving .wrap at 44px here
+     while the page drops to 22px narrows the veil's measure by 44px, and the
+     headline it is supposed to be morphing into is laid out in a wider box —
+     so the handoff shifts sideways on phones. Ported verbatim. */
+  @media (max-width:640px){ h1{font-size:var(--t-sub-lg);} .wrap{padding:0 22px} }
+
+  /* ============================ the loader ============================
+     Same h1 box as the hero, so "I make designs that" lands on the exact
+     line the real headline occupies — the alignment is structural, not a
+     magic number. Lines 1 and 3 are present but invisible: they hold the
+     wheel on the middle line from the first frame, so nothing reflows when
+     they arrive. */
+  .loader{
+    position:absolute; inset:0; z-index:40;
+    background:var(--paper);
+    display:flex; flex-direction:column; justify-content:center;
+  }
+  .loader h1{color:var(--ink);}
+  .loader .ln{display:block; white-space:nowrap;}
+  /* opacity only — visibility:hidden would collapse them out of the line box
+     and the middle line would not be vertically where the hero puts it */
+  .loader .ln1,.loader .ln3{opacity:0;}
+  /* The gap is the *measured* advance of a space in Onest at this size, not a
+     guessed em. A flex gap that is merely close makes the whole centred line
+     wider than the hero's, so "I make" sits off to one side of where the real
+     headline puts it and jumps on handoff. */
+  .loader .ln2{display:flex; align-items:center; justify-content:center; gap:var(--spacew,.26em);}
+
+  /* ---------------- the picker wheel ---------------- */
+  /* An actual cylinder: each row is rotated about the wheel's horizontal
+     axis and pushed out by the radius, so the rows compress towards the top
+     and bottom exactly the way an iOS picker does. Faking it with scale+blur
+     gets the silhouette wrong at the edges. */
+  .wheel{
+    position:relative;
+    height:calc(var(--item-h) * var(--rows));
+    perspective:var(--persp);
+    /* No overflow clip and no mask. The box only tracks the *centre* word, so
+       clipping to it beheaded every wider row — "websites" rendered as
+       "vebsites". The cosine falloff below already takes the edge rows to
+       0.03, which is the fade the mask was there to provide, and the rows
+       overflow symmetrically so they stay centred on the drum axis. */
+    overflow:visible;
+    transition:width .18s cubic-bezier(.22,.61,.36,1);
+  }
+  /* While it is a drum it reserves five rows, which holds lines 1 and 3 about
+     220px away from where the headline puts them — so the landed loader read
+     as three stranded lines and the handoff was a jump, not a morph. Collapsing
+     to one line box is what actually makes this a morph. The rows are centred
+     on top:50% with their own negative margin, so the landed word does not
+     move while the height comes down; only the two arriving lines travel. */
+  .loader.landing .wheel{
+    height:calc(var(--lh) * 1em);
+    transition:height .52s cubic-bezier(.22,.61,.36,1);
+  }
+  .wheel-in{
+    position:absolute; inset:0;
+    transform-style:preserve-3d;
+    transform:translateZ(calc(var(--radius) * -1));
+  }
+  .wheel .it{
+    position:absolute; left:0; right:0; top:50%;
+    height:var(--item-h); margin-top:calc(var(--item-h) / -2);
+    display:flex; align-items:center; justify-content:center;
+    white-space:nowrap;
+    backface-visibility:hidden;
+    will-change:transform,opacity;
+  }
+  /* The measuring copy: same type, out of flow, never painted. Widths have
+     to come from the real font or the line jumps when Onest swaps in. */
+  .ruler{
+    position:absolute; visibility:hidden; pointer-events:none;
+    top:0; left:0; white-space:nowrap;
+    font:inherit; letter-spacing:inherit;
+  }
+
+  /* ---------------- the progress hairline ---------------- */
+  /* The settled "comet" from bar.html: a full-width gradient scaled by
+     progress, so the fade length grows with the bar instead of trailing a
+     fixed tail. */
+  .bar{
+    position:absolute; left:0; bottom:0; height:2px;
+    width:calc(var(--p) * 100%);
+    background:linear-gradient(90deg,transparent 0%,var(--ink) 100%);
+  }
+  .bar.off{display:none;}
+
+  /* ---------------- the handoff ---------------- */
+  /* The veil does not slide or wipe: it is already the same paper as the
+     page, so the only honest exit is to stop being there. Anything else
+     announces a transition the visitor did not ask for. */
+  /* Not `.done` with the transition zeroed: skipping means the veil was never
+     part of this page load, so it should not occupy a paint or a stacking
+     context at all. */
+  .loader.skipped{ display:none; }
+  /* The gate again, in CSS, because the JS one cannot run early enough. The
+     markup already contains "I make" and the two hidden lines, so between
+     first paint and the inline script there is a frame where a phone shows the
+     veil before it is skipped. This removes it before it can ever paint.
+     399.98 is the exact complement of the script's `min-width:400px` — if one
+     of these two numbers moves, the other has to move with it.
+     The `:not()` is the bench's ?force=1 escape hatch. Without it this rule
+     wins over everything the script does, so forcing the loader on at 390
+     reported a clean run against a veil that was never displayed. */
+  @media (max-width:399.98px){ html:not(.force-loader) .loader{ display:none; } }
+  .loader.done{ opacity:0; transition:opacity .42s ease; pointer-events:none; }
+  .loader.done .bar{opacity:0; transition:opacity .2s ease;}
+  .ln1.in,.ln3.in{ opacity:1; transition:opacity .5s ease, transform .5s cubic-bezier(.22,.61,.36,1); }
+  .ln1{transform:translateY(.12em);} .ln3{transform:translateY(-.12em);}
+  .ln1.in,.ln3.in{transform:translateY(0);}
+
+  @media (prefers-reduced-motion: reduce){
+    .wheel,.loader.landing .wheel{transition:none;}
+    .loader.done,.ln1.in,.ln3.in{transition:none;}
+  }
+
+  /* ============================ control panel ============================ */
+  .panel{
+    font-family:var(--mono); font-size:var(--t-label);
+    border-top:1px solid var(--line);
+    padding:20px 24px 40px;
+    display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px 28px;
+    align-items:start;
+  }
+  .panel h2{
+    grid-column:1/-1; margin:0 0 4px;
+    font-family:var(--sans); font-size:var(--t-sub); font-weight:var(--w-head);
+    letter-spacing:-.02em;
+  }
+  .row{display:grid; grid-template-columns:1fr auto; gap:4px 10px; align-items:center;}
+  .row label{color:var(--ink-3); letter-spacing:.02em;}
+  .row output{color:var(--ink); font-variant-numeric:tabular-nums;}
+  .row input[type=range]{grid-column:1/-1; width:100%; accent-color:var(--ink); min-height:24px;}
+  .row select,.row input[type=checkbox]{accent-color:var(--ink);}
+  .acts{grid-column:1/-1; display:flex; gap:10px; flex-wrap:wrap; margin-top:6px;}
+  button.btn{
+    font-family:var(--mono); font-size:var(--t-label); letter-spacing:.02em;
+    min-height:44px; padding:0 20px; border-radius:var(--r-pill);
+    border:1px solid var(--line-2); background:var(--paper); color:var(--ink);
+    cursor:pointer;
+  }
+  button.btn:hover{border-color:var(--ink-3);}
+  button.btn.primary{background:var(--ink); color:var(--paper); border-color:var(--ink);}
+  .read{
+    grid-column:1/-1; border-top:1px solid var(--line); padding-top:12px; margin-top:6px;
+    color:var(--ink-3); line-height:1.7; white-space:pre-wrap;
+  }
+  .read b{color:var(--ink); font-weight:400;}
+  /* the velocity/position plot — the only way to actually see "peaks at 80%" */
+  canvas.plot{
+    grid-column:1/-1; width:100%; height:130px;
+    border:1px solid var(--line); border-radius:var(--r-sm);
+  }
+</style>
+</head>
+<body>
+
+<div class="stage" id="stage">
+  <!-- the page that is being waited for -->
+  <div class="hero">
+    <div class="wrap">
+      <h1>Hi, I&rsquo;m Ravindra.<br/>I make designs that <button type="button" class="convert">convert.</button></h1>
+    </div>
+  </div>
+
+  <!-- the veil -->
+  <div class="loader" id="loader">
+    <div class="wrap">
+      <h1>
+        <span class="ln ln1" id="ln1">Hi, I&rsquo;m Ravindra.</span>
+        <span class="ln ln2">
+          <span>I make</span>
+          <span class="wheel" id="wheel"><span class="wheel-in" id="wheelIn"></span></span>
+        </span>
+        <span class="ln ln3" id="ln3"><span class="convert">convert.</span></span>
+        <!-- inside the h1, or it measures at body size and every column comes
+             out ~3.5x too narrow -->
+        <span class="ruler" id="ruler" aria-hidden="true"></span>
+      </h1>
+    </div>
+    <div class="bar" id="bar"></div>
+  </div>
+</div>
+
+<div class="panel" id="panel">
+  <h2>Loader bench</h2>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* Bench affordance, set before anything else so it beats the CSS width gate:
+   ?force=1 runs the loader at widths where it is normally skipped, which is
+   the only way to tune the drum against a phone-sized hero. Not part of the
+   port to index.html. */
+const forced = new URLSearchParams(location.search).get('force') === '1';
+if(forced) document.documentElement.classList.add('force-loader');
+
+/* The list, and the word the wheel has to come to rest on. "designs that" is
+   the last item rather than a separate end state: the h1 breaks after it
+   anyway, so "convert." completing the line comes for free. */
+const WORDS = ['apps','ads','sales pages','strategy','brands','websites','art','experiences'];
+const FINAL = 'designs that';
+/* Three real words of lead-in above the first, so the drum is populated at
+   rest instead of showing blank rows over "apps". */
+const LEAD  = 3;
+
+/* Below this the loader does not run at all — the page is simply the page.
+   At 375 and under the hero re-wraps to "I make designs / that convert." while
+   the drum is a nowrap flex row that stays "I make [designs that]", so the veil
+   lands 30-37px off and the handoff is a visible jump. The alternatives were to
+   restyle the homepage's phone type scale or to lay the veil out differently
+   from the page it is covering; skipping is the honest one, and a phone is
+   where a loading screen costs the most and buys the least.
+   Pixel-exact alignment is verified 1440 -> 390, so 400 is a real floor with a
+   little margin, not a guess. min-width so a fractional 399.5px viewport is
+   correctly treated as narrow. */
+const MIN_W = 400;
+
+const VARS = [
+  ['dur',    'duration ms',        1400, 7000,  50,  5000, 'range'],
+  ['loops',  'passes over list',      1,    6,   1,     3, 'range'],
+  ['peak',   'velocity peak at',    .45,  .95, .01,   .80, 'range'],
+  ['rise',   'rise shape',            1,    4,  .1,   1.7, 'range'],
+  ['endv',   'end velocity',          0,   .8, .02,   .26, 'range'],
+  ['fall',   'fall shape',            1,    4,  .1,   2.0, 'range'],
+  ['angle',  'deg per row',          10,   30,   1,    20, 'range'],
+  ['rows',   'visible rows',          3,    9,   2,     5, 'range'],
+  ['persp',  'perspective px',      400, 1600,  20,   900, 'range'],
+  ['fade',   'edge fade exponent',    1,    6,  .1,   2.4, 'range'],
+  ['focus',  'focus-in starts at',   .5,    1, .01,   .86, 'range'],
+  ['hold',   'stall cap',           .70,  .99, .01,   .92, 'range'],
+  ['sim',    'simulated load ms',     0, 7000, 100,   600, 'range'],
+  ['track',  'width tracks each word (off = fixed)', 0, 1, 1, 0, 'check'],
+  ['showbar','progress hairline',     0,    1,   1,     1, 'check'],
+];
+const S = {};
+VARS.forEach(v => S[v[0]] = v[5]);
+
+/* ---------- panel ---------- */
+const panel = document.getElementById('panel');
+VARS.forEach(([k,label,min,max,step,def,type]) => {
+  const row = document.createElement('div'); row.className = 'row';
+  if(type === 'check'){
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!def;
+    cb.addEventListener('change', () => { S[k] = cb.checked ? 1 : 0; apply(); });
+    row.innerHTML = `<label for="c_${k}">${label}</label>`;
+    cb.id = 'c_' + k; row.appendChild(cb);
+  } else {
+    const out = document.createElement('output'); out.textContent = def;
+    const r = document.createElement('input');
+    r.type = 'range'; r.min = min; r.max = max; r.step = step; r.value = def;
+    r.addEventListener('input', () => { S[k] = +r.value; out.textContent = r.value; apply(); });
+    row.innerHTML = `<label>${label}</label>`;
+    row.appendChild(out); row.appendChild(r);
+  }
+  panel.appendChild(row);
+});
+
+const acts = document.createElement('div'); acts.className = 'acts';
+acts.innerHTML = `<button class="btn primary" id="replay">Replay</button>
+  <button class="btn" id="slow">Replay at 0.25x</button>
+  <button class="btn" id="rm">Toggle reduced-motion preview</button>`;
+panel.appendChild(acts);
+
+const plot = document.createElement('canvas'); plot.className = 'plot';
+panel.appendChild(plot);
+const read = document.createElement('div'); read.className = 'read';
+panel.appendChild(read);
+
+/* ---------- the easing ----------
+   Stated as a velocity profile and then integrated, because the brief is
+   about velocity ("starts slow, peaks at about 80%, then slows a little")
+   and a cubic-bezier cannot be aimed at a velocity peak directly. Rising as
+   a power of t to the peak, falling as a power back down to `endv` — not to
+   zero, since it should still be moving when it lands. */
+function velocity(t){
+  const p = S.peak;
+  if(t <= p) return Math.pow(t / p, S.rise);
+  return 1 - (1 - S.endv) * Math.pow((t - p) / (1 - p), S.fall);
+}
+const N = 1024;
+let LUT = new Float64Array(N + 1);
+function buildLUT(){
+  let s = 0; LUT[0] = 0;
+  for(let i = 1; i <= N; i++){
+    const a = velocity((i - 1) / N), b = velocity(i / N);
+    s += (a + b) / 2 / N; LUT[i] = s;
+  }
+  const tot = LUT[N] || 1;
+  for(let i = 0; i <= N; i++) LUT[i] /= tot;
+}
+const ease = t => {
+  if(t <= 0) return 0; if(t >= 1) return 1;
+  const x = t * N, i = Math.floor(x);
+  return LUT[i] + (LUT[i + 1] - LUT[i]) * (x - i);
+};
+
+/* ---------- the strip ---------- */
+const wheel   = document.getElementById('wheel');
+const wheelIn = document.getElementById('wheelIn');
+const ruler   = document.getElementById('ruler');
+const loader  = document.getElementById('loader');
+const bar     = document.getElementById('bar');
+const ln1     = document.getElementById('ln1');
+const ln3     = document.getElementById('ln3');
+
+let strip = [], widths = [], nodes = [];
+function buildStrip(){
+  strip = WORDS.slice(-LEAD);
+  for(let i = 0; i < S.loops; i++) strip = strip.concat(WORDS);
+  strip.push(FINAL);
+
+  wheelIn.textContent = '';
+  nodes = strip.map(w => {
+    const el = document.createElement('span');
+    el.className = 'it'; el.textContent = w;
+    wheelIn.appendChild(el);
+    return el;
+  });
+  measure();
+}
+function measure(){
+  widths = strip.map(w => { ruler.textContent = w; return ruler.getBoundingClientRect().width; });
+  /* A trailing space collapses, so the advance has to come out of a
+     difference between two strings that differ only by it. */
+  ruler.textContent = 'nn';  const w2 = ruler.getBoundingClientRect().width;
+  ruler.textContent = 'n n'; const w3 = ruler.getBoundingClientRect().width;
+  document.querySelector('.loader .ln2').style.setProperty('--spacew', (w3 - w2).toFixed(2) + 'px');
+  ruler.textContent = '';
+}
+
+/* ---------- geometry ---------- */
+function apply(){
+  buildLUT();
+  const itemH = Math.round(parseFloat(getComputedStyle(document.querySelector('.loader h1')).fontSize) * 1.16);
+  const rad = itemH / (2 * Math.tan((S.angle * Math.PI / 180) / 2));
+  wheel.style.setProperty('--item-h', itemH + 'px');
+  wheel.style.setProperty('--rows', S.rows);
+  wheel.style.setProperty('--persp', S.persp + 'px');
+  /* with the unit baked in: translateZ() takes a length, and a bare number
+     invalidates the whole transform list — every row then collapses onto the
+     centre and the drum renders as one illegible pile */
+  wheel.style.setProperty('--radius', rad.toFixed(2) + 'px');
+  bar.classList.toggle('off', !S.showbar);
+  buildStrip();
+  drawPlot();
+  render(pos, lastProg);
+  stat();
+}
+
+function render(p, prog){
+  if(prog !== undefined) lastProg = prog;
+  const lastIndex = strip.length - 1;
+  /* Over the last stretch the drum stops being a drum and becomes a line of
+     type. The final item is the end of the strip, so there is nothing below it
+     to balance the tail still showing above, and it lands looking lopsided
+     rather than settled. So blend the drum's own falloff toward a hard focus —
+     centre row only — across the last (1 - focus) of the run.
+     Raising the exponent instead is not enough: the neighbour sits at one
+     `angle` off centre, cos .9397, and even at exponent 62 that is still
+     opacity .021 — on white paper a legible grey ghost. Verified: the 100%
+     frame still showed "experiences" above the landed line. Blending to a
+     0/1 target reaches exactly 0. */
+  const f = prog === undefined ? 0
+          : Math.max(0, Math.min(1, (prog - S.focus) / (1 - S.focus)));
+  const k = f * f * (3 - 2 * f);
+  const near = Math.round(p);
+  for(let i = 0; i < nodes.length; i++){
+    const th = (i - p) * S.angle;
+    if(Math.abs(th) > 91){ nodes[i].style.display = 'none'; continue; }
+    nodes[i].style.display = '';
+    const c = Math.cos(th * Math.PI / 180);
+    nodes[i].style.transform = `rotateX(${(-th).toFixed(2)}deg) translateZ(var(--radius))`;
+    /* Opacity falls with a power of the cosine so a row dims as it turns
+       away, and the centre row is the only one at full ink. This is the
+       drum's fade now that there is no mask, so the exponent is the control
+       that decides how tall the readable stack is. */
+    const drum = Math.max(0, Math.pow(c, S.fade));
+    nodes[i].style.opacity = (drum + ((i === near ? 1 : 0) - drum) * k).toFixed(3);
+  }
+  /* Fixed at the widest word, which for this list happens to be the word it
+     lands on — so the drum never changes width, "I make" never moves, and the
+     final line is already exactly the hero's. Tracking each word instead
+     (the toggle) interpolates between neighbours, which makes the box
+     narrower than the word currently on the centre row whenever its
+     neighbours are shorter: at 55% "websites" overflowed its box by 19px each
+     side and ran into "I make". */
+  let w;
+  if(S.track){
+    const i = Math.max(0, Math.min(lastIndex, Math.floor(p)));
+    const j = Math.min(lastIndex, i + 1);
+    w = widths[i] + (widths[j] - widths[i]) * (p - i);
+  } else {
+    w = Math.max.apply(null, widths);
+  }
+  wheel.style.width = w.toFixed(1) + 'px';
+}
+
+/* ---------- the run ----------
+   progress is the eased clock, but capped at `hold` until the page is
+   actually ready — so on a slow connection the drum stalls one row short of
+   "designs that" instead of the bar lying about being finished. */
+let lastProg = 0;
+let pos = LEAD, raf = 0, t0 = 0, rate = 1, ready = false, readyAt = 0, done = false;
+
+function start(scale){
+  cancelAnimationFrame(raf);
+  rate = scale || 1;
+  done = false; ready = false; readyAt = 0;
+  /* clears `skipped` too, so the bench's replay button still works at narrow
+     widths — boot is the only thing that consults the gate */
+  skipped = false;
+  loader.classList.remove('done','landing','skipped');
+  ln1.classList.remove('in'); ln3.classList.remove('in');
+  pos = LEAD; render(pos, 0);
+  /* stands in for document.fonts.ready + the three.js module + first frame */
+  setTimeout(() => { ready = true; readyAt = performance.now() - t0; }, S.sim);
+  t0 = performance.now();
+  raf = requestAnimationFrame(tick);
+}
+
+function tick(now){
+  const el = (now - t0) * rate;
+  let t = Math.min(1, el / S.dur);
+  let p = ease(t);
+  if(!ready) p = Math.min(p, S.hold);
+
+  const lastIndex = strip.length - 1;
+  pos = LEAD + p * (lastIndex - LEAD);
+  render(pos, p);
+  loader.style.setProperty('--p', p.toFixed(4));
+  stat(el, p);
+
+  if(p >= 1 - 1e-4 && ready){ finish(el); return; }
+  raf = requestAnimationFrame(tick);
+}
+
+function finish(el){
+  done = true;
+  /* Order matters. The drum collapses first, and the two lines it was never
+     holding fade in *while* that space is closing — start them together and
+     they appear at the stranded five-row spacing before travelling, which
+     reads as a layout bug rather than a landing. The veil only lifts once the
+     collapse has settled, so the crossfade is between two identical
+     headlines instead of two differently-spaced ones. */
+  loader.classList.add('landing');
+  setTimeout(() => { ln1.classList.add('in'); ln3.classList.add('in'); }, 120);
+  setTimeout(() => loader.classList.add('done'), 600);
+  stat(el, 1);
+}
+
+/* ---------- readouts ---------- */
+function stat(el, p){
+  /* where the velocity actually peaks, read back off the integrated curve
+     rather than assumed from the input */
+  let best = 0, bt = 0;
+  for(let i = 1; i <= N; i++){
+    const d = LUT[i] - LUT[i - 1];
+    if(d > best){ best = d; bt = i / N; }
+  }
+  const lastIndex = strip.length - 1;
+  /* The fixed-width drum only lands pixel-exact because FINAL is the widest
+     item. Swap the copy for something shorter and "I make" starts shifting on
+     handoff — so the bench has to say so out loud rather than let it be
+     discovered on the live page. */
+  const mx = Math.max.apply(null, widths);
+  const fw = widths[lastIndex] || 0;
+  const guard = S.track
+    ? `<b>tracking</b> — box can be narrower than the centre word; expect overlap`
+    : (Math.abs(mx - fw) < 0.5
+        ? `<b>ok</b> — "${FINAL}" is the widest item, so the drum never resizes`
+        : `<b>WARNING</b> — widest is ${(mx).toFixed(0)}px but "${FINAL}" is ${fw.toFixed(0)}px: "I make" will shift ${((mx - fw) / 2).toFixed(1)}px on handoff`);
+  read.innerHTML =
+    `strip        <b>${strip.length}</b> rows — ${LEAD} lead-in + ${S.loops}×${WORDS.length} + "${FINAL}"\n` +
+    `lands on     <b>${strip[lastIndex]}</b>  (index ${lastIndex})\n` +
+    `width        ${guard}\n` +
+    `radius       <b>${getComputedStyle(wheel).getPropertyValue('--radius').trim()}px</b> at ${S.angle}°/row\n` +
+    `velocity     peaks at <b>${(bt * 100).toFixed(1)}%</b> of the run, ends at <b>${(S.endv * 100).toFixed(0)}%</b> of peak\n` +
+    (el !== undefined
+      ? `now          t=<b>${(el / 1000).toFixed(2)}s</b>  progress=<b>${(p * 100).toFixed(1)}%</b>  row=<b>${pos.toFixed(2)}</b>` +
+        `  ${ready ? 'assets ready at ' + (readyAt / 1000).toFixed(2) + 's' : 'waiting on assets — capped at ' + (S.hold * 100).toFixed(0) + '%'}` +
+        (done ? '\n             <b>handed off</b>' : '')
+      : '');
+}
+
+function drawPlot(){
+  const dpr = devicePixelRatio || 1;
+  const w = plot.clientWidth, h = plot.clientHeight;
+  plot.width = w * dpr; plot.height = h * dpr;
+  const g = plot.getContext('2d');
+  g.setTransform(dpr,0,0,dpr,0,0);
+  g.clearRect(0,0,w,h);
+  const pad = 10;
+  const X = t => pad + t * (w - pad * 2);
+  const Y = v => h - pad - v * (h - pad * 2);
+
+  g.strokeStyle = '#ececec'; g.lineWidth = 1;
+  [0,.25,.5,.75,1].forEach(t => { g.beginPath(); g.moveTo(X(t),pad); g.lineTo(X(t),h-pad); g.stroke(); });
+
+  /* position — the eased curve the wheel rides */
+  g.strokeStyle = '#161616'; g.lineWidth = 2; g.beginPath();
+  for(let i = 0; i <= N; i++){ const t = i/N; i ? g.lineTo(X(t),Y(LUT[i])) : g.moveTo(X(t),Y(LUT[i])); }
+  g.stroke();
+
+  /* velocity, normalised — the thing the brief is actually about */
+  let mx = 0; for(let i=1;i<=N;i++) mx = Math.max(mx, LUT[i]-LUT[i-1]);
+  g.strokeStyle = '#6e6e6e'; g.lineWidth = 1.5; g.setLineDash([4,3]); g.beginPath();
+  for(let i = 1; i <= N; i++){ const t = i/N, v = (LUT[i]-LUT[i-1])/mx; i===1 ? g.moveTo(X(t),Y(v)) : g.lineTo(X(t),Y(v)); }
+  g.stroke(); g.setLineDash([]);
+
+  g.fillStyle = '#6e6e6e'; g.font = '11px ui-monospace,monospace';
+  g.fillText('position', pad + 4, pad + 12);
+  g.fillText('velocity (dashed)', pad + 4, pad + 26);
+}
+
+/* ---------- the width gate ----------
+   Read once, at boot, and never re-read. A phone rotated into landscape
+   mid-load must not have a loading screen appear on top of a page it has
+   already started reading — once skipped, skipped for this load. */
+let skipped = false;
+function skipLoader(why){
+  skipped = true;
+  cancelAnimationFrame(raf);
+  loader.classList.add('skipped');
+  loader.classList.remove('done','landing');
+  /* nothing to reveal: the hero underneath is the real thing and is complete */
+  return why;
+}
+
+/* ---------- wiring ---------- */
+document.getElementById('replay').addEventListener('click', () => start(1));
+document.getElementById('slow').addEventListener('click',  () => start(0.25));
+document.getElementById('rm').addEventListener('click', e => {
+  document.documentElement.classList.toggle('force-rm');
+  e.target.textContent = document.documentElement.classList.contains('force-rm')
+    ? 'Reduced-motion preview ON' : 'Toggle reduced-motion preview';
+});
+
+/* Both re-measure, and measuring inside a display:none subtree returns 0 for
+   every column — which would silently overwrite the widths table. Nothing to
+   re-measure once the veil is gone anyway. */
+addEventListener('resize', () => { if(skipped) return; measure(); apply(); });
+/* Widths must be re-measured once the real font lands, or every column is
+   sized from the fallback and the line jumps on swap. */
+if(document.fonts && document.fonts.ready) document.fonts.ready.then(() => {
+  if(skipped) return; measure(); render(pos, lastProg);
+});
+
+apply();
+const narrow = !matchMedia('(min-width:' + MIN_W + 'px)').matches;
+if(narrow && !forced) skipLoader('narrow');
+else start(1);
+
+/* exposed for the measuring harness. seek() freezes the drum at a given
+   progress, which is the only way to capture a deterministic frame — the run
+   is time-driven and a screenshot takes far longer than the run. */
+function seek(p){
+  cancelAnimationFrame(raf);
+  pos = LEAD + p * (strip.length - 1 - LEAD);
+  render(pos, p);
+  loader.style.setProperty('--p', p.toFixed(4));
+  stat(S.dur * p, p);
+}
+window.__loader = { start, seek, ease, apply, skipLoader, MIN_W,
+                    get pos(){ return pos; }, get strip(){ return strip; },
+                    get done(){ return done; }, get skipped(){ return skipped; }, S, LUT };
+})();
+</script>
+</body>
+</html>

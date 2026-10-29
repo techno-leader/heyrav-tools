@@ -1,0 +1,1150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ravindra — Designs that convert</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16141f;
+    --lav:#8f7ff0;
+    --mut:#8b87a0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:#ffffff;
+    color:var(--ink);
+    font-family:"Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  /* total scroll runway */
+  #runway{height:340vh;position:relative;}
+
+  canvas#gl{
+    position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:0;
+  }
+
+  /* ---------- nav ---------- */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:30;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:28px 44px;
+    font-size:13px;letter-spacing:.02em;
+  }
+  nav .logo{font-weight:600;}
+  nav .links{display:flex;gap:28px;}
+  nav a{color:var(--ink);text-decoration:none;opacity:.65;transition:opacity .2s;}
+  nav a:hover{opacity:1;}
+  nav .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;color:var(--mut);}
+
+  /* ---------- hero copy ---------- */
+  .hero{
+    position:fixed;inset:0;z-index:10;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:0 44px;
+    pointer-events:none;
+  }
+  .eyebrow{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:12px;letter-spacing:.28em;color:var(--lav);
+    margin-bottom:26px;text-transform:uppercase;
+  }
+  h1{
+    font-family:"Space Grotesk","Inter",sans-serif;
+    font-size:clamp(44px,7.2vw,118px);
+    line-height:1.02;
+    letter-spacing:-0.035em;
+    font-weight:600;
+    max-width:13ch;
+  }
+  h1 .convert{
+    font-family:"Instrument Serif",Georgia,serif;
+    color:#6a58e0;
+    font-style:italic;
+    font-weight:400;
+    letter-spacing:-.01em;
+  }
+  .sub{
+    margin-top:30px;
+    font-size:18px;line-height:1.6;color:var(--mut);max-width:42ch;
+  }
+  .meta-row{
+    position:fixed;left:44px;right:44px;bottom:32px;z-index:20;
+    display:flex;justify-content:space-between;align-items:flex-end;
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:11px;letter-spacing:.14em;color:var(--mut);
+    pointer-events:none;
+  }
+  .scrollhint{display:flex;align-items:center;gap:10px;}
+  .scrollhint .bar{
+    width:1px;height:34px;background:linear-gradient(var(--ink),transparent);
+    animation:drip 1.8s ease-in-out infinite;
+  }
+  @keyframes drip{0%{transform:scaleY(0);transform-origin:top}55%{transform:scaleY(1);transform-origin:top}56%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+  /* ---------- end CTA ---------- */
+  .cta{
+    position:fixed;inset:0;z-index:15;
+    display:flex;flex-direction:column;gap:22px;justify-content:center;align-items:center;
+    text-align:center;opacity:0;pointer-events:none;
+  }
+  .cta .mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.28em;color:var(--lav);text-transform:uppercase;}
+  .cta h2{font-family:"Space Grotesk","Inter",sans-serif;font-size:clamp(30px,4.4vw,64px);letter-spacing:-0.03em;font-weight:600;max-width:18ch;line-height:1.06;}
+  .cta a{
+    pointer-events:auto;
+    font-size:14px;text-decoration:none;color:#fff;background:var(--ink);
+    padding:16px 34px;border-radius:999px;letter-spacing:.02em;
+    transition:transform .25s ease, background .25s ease;
+  }
+  .cta a:hover{background:var(--lav);transform:translateY(-2px);}
+
+  .progress{
+    position:fixed;top:0;left:0;height:2px;background:var(--lav);z-index:40;width:0;
+  }
+  /* ================= page sections ================= */
+  #content{position:relative;z-index:25;background:#fff;border-top:1px solid #eceaf6;}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 44px;}
+  section{padding:120px 0 40px;}
+  .sec-head{display:flex;align-items:baseline;justify-content:space-between;gap:20px;margin-bottom:24px;}
+  .sec-head h2{font-family:"Space Grotesk","Inter",sans-serif;font-size:clamp(30px,4vw,54px);letter-spacing:-.03em;font-weight:600;}
+  h2 em{font-family:"Instrument Serif",Georgia,serif;font-style:italic;font-weight:400;color:#6a58e0;}
+  .mono-label{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;letter-spacing:.24em;color:var(--lav);text-transform:uppercase;}
+  .sec-intro{color:var(--mut);font-size:18px;line-height:1.65;max-width:58ch;margin-bottom:20px;}
+
+  /* ---- case studies ---- */
+  .case{
+    display:grid;grid-template-columns:1fr 1.05fr;gap:64px;align-items:center;
+    padding:84px 0;border-top:1px solid #eceaf6;
+  }
+  .case.flip .case-visual{order:-1;}
+  .case-idx{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.24em;color:var(--lav);margin-bottom:16px;}
+  .case h3{font-family:"Space Grotesk","Inter",sans-serif;font-size:clamp(26px,3vw,40px);letter-spacing:-.025em;font-weight:600;margin-bottom:14px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+  .chip{
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.06em;color:var(--mut);
+    border:1px solid #e7e4f6;border-radius:999px;padding:7px 14px;text-transform:uppercase;
+  }
+  .case p{color:var(--mut);font-size:18px;line-height:1.62;margin-bottom:20px;max-width:50ch;}
+  .case p strong{color:var(--ink);font-weight:600;}
+  .did{list-style:none;margin:0 0 26px;}
+  .did li{
+    position:relative;padding-left:22px;margin-bottom:10px;
+    color:var(--mut);font-size:16px;line-height:1.6;
+  }
+  .did li::before{content:"→";position:absolute;left:0;color:var(--lav);}
+  .metrics{display:flex;flex-wrap:wrap;gap:28px 40px;border-top:1px solid #eceaf6;padding-top:24px;margin-top:4px;}
+  .metric b{display:block;font-size:clamp(24px,2.4vw,34px);letter-spacing:-.02em;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;}
+  .metric span{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.1em;color:var(--mut);text-transform:uppercase;}
+  .metric i{display:block;font-style:normal;font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#b7b2cc;margin-top:5px;letter-spacing:.02em;}
+
+  /* ---- craft lab ---- */
+  .lab{display:grid;grid-template-columns:repeat(3,1fr);gap:22px;margin-top:32px;padding-bottom:60px;}
+  .tile{
+    position:relative;border:1px solid #eceaf6;border-radius:20px;background:#fdfcff;
+    min-height:264px;display:flex;flex-direction:column;overflow:hidden;
+    transition:transform .55s cubic-bezier(.22,1,.36,1),box-shadow .55s ease,border-color .3s ease;
+  }
+  .tile:hover{transform:translateY(-5px);border-color:#ded9fa;box-shadow:0 24px 48px -26px rgba(106,88,224,.28);}
+  .tile .stage{flex:1;display:flex;align-items:center;justify-content:center;padding:44px 24px;
+    background:radial-gradient(circle at 1px 1px,rgba(143,127,240,.10) 1px,transparent 1.6px) 0 0/12px 12px;}
+  .tile .cap{border-top:1px solid #eceaf6;padding:16px 20px;display:flex;justify-content:space-between;align-items:baseline;gap:12px;background:#fff;}
+  .tile .cap b{font-size:16px;font-weight:600;letter-spacing:-.005em;color:var(--ink);}
+  .tile .cap span{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:#b7b2cc;letter-spacing:.08em;text-transform:uppercase;white-space:nowrap;}
+
+  /* 01 dithered fill button */
+  .d-btn{position:relative;font:inherit;font-size:13px;padding:13px 28px;border-radius:999px;border:1px solid var(--ink);background:#fff;color:var(--ink);cursor:pointer;overflow:hidden;transition:color .3s ease .1s;}
+  .d-btn i{position:absolute;inset:0;background:var(--ink);transform:translateY(102%);transition:transform .45s cubic-bezier(.22,1,.36,1) .09s;}
+  .d-btn::before{content:"";position:absolute;inset:0;background:radial-gradient(circle at 2px 2px,var(--ink) 1.3px,transparent 1.9px) 0 0/6px 6px;transform:translateY(102%);transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  .d-btn span{position:relative;z-index:1;}
+  .d-btn:hover{color:#fff;}
+  .d-btn:hover i,.d-btn:hover::before{transform:translateY(0);}
+
+  /* 02 magnetic button */
+  .d-mag{font:inherit;font-size:13px;padding:13px 30px;border-radius:999px;border:0;background:var(--ink);color:#fff;cursor:pointer;transition:transform .35s cubic-bezier(.22,1,.36,1),background .3s ease;will-change:transform;}
+  .d-mag:hover{background:#6a58e0;}
+
+  /* 03 dither toggle */
+  .d-toggle{width:78px;height:40px;border-radius:999px;border:1px solid #ded9fa;position:relative;cursor:pointer;padding:0;
+    background:radial-gradient(circle at 1px 1px,#d5d1e6 1px,transparent 1.5px) 0 0/7px 7px #fff;transition:border-color .3s ease;}
+  .d-toggle.on{background:radial-gradient(circle at 1px 1px,var(--lav) 1.2px,transparent 1.7px) 0 0/5.5px 5.5px #fff;border-color:var(--lav);}
+  .d-toggle i{position:absolute;top:3px;left:3px;width:32px;height:32px;border-radius:50%;background:var(--ink);transition:left .5s cubic-bezier(.22,1,.36,1),background .3s ease;}
+  .d-toggle.on i{left:41px;background:#6a58e0;}
+
+  /* 04 glyph scramble */
+  .d-scramble{font-family:ui-monospace,Menlo,monospace;font-size:12.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--ink);cursor:pointer;border-bottom:1px dotted var(--lav);padding-bottom:5px;white-space:pre;user-select:none;}
+
+  /* 05 glare tilt card */
+  .d-tilt{--rx:0deg;--ry:0deg;--mx:50%;width:180px;height:116px;border-radius:14px;border:1px solid #eceaf6;background:#fff;position:relative;
+    transform:perspective(620px) rotateX(var(--rx)) rotateY(var(--ry));transition:transform .18s ease;
+    display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;overflow:hidden;
+    box-shadow:0 16px 34px -20px rgba(106,88,224,.35);cursor:default;}
+  .d-tilt::after{content:"";position:absolute;inset:0;background:radial-gradient(130px circle at var(--mx) 28%,rgba(143,127,240,.22),transparent 70%);pointer-events:none;}
+  .d-tilt b{font-family:"Space Grotesk","Inter",sans-serif;font-size:27px;letter-spacing:-.02em;font-variant-numeric:tabular-nums;}
+  .d-tilt small{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.14em;color:var(--mut);text-transform:uppercase;}
+
+  /* 06 hold to confirm */
+  .d-hold{--p:0;position:relative;font:inherit;font-size:13px;padding:13px 28px;border-radius:999px;border:1px solid #ded9fa;color:var(--ink);
+    background:linear-gradient(90deg,rgba(143,127,240,.38) calc(var(--p)*1%),transparent calc(var(--p)*1%)) #fff;
+    cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:none;}
+  .d-hold.done{background:#6a58e0;color:#fff;border-color:#6a58e0;}
+
+  /* ---- scroll-reveal motion (hero-matched easing) ---- */
+  .rv{opacity:0;transform:translateY(38px);filter:blur(7px);
+      transition:opacity .95s cubic-bezier(.22,1,.36,1),transform .95s cubic-bezier(.22,1,.36,1),filter .95s ease;}
+  .rv.in{opacity:1;transform:translateY(0);filter:blur(0);}
+  .rv-vis{transform:translateY(46px) scale(.965);}
+  .rv-vis.in{transform:translateY(0) scale(1);}
+  .rv-d1{transition-delay:.1s}.rv-d2{transition-delay:.2s}.rv-d3{transition-delay:.3s}
+  @media (prefers-reduced-motion:reduce){.rv{opacity:1;transform:none;filter:none;transition:none;}}
+
+  /* case-study link */
+  .case-link{
+    display:inline-flex;align-items:center;gap:10px;margin-top:26px;
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;text-decoration:none;color:var(--ink);
+    border-bottom:1px solid var(--lav);padding-bottom:6px;
+    transition:color .3s ease,border-color .3s ease;
+  }
+  .case-link span{transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  .case-link:hover{color:#6a58e0;border-color:#6a58e0;}
+  .case-link:hover span{transform:translateX(6px);}
+
+  /* mockup hover: gentle float, like the blob's idle drift */
+  .shot{transition:transform .6s cubic-bezier(.22,1,.36,1), box-shadow .6s ease;}
+  .case-visual:hover .shot{transform:translateY(-8px) rotate(-.35deg);}
+  .shot::after{
+    content:"";position:absolute;inset:0;pointer-events:none;border-radius:20px;
+    background:linear-gradient(115deg,transparent 42%,rgba(255,255,255,.35) 50%,transparent 58%);
+    background-size:260% 100%;background-position:120% 0;transition:background-position 1.1s ease;
+  }
+  .case-visual:hover .shot::after{background-position:-120% 0;}
+
+  /* ---- mockup panels (original, dither-flavoured) ---- */
+  .shot{
+    position:relative;border:1px solid #e7e4f6;border-radius:20px;overflow:hidden;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(143,127,240,.16) 1px, transparent 1.6px),
+      linear-gradient(150deg,#f7f5ff 0%,#efecfc 100%);
+    background-size:11px 11px, cover;
+    padding:34px;min-height:420px;display:flex;align-items:center;justify-content:center;
+  }
+  /* ---- case FX canvases (abstract dithered illustrations) ---- */
+  .fx-wrap{
+    position:relative;width:100%;aspect-ratio:4/3;border-radius:14px;overflow:hidden;
+    background:#fff;border:1px solid #e7e4f6;
+    box-shadow:0 24px 60px -30px rgba(64,52,150,.28);
+  }
+  .fx-wrap canvas{display:block;width:100%;height:100%;}
+  .fx-tag{
+    position:absolute;left:14px;bottom:12px;
+    font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.14em;
+    color:#b7b2cc;text-transform:uppercase;pointer-events:none;
+  }
+  .panel{
+    background:#fff;border:1px solid #e7e4f6;border-radius:14px;
+    box-shadow:0 24px 60px -30px rgba(64,52,150,.28);
+    width:100%;overflow:hidden;
+  }
+  .panel .bar{display:flex;gap:6px;padding:10px 14px;border-bottom:1px solid #f0eef9;}
+  .panel .bar i{width:8px;height:8px;border-radius:50%;background:#e3dff6;}
+  .skel{background:#eceaf6;border-radius:6px;}
+  .btn-mock{background:var(--ink);color:#fff;border-radius:999px;font-size:11px;padding:9px 18px;display:inline-block;letter-spacing:.02em;}
+  .pill{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.06em;border-radius:999px;padding:4px 10px;text-transform:uppercase;}
+  .pill.ok{background:#e9f7ef;color:#2e9e5b;}
+  .pill.due{background:#f2f0fd;color:var(--lav);}
+  .pill.warn{background:#fdf3e7;color:#d08a2e;}
+
+  /* viewryt */
+  .vr-hero{display:grid;grid-template-columns:1.2fr .8fr;gap:20px;padding:22px;align-items:center;}
+  .vr-bottle{
+    width:74px;height:132px;margin:0 auto;border-radius:16px 16px 20px 20px;position:relative;
+    background:
+      radial-gradient(circle at 1px 1px, rgba(255,255,255,.5) 1px, transparent 1.6px),
+      linear-gradient(160deg,#8f7ff0,#b7aef7);
+    background-size:7px 7px, cover;
+  }
+  .vr-bottle::before{content:"";position:absolute;top:-16px;left:50%;transform:translateX(-50%);width:34px;height:18px;border-radius:6px 6px 0 0;background:var(--ink);}
+  .vr-bottle::after{
+    content:"ViewRyt";position:absolute;inset:auto 8px 14px;background:#fff;border-radius:6px;
+    font-size:9px;font-weight:600;text-align:center;padding:14px 0;color:var(--ink);letter-spacing:.06em;
+  }
+  .ab{display:grid;grid-template-columns:1fr 1fr;gap:12px;padding:0 22px 22px;}
+  .ab .cell{border:1px solid #f0eef9;border-radius:10px;padding:14px;}
+  .ab .cell small{font-family:ui-monospace,Menlo,monospace;font-size:9.5px;letter-spacing:.1em;color:var(--mut);display:block;margin-bottom:8px;}
+  .ab .track{height:8px;border-radius:99px;background:#f0eef9;overflow:hidden;}
+  .ab .fill{height:100%;width:0;border-radius:99px;background:#d9d4f5;transition:width 1.25s cubic-bezier(.22,1,.36,1) .45s;}
+  .ab .b .fill{background:var(--lav);transition-delay:.6s;}
+  .case-visual.in .ab .fill{width:var(--w);}
+  .ab b{font-size:15px;display:block;margin-top:8px;}
+
+  /* dentomate */
+  .dm{display:grid;grid-template-columns:120px 1fr;min-height:300px;}
+  .dm-side{border-right:1px solid #f0eef9;padding:16px 14px;display:flex;flex-direction:column;gap:12px;}
+  .dm-side .skel{height:9px;}
+  .dm-main{padding:16px;}
+  .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px;}
+  .kpi{border:1px solid #f0eef9;border-radius:10px;padding:12px;}
+  .kpi small{font-family:ui-monospace,Menlo,monospace;font-size:8.5px;letter-spacing:.08em;color:var(--mut);display:block;text-transform:uppercase;}
+  .kpi b{font-size:16px;}
+  .bars{display:flex;align-items:flex-end;gap:8px;height:86px;border-bottom:1px solid #f0eef9;padding-bottom:2px;margin-bottom:14px;}
+  .bars i{flex:1;height:0;background:linear-gradient(#b7aef7,#8f7ff0);border-radius:4px 4px 0 0;transition:height 1s cubic-bezier(.22,1,.36,1);}
+  .bars i:nth-child(2){transition-delay:.07s}.bars i:nth-child(3){transition-delay:.14s}
+  .bars i:nth-child(4){transition-delay:.21s}.bars i:nth-child(5){transition-delay:.28s}
+  .bars i:nth-child(6){transition-delay:.35s}.bars i:nth-child(7){transition-delay:.42s}
+  .case-visual.in .bars i{height:var(--h);}
+  .row{display:flex;justify-content:space-between;align-items:center;padding:9px 2px;border-bottom:1px solid #f6f5fc;font-size:11.5px;color:var(--ink);}
+  .row .skel{width:90px;height:8px;}
+
+  /* irbs phone */
+  .phone{
+    width:250px;border-radius:30px;border:1px solid #e7e4f6;background:#fff;overflow:hidden;
+    box-shadow:0 24px 60px -30px rgba(64,52,150,.3);
+  }
+  .ph-top{display:flex;justify-content:space-between;font-family:ui-monospace,Menlo,monospace;font-size:9px;color:var(--mut);padding:12px 16px 8px;}
+  .ph-head{padding:6px 16px 12px;}
+  .ph-head b{font-size:14.5px;letter-spacing:-.01em;}
+  .ph-head small{display:block;font-size:10px;color:var(--mut);margin-top:2px;}
+  .tabs{display:flex;gap:6px;padding:0 16px 12px;}
+  .tab{font-size:10px;padding:6px 12px;border-radius:999px;border:1px solid #f0eef9;color:var(--mut);}
+  .tab.on{background:var(--ink);color:#fff;border-color:var(--ink);}
+  .slot{margin:0 16px 10px;border:1px solid #f0eef9;border-radius:12px;padding:12px;}
+  .slot .t{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;font-weight:600;}
+  .slot small{display:block;font-size:9.5px;color:var(--mut);margin-top:4px;}
+  .ph-nav{display:flex;justify-content:space-around;border-top:1px solid #f0eef9;padding:12px 0;margin-top:6px;}
+  .ph-nav i{width:16px;height:16px;border-radius:5px;background:#eceaf6;}
+  .ph-nav i.on{background:var(--lav);}
+
+  /* ---- about ---- */
+  .about-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:64px;border-top:1px solid #eceaf6;padding-top:64px;}
+  .about-grid p{color:var(--mut);font-size:18px;line-height:1.72;margin-bottom:18px;}
+  .about-grid p strong{color:var(--ink);font-weight:600;}
+  .skills h4{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.18em;color:var(--lav);text-transform:uppercase;margin:26px 0 14px;}
+  .skills h4:first-child{margin-top:0;}
+  .taglist{display:flex;flex-wrap:wrap;gap:8px;}
+
+  /* ---- contact ---- */
+  #contact{padding-bottom:0;}
+  .contact-inner{border-top:1px solid #eceaf6;padding:110px 0 90px;text-align:center;}
+  .contact-inner h2{font-size:clamp(34px,5vw,72px);letter-spacing:-.035em;font-weight:600;line-height:1.05;max-width:16ch;margin:18px auto 30px;}
+  .contact-inner h2 em{color:var(--lav);font-style:italic;font-weight:500;}
+  .contact-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+  .contact-actions a{
+    text-decoration:none;font-size:14px;padding:16px 32px;border-radius:999px;letter-spacing:.02em;
+    transition:transform .25s ease, background .25s ease, color .25s ease;
+  }
+  .contact-actions .primary{background:var(--ink);color:#fff;}
+  .contact-actions .primary:hover{background:var(--lav);transform:translateY(-2px);}
+  .contact-actions .ghost{border:1px solid #e0dcf4;color:var(--ink);}
+  .contact-actions .ghost:hover{border-color:var(--lav);color:var(--lav);}
+  footer{
+    display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;
+    font-family:ui-monospace,Menlo,monospace;font-size:10.5px;letter-spacing:.12em;color:var(--mut);
+    border-top:1px solid #eceaf6;padding:26px 0 30px;text-transform:uppercase;
+  }
+
+  @media (max-width:900px){
+    .case{grid-template-columns:1fr;gap:36px;padding:64px 0;}
+    .case.flip .case-visual{order:0;}
+    .about-grid{grid-template-columns:1fr;gap:40px;}
+    .metrics{flex-wrap:wrap;gap:22px;}
+    .lab{grid-template-columns:repeat(2,1fr);}
+  }
+  @media (max-width:560px){
+    .lab{grid-template-columns:1fr;}
+  }
+  @media (max-width:640px){
+    nav{padding:20px 22px}
+    .hero{padding:0 22px}
+    .meta-row{left:22px;right:22px}
+    .wrap{padding:0 22px}
+    section{padding:80px 0 20px}
+    .shot{padding:20px;min-height:340px}
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<nav>
+  <div class="logo">Ravindra&nbsp;Pratap<span style="color:var(--lav)">.</span></div>
+  <div class="mono">DESIGN ENGINEER — PORTFOLIO ’26</div>
+  <div class="links">
+    <a href="#work">Work</a><a href="#craft">Craft</a><a href="#about">About</a><a href="#contact">Contact</a>
+  </div>
+</nav>
+
+<div class="hero" id="hero">
+  <div class="eyebrow">Dither · Motion · Conversion</div>
+  <h1>Hi, I’m Ravindra.<br/>I make designs that <span class="convert">convert.</span></h1>
+  <div class="sub">Design engineer crafting interfaces, motion and landing pages that turn attention into action.</div>
+</div>
+
+<div class="cta" id="cta">
+  <div class="mono">Selected Work</div>
+  <h2>Attention is earned in pixels, converted in flows.</h2>
+  <a href="#work">View case studies ↓</a>
+</div>
+
+<div class="meta-row">
+  <div class="scrollhint"><span class="bar"></span> SCROLL TO MORPH</div>
+  <div id="coord">θ 0.00 — DITHER/ASCII ENGINE v1</div>
+</div>
+
+<div id="runway"></div>
+
+<main id="content">
+
+  <!-- ================= SELECTED WORK ================= -->
+  <section id="work">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <h2>Selected work</h2>
+        <div class="mono-label">01 — Case Studies</div>
+      </div>
+      <p class="sec-intro rv rv-d1">Three projects, three different problems — a D2C funnel taken from loss to profit with design alone, a SaaS platform I founded for Indian dental clinics, and a booking system an IIT campus uses every day.</p>
+
+      <!-- ViewRyt -->
+      <article class="case" id="viewryt">
+        <div class="case-info rv">
+          <div class="case-idx">CS/01 — THE AYURVEDA EXPERIENCE</div>
+          <h3>ViewRyt — a redesign that made design's ROI undeniable</h3>
+          <div class="chips">
+            <span class="chip">CRO</span><span class="chip">Landing Page</span><span class="chip">Solo Designer</span><span class="chip">D2C · US Market</span>
+          </div>
+          <p>A D2C supplement landing page for the US market was losing money on ads. I rebuilt it with <strong>identical copy</strong>, so design was the only variable — and turned it profitable.</p>
+          <div class="metrics">
+            <div class="metric"><b data-count="222" data-pre="+" data-suf="%">+0%</b><span>Conversion rate</span><i>1.44% → 4.65%</i></div>
+            <div class="metric"><b data-count="314" data-pre="+" data-suf="%">+0%</b><span>Earnings / visitor</span><i>$0.36 → $1.50</i></div>
+            <div class="metric"><b data-count="1.06" data-dec="2">0</b><span>ROAS — profitable</span><i>from 0.32</i></div>
+          </div>
+          <a class="case-link" href="https://heyrav.in/case-viewryt.html">Read the case study <span>→</span></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="shot">
+            <div class="fx-wrap">
+              <canvas class="fx" data-fx="eye"></canvas>
+              <span class="fx-tag">FX/01 — EYE · RAYMARCHED SDF</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Dentomate -->
+      <article class="case flip" id="dentomate">
+        <div class="case-info rv">
+          <div class="case-idx">CS/02 — FOUNDER · 0 → 1</div>
+          <h3>Dentomate — killing the "WhatsApp tax" for Indian dental clinics</h3>
+          <div class="chips">
+            <span class="chip">SaaS Platform</span><span class="chip">Design + Build</span><span class="chip">Patient Retention</span>
+          </div>
+          <p>A SaaS platform I <strong>founded, designed and built</strong> to end the ₹6–15k/month "WhatsApp tax" Indian dental clinics pay to message patients — and bring them back automatically.</p>
+          <div class="metrics">
+            <div class="metric"><b data-count="200" data-suf="+">0</b><span>Clinics onboard</span><i>across India</i></div>
+            <div class="metric"><b data-count="30" data-pre="+" data-suf="%">+0%</b><span>Returning patients</span><i>90-day pilot data</i></div>
+            <div class="metric"><b data-count="8" data-pre="₹" data-suf="k">₹0</b><span>Saved / clinic / mo</span><i>avg. cost reduction</i></div>
+          </div>
+          <a class="case-link" href="https://heyrav.in/case-dentomate.html">Read the case study <span>→</span></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="shot">
+            <div class="fx-wrap">
+              <canvas class="fx" data-fx="tooth"></canvas>
+              <span class="fx-tag">FX/02 — DENTAL CAST · RAYMARCHED SDF</span>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- IRBS -->
+      <article class="case" id="irbs">
+        <div class="case-info rv">
+          <div class="case-idx">CS/03 — IIT GUWAHATI · ONESTOP APP</div>
+          <h3>IRBS — room booking for a 7,000-student campus</h3>
+          <div class="chips">
+            <span class="chip">Design Lead</span><span class="chip">Mobile UX</span><span class="chip">User Research</span><span class="chip">Shipped Live</span>
+          </div>
+          <p>A <strong>three-step room-booking flow</strong> I researched and designed for IIT Guwahati's OneStop app, replacing a broken legacy portal. Live for the campus since September 2023.</p>
+          <div class="metrics">
+            <div class="metric"><b data-count="15" data-suf="+">0</b><span>Clubs onboarded</span><i>NEW SAC facilities</i></div>
+            <div class="metric"><b data-count="200" data-suf="+">0</b><span>Students daily</span><i>since Sept 2023</i></div>
+            <div class="metric"><b data-count="3" data-suf=" steps">0</b><span>To book a room</span><i>room · time · purpose</i></div>
+          </div>
+          <a class="case-link" href="https://heyrav.in/case-irbs.html">Read the case study <span>→</span></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="shot">
+            <div class="fx-wrap">
+              <canvas class="fx" data-fx="rooms"></canvas>
+              <span class="fx-tag">FX/03 — ROOM GRID · ISO OCCUPANCY</span>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= CRAFT ================= -->
+  <section id="craft">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <h2>Craft <em>lab</em></h2>
+        <div class="mono-label">02 — Interaction Studies</div>
+      </div>
+      <p class="sec-intro rv rv-d1">Small interface experiments — the details I obsess over between projects. Everything below is live: hover, press, drag, hold.</p>
+      <div class="lab">
+        <div class="tile rv">
+          <div class="stage"><button class="d-btn" type="button"><i></i><span>Hover me</span></button></div>
+          <div class="cap"><b>Dithered fill</b><span>Button study</span></div>
+        </div>
+        <div class="tile rv rv-d1">
+          <div class="stage"><button class="d-mag" type="button">Magnetic</button></div>
+          <div class="cap"><b>Magnetic pull</b><span>Cursor physics</span></div>
+        </div>
+        <div class="tile rv rv-d2">
+          <div class="stage"><button class="d-toggle" type="button" aria-pressed="false" aria-label="Dither toggle"><i></i></button></div>
+          <div class="cap"><b>Dither toggle</b><span>State change</span></div>
+        </div>
+        <div class="tile rv">
+          <div class="stage"><a class="d-scramble" data-text="designs that convert">designs that convert</a></div>
+          <div class="cap"><b>Glyph scramble</b><span>Hero ASCII set</span></div>
+        </div>
+        <div class="tile rv rv-d1">
+          <div class="stage"><div class="d-tilt"><b>4.65%</b><small>CVR — NLP8</small></div></div>
+          <div class="cap"><b>Glare tilt</b><span>3D card</span></div>
+        </div>
+        <div class="tile rv rv-d2">
+          <div class="stage"><button class="d-hold" type="button"><span>Hold to confirm</span></button></div>
+          <div class="cap"><b>Hold to confirm</b><span>Commitment UI</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= ABOUT ================= -->
+  <section id="about">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <h2>About</h2>
+        <div class="mono-label">03 — Who I Am</div>
+      </div>
+      <div class="about-grid">
+        <div class="rv">
+          <p><strong>I sit where design meets code meets revenue.</strong> Two years in, I've shipped work across the full stack of persuasion — pixel-level interface craft, motion that guides attention, and the funnel math that tells you whether any of it worked.</p>
+          <p>Most designers stop at the mockup. I prototype in code, ship the real thing, then instrument it — because a design isn't finished when it looks right, it's finished when the number moves.</p>
+          <p>Currently open to <strong>product design and design-engineering roles</strong> with teams that care about craft and outcomes in equal measure.</p>
+        </div>
+        <div class="skills rv rv-d1">
+          <h4>Design</h4>
+          <div class="taglist"><span class="chip">Figma</span><span class="chip">UX / UI</span><span class="chip">Interaction</span><span class="chip">Design systems</span></div>
+          <h4>Engineering</h4>
+          <div class="taglist"><span class="chip">React</span><span class="chip">Three.js / GLSL</span><span class="chip">Tailwind</span><span class="chip">Framer Motion</span></div>
+          <h4>Growth</h4>
+          <div class="taglist"><span class="chip">CRO</span><span class="chip">A/B testing</span><span class="chip">Landing pages</span><span class="chip">Analytics</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONTACT ================= -->
+  <section id="contact">
+    <div class="wrap">
+      <div class="contact-inner rv">
+        <div class="mono-label">04 — Contact</div>
+        <h2>Have a number that needs <em>moving?</em></h2>
+        <div class="contact-actions">
+          <a class="primary" href="mailto:singhravindrapratap812@gmail.com">Email me →</a>
+          <a class="ghost" href="https://x.com/RavindraPatap" target="_blank" rel="noopener">X / @RavindraPatap</a>
+        </div>
+      </div>
+      <footer>
+        <span>© 2026 Ravindra Pratap</span>
+        <span>Design Engineer — India · Remote</span>
+        <span>Built with Three.js + GLSL</span>
+      </footer>
+    </div>
+  </section>
+
+</main>
+
+<canvas id="gl"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =============================================================
+   Dither + ASCII + Motion hero — scroll-driven raymarched blob
+   Aesthetic ref: soft lavender organic forms, ordered-dither
+   grain, subtle ASCII glyphs, clean white canvas.
+============================================================= */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 0.55));
+renderer.setSize(innerWidth, innerHeight);
+
+/* ---- ASCII glyph atlas (drawn at runtime) ---- */
+const CHARS = " .·:-~=+*x%@";
+const cell = 64;
+const atlasCanvas = document.createElement('canvas');
+atlasCanvas.width = cell * CHARS.length;
+atlasCanvas.height = cell;
+const actx = atlasCanvas.getContext('2d');
+actx.fillStyle = '#ffffff';
+actx.fillRect(0,0,atlasCanvas.width,atlasCanvas.height);
+actx.fillStyle = '#000000';
+actx.font = '700 46px ui-monospace, Menlo, monospace';
+actx.textAlign = 'center';
+actx.textBaseline = 'middle';
+for(let i=0;i<CHARS.length;i++){
+  actx.fillText(CHARS[i], i*cell + cell/2, cell/2 + 2);
+}
+const atlasTex = new THREE.CanvasTexture(atlasCanvas);
+atlasTex.minFilter = THREE.LinearFilter;
+atlasTex.magFilter = THREE.LinearFilter;
+atlasTex.wrapS = atlasTex.wrapT = THREE.ClampToEdgeWrapping;
+
+/* ---- fullscreen shader ---- */
+const uniforms = {
+  uTime:   {value:0},
+  uScroll: {value:0},
+  uRes:    {value:new THREE.Vector2(innerWidth*renderer.getPixelRatio(), innerHeight*renderer.getPixelRatio())},
+  uAtlas:  {value:atlasTex},
+  uNChars: {value:CHARS.length}
+};
+
+const frag = /* glsl */`
+precision highp float;
+uniform float uTime;
+uniform float uScroll;
+uniform vec2  uRes;
+uniform sampler2D uAtlas;
+uniform float uNChars;
+
+/* ---- ordered dithering (recursive Bayer) ---- */
+float Bayer2(vec2 a){ a = floor(a); return fract(a.x/2.0 + a.y*a.y*0.75); }
+float Bayer4(vec2 a){ return Bayer2(0.5*a)*0.25 + Bayer2(a); }
+float Bayer8(vec2 a){ return Bayer4(0.5*a)*0.25 + Bayer2(a); }
+
+/* ---- sdf helpers ---- */
+float smin(float a, float b, float k){
+  float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+  return mix(b, a, h) - k*h*(1.0-h);
+}
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+
+float map(vec3 p){
+  /* scroll drives the choreography; tiny idle drift keeps it alive */
+  float t = uScroll*7.0 + uTime*0.08;
+
+  p.xz *= rot(uScroll*3.6 + uTime*0.05);
+  p.xy *= rot(uScroll*1.4);
+
+  /* gentle breathing stretch as you scroll */
+  p.y *= 1.0 - 0.25*sin(uScroll*3.14159);
+
+  float d = length(p - vec3(0.0, 0.18*sin(t), 0.0)) - 0.82;
+
+  vec3 q1 = p - vec3(0.95*sin(t*0.7+1.0), 0.55*cos(t*0.5), 0.35*sin(t*0.4));
+  d = smin(d, length(q1) - 0.55, 0.52);
+
+  vec3 q2 = p - vec3(-0.85*cos(t*0.6), 0.62*sin(t*0.8+2.0), -0.25*cos(t*0.3));
+  d = smin(d, length(q2) - 0.48, 0.52);
+
+  vec3 q3 = p - vec3(0.25*sin(t*0.9+4.0), -0.72 + 0.2*sin(t*1.1), 0.55*cos(t*0.7));
+  d = smin(d, length(q3) - (0.42 + 0.12*uScroll), 0.46);
+
+  /* petal that unfurls with scroll */
+  vec3 q4 = p - vec3(0.0, 0.9*uScroll, -0.4*uScroll);
+  q4.x *= 1.0/(1.0 + 1.4*uScroll);
+  d = smin(d, length(q4) - 0.38, 0.5);
+
+  /* surface ripple detail */
+  d += 0.015*sin(9.0*p.x + t*2.0)*sin(8.0*p.y - t)*sin(7.0*p.z);
+  return d;
+}
+
+vec3 calcNormal(vec3 p){
+  vec2 e = vec2(0.0015, 0.0);
+  return normalize(vec3(
+    map(p+e.xyy)-map(p-e.xyy),
+    map(p+e.yxy)-map(p-e.yxy),
+    map(p+e.yyx)-map(p-e.yyx)
+  ));
+}
+
+void main(){
+  vec2 frag = gl_FragCoord.xy;
+  vec2 uv = (frag - 0.5*uRes)/uRes.y;
+
+  /* camera pushes in mid-scroll, then recedes for the closing act */
+  float zoom = 3.55 - 1.0*sin(uScroll*3.14159) + 0.9*smoothstep(0.72, 1.0, uScroll);
+  vec3 ro = vec3(0.0, 0.0, zoom);
+  vec3 rd = normalize(vec3(uv, -1.65));
+
+  float lum = 1.0;           /* white background */
+  float hit = 0.0;
+  float dTravel = 0.0;
+  vec3 pos;
+  for(int i=0;i<48;i++){
+    pos = ro + rd*dTravel;
+    float d = map(pos);
+    if(d < 0.002){ hit = 1.0; break; }
+    dTravel += d;
+    if(dTravel > 9.0) break;
+  }
+
+  if(hit > 0.5){
+    vec3 n = calcNormal(pos);
+    vec3 l = normalize(vec3(0.5, 0.9, 0.65));
+    float dif  = clamp(dot(n,l)*0.5 + 0.5, 0.0, 1.0);
+    float fres = pow(1.0 - max(dot(n, -rd), 0.0), 2.2);
+    lum = clamp(dif*0.82 + fres*0.42, 0.0, 1.0);
+    /* lift overall so the form stays airy/pale like the ref */
+    lum = pow(lum, 0.75);
+  }
+
+  /* ---- ordered dither quantisation ---- */
+  float grain = 2.0 * (uRes.y/1000.0);          /* dither pixel size */
+  float bay = Bayer8(frag/grain) - 0.5;
+  float steps = 5.0;
+  float q = clamp(floor(lum*steps + bay)/(steps-1.0), 0.0, 1.0);
+
+  /* lavender palette: deep -> pale -> paper */
+  vec3 deep  = vec3(0.545, 0.480, 0.930);
+  vec3 pale  = vec3(0.875, 0.855, 0.985);
+  vec3 paper = vec3(1.0);
+  vec3 col;
+  if(hit > 0.5){
+    col = mix(deep, pale, q);
+    col = mix(col, paper, smoothstep(0.92, 1.0, q));
+  } else {
+    col = paper;
+  }
+
+  /* ---- subtle ASCII glyph layer in the mid-tones ---- */
+  if(hit > 0.5){
+    float cellPx = 11.0 * (uRes.y/1000.0);
+    vec2 cuv = fract(frag/cellPx);
+    float idx = floor((1.0-lum) * (uNChars-1.0) + 0.5);
+    vec2 auv = vec2((idx + cuv.x)/uNChars, cuv.y);
+    float glyph = 1.0 - texture2D(uAtlas, auv).r;   /* 1 where character ink */
+    float band = smoothstep(0.15, 0.35, lum) * (1.0 - smoothstep(0.75, 0.95, lum));
+    col = mix(col, deep*0.75, glyph * band * 0.38);
+  }
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+const mat = new THREE.ShaderMaterial({
+  fragmentShader: frag,
+  vertexShader: `void main(){ gl_Position = vec4(position,1.0); }`,
+  uniforms
+});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
+
+/* ---- scroll choreography ---- */
+let targetScroll = 0, smoothScroll = 0, lastT = 0;
+/* debug: force a scroll phase with ?s=0.75 */
+const forcedScroll = parseFloat(new URLSearchParams(location.search).get('s'));
+function readScroll(){
+  /* the morph lives inside the runway only; sections scroll over it after */
+  const max = document.getElementById('runway').offsetHeight - innerHeight;
+  targetScroll = max > 0 ? Math.min(scrollY / max, 1) : 0;
+}
+addEventListener('scroll', readScroll, {passive:true});
+readScroll();
+
+const hero = document.getElementById('hero');
+const cta = document.getElementById('cta');
+const progress = document.getElementById('progress');
+const coord = document.getElementById('coord');
+
+const clock = new THREE.Clock();
+function frame(){
+  const now = clock.getElapsedTime();
+  const dt = Math.min(now - lastT, 0.5);
+  lastT = now;
+  smoothScroll += (targetScroll - smoothScroll) * (1 - Math.exp(-dt * 6.0));
+  if (!isNaN(forcedScroll)) smoothScroll = forcedScroll;
+  uniforms.uScroll.value = smoothScroll;
+  uniforms.uTime.value = now;
+
+  /* headline: parallax up + fade in the second act */
+  const p = smoothScroll;
+  const fadeOut = Math.min(Math.max((p - 0.38) / 0.3, 0), 1);
+  hero.style.transform = `translateY(${ -p * 220 }px)`;
+  hero.style.opacity = 1 - fadeOut;
+
+  /* CTA: final act */
+  const ctaIn = Math.min(Math.max((p - 0.72) / 0.22, 0), 1);
+  cta.style.opacity = ctaIn;
+  cta.style.transform = `translateY(${ (1 - ctaIn) * 60 }px)`;
+
+  document.querySelector('.scrollhint').style.opacity = Math.max(1 - p*1.6, 0);
+  progress.style.width = (p * 100) + '%';
+  coord.textContent = 'θ ' + p.toFixed(2) + ' — DITHER/ASCII ENGINE v1';
+
+  /* fade the fixed hero chrome once the sections take over */
+  const runwayEnd = document.getElementById('runway').offsetHeight - innerHeight;
+  const over = Math.min(Math.max((scrollY - runwayEnd + 60) / 220, 0), 1);
+  document.querySelector('.meta-row').style.opacity = (1 - over) * Math.max(1 - p*0.2, 0);
+  cta.style.pointerEvents = over > 0.5 ? 'none' : '';
+
+  renderer.render(scene, cam);
+  requestAnimationFrame(frame);
+}
+frame();
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  uniforms.uRes.value.set(innerWidth*renderer.getPixelRatio(), innerHeight*renderer.getPixelRatio());
+  readScroll();
+});
+
+/* =============================================================
+   Section motion — scroll reveals + metric count-ups
+   (cheap CSS/JS, matches the hero's easing language)
+============================================================= */
+function countUp(el){
+  const target = parseFloat(el.dataset.count);
+  const dec = parseInt(el.dataset.dec || 0, 10);
+  const pre = el.dataset.pre || '';
+  const suf = el.dataset.suf || '';
+  const dur = 1500;
+  const t0 = performance.now();
+  function tick(now){
+    const k = Math.min((now - t0) / dur, 1);
+    const e = 1 - Math.pow(1 - k, 3);           /* easeOutCubic */
+    el.textContent = pre + (target * e).toFixed(dec) + suf;
+    if(k < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(en => {
+    if(!en.isIntersecting) return;
+    en.target.classList.add('in');
+    en.target.querySelectorAll('b[data-count]').forEach(countUp);
+    io.unobserve(en.target);
+  });
+}, {threshold: 0.18, rootMargin: '0px 0px -8% 0px'});
+document.querySelectorAll('.rv').forEach(el => io.observe(el));
+
+/* =============================================================
+   Craft lab — interaction studies (event-driven, no idle loops)
+============================================================= */
+/* magnetic pull */
+document.querySelectorAll('.d-mag').forEach(btn => {
+  const zone = btn.closest('.stage');
+  zone.addEventListener('mousemove', e => {
+    const r = btn.getBoundingClientRect();
+    const dx = e.clientX - (r.left + r.width/2), dy = e.clientY - (r.top + r.height/2);
+    btn.style.transform = `translate(${dx*0.28}px, ${dy*0.28}px)`;
+  });
+  zone.addEventListener('mouseleave', () => { btn.style.transform = ''; });
+});
+
+/* dither toggle */
+document.querySelectorAll('.d-toggle').forEach(t => t.addEventListener('click', () => {
+  t.classList.toggle('on');
+  t.setAttribute('aria-pressed', t.classList.contains('on'));
+}));
+
+/* glyph scramble — same glyph ramp as the hero engine */
+const GLYPHS = ".·:-~=+*x%@";
+document.querySelectorAll('.d-scramble').forEach(el => {
+  const orig = el.dataset.text; let timer = null;
+  el.addEventListener('mouseenter', () => {
+    let frame = 0; clearInterval(timer);
+    timer = setInterval(() => {
+      frame++;
+      el.textContent = orig.split('').map((ch,i) =>
+        i < frame ? ch : (ch === ' ' ? ' ' : GLYPHS[(Math.random()*GLYPHS.length)|0])
+      ).join('');
+      if (frame >= orig.length){ clearInterval(timer); el.textContent = orig; }
+    }, 26);
+  });
+});
+
+/* glare tilt */
+document.querySelectorAll('.d-tilt').forEach(card => {
+  card.addEventListener('mousemove', e => {
+    const r = card.getBoundingClientRect();
+    const x = (e.clientX - r.left)/r.width, y = (e.clientY - r.top)/r.height;
+    card.style.setProperty('--rx', ((.5 - y)*14).toFixed(2)+'deg');
+    card.style.setProperty('--ry', ((x - .5)*14).toFixed(2)+'deg');
+    card.style.setProperty('--mx', (x*100).toFixed(1)+'%');
+  });
+  card.addEventListener('mouseleave', () => {
+    card.style.setProperty('--rx','0deg'); card.style.setProperty('--ry','0deg');
+  });
+});
+
+/* hold to confirm */
+document.querySelectorAll('.d-hold').forEach(btn => {
+  let p = 0, raf = null, dir = 0;
+  const label = btn.querySelector('span');
+  const step = () => {
+    p = Math.max(0, Math.min(100, p + dir));
+    btn.style.setProperty('--p', p);
+    if (p >= 100){ btn.classList.add('done'); label.textContent = 'Confirmed ✓'; dir = 0; return; }
+    if (p <= 0 && dir < 0){ dir = 0; return; }
+    raf = requestAnimationFrame(step);
+  };
+  const reset = () => { btn.classList.remove('done'); p = 0; btn.style.setProperty('--p', 0); label.textContent = 'Hold to confirm'; };
+  btn.addEventListener('pointerdown', e => {
+    e.preventDefault();
+    if (btn.classList.contains('done')) return reset();
+    dir = 2.2; cancelAnimationFrame(raf); raf = requestAnimationFrame(step);
+  });
+  const release = () => {
+    if (btn.classList.contains('done')) return;
+    dir = -3.5; cancelAnimationFrame(raf); raf = requestAnimationFrame(step);
+  };
+  btn.addEventListener('pointerup', release);
+  btn.addEventListener('pointerleave', release);
+});
+
+/* =============================================================
+   Case FX — abstract dithered GLSL illustrations
+   (eye · tooth · room grid, same Bayer palette as the hero)
+============================================================= */
+(function(){
+  const canvases = document.querySelectorAll('canvas.fx');
+  if (!canvases.length || !window.THREE) return;
+
+  const HEAD = `
+    precision highp float;
+    uniform float t; uniform vec2 r;
+    float Bayer2(vec2 a){a=floor(a);return fract(a.x/2.+a.y*a.y*.75);}
+    float Bayer4(vec2 a){return Bayer2(.5*a)*.25+Bayer2(a);}
+    float Bayer8(vec2 a){return Bayer4(.5*a)*.25+Bayer2(a);}
+    mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+    float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
+    float sdCap(vec3 p,vec3 a,vec3 b,float rr){vec3 pa=p-a,ba=b-a;float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.);return length(pa-ba*h)-rr;}
+    float sdBox(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
+    float hash(vec2 v){return fract(sin(dot(v,vec2(12.9898,78.233)))*43758.5453);}
+    /* hero-matched ordered-dither quantisation: deep -> pale -> paper */
+    vec3 dith(float lum,float hit){
+      float grain=max(r.y/260.,1.6);
+      float bay=Bayer8(gl_FragCoord.xy/grain)-.5;
+      float q=clamp(floor(lum*5.+bay)/4.,0.,1.);
+      vec3 col=mix(vec3(.545,.48,.93),vec3(.875,.855,.985),q);
+      col=mix(col,vec3(1.),smoothstep(.92,1.,q));
+      return mix(vec3(1.),col,clamp(hit,0.,1.));
+    }`;
+
+  /* central-difference normals — appended after each fx's map() */
+  const NORM = `
+    vec3 calcN(vec3 p){
+      vec2 e=vec2(.004,0.);
+      return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));
+    }`;
+
+  const FX = {
+    /* raymarched eyeball — drifting gaze, eyelid-mask blink, wet specular, soft ground shadow */
+    eye: `
+      float map(vec3 p){
+        return length(p)-1.;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        float wob=.05*sin(t*.27);
+        vec3 ro=vec3(0.,.08,3.05); ro.xz*=rot(wob);
+        vec3 rd=normalize(vec3(uv,-3.)); rd.xz*=rot(wob);
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<64;i++){pos=ro+rd*dt;float d=map(pos);if(d<.003){hit=1.;break;}dt+=d;if(dt>9.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.55,.85,.7));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),2.6);
+          lum=pow(clamp(dif*.8+fres*.34,0.,1.),.62);
+          /* iris + pupil painted on the gaze axis */
+          vec3 g=normalize(vec3(.16*sin(t*.33),.08*sin(t*.55+1.7),1.));
+          vec3 pn=normalize(pos);
+          float ang=acos(clamp(dot(pn,g),-1.,1.));
+          if(ang<.62){
+            vec3 u=normalize(cross(g,vec3(0.,1.,0.))),v=cross(u,g);
+            vec2 q=vec2(dot(pn,u),dot(pn,v));
+            float rad=ang/.55, a=atan(q.y,q.x);
+            float irisL=.46+.16*sin(a*24.+rad*5.)+.09*sin(a*7.-2.)+.08*sin(rad*24.);
+            irisL*=.35+.75*dif;
+            irisL-=.3*smoothstep(.72,1.,rad);
+            if(rad<.34) irisL=.05;
+            lum=mix(lum,clamp(irisL,0.,1.),smoothstep(1.12,.98,rad));
+          }
+          vec3 hv=normalize(l-rd);
+          lum+=pow(max(dot(n,hv),0.),70.)*1.2;
+          lum=clamp(lum,0.,1.);
+          /* eyelid mask — lids sweep in and blank the covered eyeball, structure untouched */
+          float b=pow(abs(sin(t*.4)),20.);
+          float lidY=pos.y+.16*pos.x*pos.x;
+          float top=mix(1.08,-.05,b), bot=mix(-1.08,-.15,b);
+          float m=clamp(smoothstep(top,top+.03,lidY)+smoothstep(bot,bot-.03,lidY),0.,1.);
+          lum=mix(lum,1.,m); hit*=1.-m;
+        } else {
+          float tp=(-1.5-ro.y)/rd.y;
+          if(tp>0.){
+            vec3 sp=ro+rd*tp;
+            float s=exp(-1.4*dot(sp.xz,sp.xz));
+            lum=1.-.42*s; hit=smoothstep(.03,.25,s);
+          }
+        }
+        gl_FragColor=vec4(dith(lum,hit),1.);
+      }`,
+    /* raymarched dental cast — upper + lower jaw arches with individual teeth,
+       mouth slightly open, slow turntable (ref: plaster study model photo) */
+    tooth: `
+      float jaw(vec3 p){
+        float R=.78;
+        float a=atan(p.x,p.z);
+        float rr=length(p.xz)-R;
+        /* gum ridge — torus segment */
+        float gum=length(vec2(rr,p.y-.12))-.125;
+        gum+=.012*sin(a*22.)*sin(p.y*30.);           /* plaster texture */
+        /* one tooth per angular cell along the arch */
+        float da=.24;
+        float ai=clamp(floor(a/da+.5),-5.,5.)*da;
+        float s=(a-ai)*R;
+        float h=hash(vec2(ai*10.,3.7));
+        float w=.055+.03*smoothstep(.3,1.2,abs(ai)); /* incisors narrow, molars wide */
+        float ht=.21+.05*h;
+        float mol=smoothstep(.5,1.2,abs(ai));        /* 0 front teeth, 1 molars */
+        vec3 q=vec3(s,p.y+ht*.5,rr);
+        q.x*=1.+.9*q.y;                              /* taper toward the tip */
+        float th=sdBox(q,vec3(w,ht*.5,.048+.014*mol))-.03;
+        th+=.012*mol*cos(q.x/w*3.14159);             /* molar cusp groove */
+        th-=.008*cos(q.y*16.);                       /* rounded crown belly */
+        th+=.006*smoothstep(.02,.09,q.y);            /* neck narrows into the gum */
+        float d=smin(gum,th,.035);
+        /* plaster base plate above the ridge */
+        float base=max(length(p.xz)-(R+.05),abs(p.y-.28)-.08);
+        d=smin(d,base,.07);
+        return max(d,-(p.z+.3));                     /* open the horseshoe at the back */
+      }
+      float map(vec3 p){
+        p.xz*=rot(.55*sin(t*.25));                   /* front-facing sway, no full spin */
+        p.yz*=rot(.5236);                            /* 30° macro tilt toward the lens */
+        float open=.3+.05*sin(t*.6);                 /* clearly open bite */
+        vec3 pu=p; pu.y-=open;                       /* upper arch, teeth down */
+        vec3 pl=p; pl.y=-(p.y+open);                 /* lower arch, mirrored up */
+        pl.xz*=rot(.04);                             /* slight natural offset */
+        return min(jaw(pu),jaw(pl))*.55;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        vec3 ro=vec3(0.,.5,3.); vec3 rd=normalize(vec3(uv.x,uv.y-.28,-3.6));
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<90;i++){pos=ro+rd*dt;float d=map(pos);if(d<.003){hit=1.;break;}dt+=d;if(dt>9.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.55,.9,.6));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),2.4);
+          lum=pow(clamp(dif*.85+fres*.32,0.,1.),.6);
+          float ao=clamp(map(pos+n*.22)/.22,0.,1.);
+          lum*=.55+.45*ao;
+          vec3 hv=normalize(l-rd);
+          lum+=pow(max(dot(n,hv),0.),40.)*.9;
+          lum=clamp(lum,0.,1.);
+        } else {
+          float tp=(-1.25-ro.y)/rd.y;
+          if(tp>0.){
+            vec3 sp=ro+rd*tp;
+            float s=exp(-1.7*dot(sp.xz,sp.xz));
+            lum=1.-.4*s; hit=smoothstep(.03,.25,s);
+          }
+        }
+        gl_FragColor=vec4(dith(lum,hit),1.);
+      }`,
+    /* raymarched isometric room grid — 6x4 blocks rise/fall with occupancy, one pending pulses */
+    rooms: `
+      float bH(vec2 id){
+        float h=hash(id);
+        float occ=smoothstep(-.25,.65,sin(t*.5+h*6.2831));
+        return .06+.46*occ*(.55+.45*hash(id+7.1));
+      }
+      float map(vec3 p){
+        vec2 id=clamp(floor(p.xz/.6+.5),vec2(-2.,-1.),vec2(3.,2.));
+        float h=bH(id);
+        float d=sdBox(p-vec3(id.x*.6,h*.5,id.y*.6),vec3(.2,h*.5,.2))-.03;
+        float fl=sdBox(p-vec3(.3,-.09,.3),vec3(2.05,.05,1.45))-.02;
+        return min(d,fl)*.6;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        vec3 ta=vec3(.3,0.,.3);
+        float orb=.55+t*.05;
+        vec3 ro=ta+vec3(.8*cos(orb),3.6,.8*sin(orb));
+        vec3 f=normalize(ta-ro),rt=normalize(cross(f,vec3(0.,1.,0.))),up=cross(rt,f);
+        vec3 rd=normalize(uv.x*rt+uv.y*up+3.*f);
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<80;i++){pos=ro+rd*dt;float d=map(pos);if(d<.004){hit=1.;break;}dt+=d;if(dt>12.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.6,.9,.4));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),3.);
+          float ao=clamp(map(pos+n*.18)/.18,0.,1.);
+          if(pos.y>.03){
+            lum=pow(clamp(dif*.85+.12,0.,1.),.7);
+            vec2 id=clamp(floor(pos.xz/.6+.5),vec2(-2.,-1.),vec2(3.,2.));
+            float pend=step(.93,hash(id));
+            lum=mix(lum,.22+.18*sin(t*3.),pend);
+          } else {
+            lum=pow(clamp(dif,0.,1.),.35)*.99;
+          }
+          lum*=.5+.5*ao;
+          lum+=.14*fres;
+          lum=clamp(lum,0.,1.);
+        }
+        gl_FragColor=vec4(dith(lum,hit),1.);
+      }`
+  };
+
+  const scenes=[];
+  canvases.forEach(cv=>{
+    const fx=FX[cv.dataset.fx]; if(!fx) return;
+    const rd=new THREE.WebGLRenderer({canvas:cv,antialias:false});
+    rd.setPixelRatio(Math.min(window.devicePixelRatio,0.75));
+    const sc=new THREE.Scene();
+    const cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+    const mat=new THREE.ShaderMaterial({
+      uniforms:{t:{value:0},r:{value:new THREE.Vector2(1,1)}},
+      vertexShader:'void main(){gl_Position=vec4(position,1.0);}',
+      fragmentShader:HEAD+fx
+    });
+    sc.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),mat));
+    const o={rd,sc,cam,mat,on:false};
+    const size=()=>{
+      rd.setSize(cv.clientWidth||600,cv.clientHeight||450,false);
+      const db=new THREE.Vector2();rd.getDrawingBufferSize(db);
+      mat.uniforms.r.value.copy(db);
+    };
+    size();window.addEventListener('resize',size);
+    new IntersectionObserver(en=>{o.on=en[0].isIntersecting;},{threshold:.05}).observe(cv);
+    scenes.push(o);
+  });
+
+  const still=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const t0=performance.now();
+  (function loop(){
+    scenes.forEach(o=>{
+      if(o.on||still){o.mat.uniforms.t.value=(performance.now()-t0)/1000;o.rd.render(o.sc,o.cam);}
+    });
+    if(!still)requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>

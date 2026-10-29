@@ -1,0 +1,422 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ravindra — Designs that convert</title>
+<style>
+  :root{
+    --ink:#16141f;
+    --lav:#8f7ff0;
+    --mut:#8b87a0;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:auto;}
+  body{
+    background:#ffffff;
+    color:var(--ink);
+    font-family:"Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  /* total scroll runway */
+  #runway{height:340vh;position:relative;}
+
+  canvas#gl{
+    position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:0;
+  }
+
+  /* ---------- nav ---------- */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:30;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:28px 44px;
+    font-size:13px;letter-spacing:.02em;
+  }
+  nav .logo{font-weight:600;}
+  nav .links{display:flex;gap:28px;}
+  nav a{color:var(--ink);text-decoration:none;opacity:.65;transition:opacity .2s;}
+  nav a:hover{opacity:1;}
+  nav .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;color:var(--mut);}
+
+  /* ---------- hero copy ---------- */
+  .hero{
+    position:fixed;inset:0;z-index:10;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:0 44px;
+    pointer-events:none;
+  }
+  .eyebrow{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:12px;letter-spacing:.28em;color:var(--lav);
+    margin-bottom:26px;text-transform:uppercase;
+  }
+  h1{
+    font-size:clamp(44px,7.2vw,118px);
+    line-height:1.02;
+    letter-spacing:-0.035em;
+    font-weight:600;
+    max-width:13ch;
+  }
+  h1 .convert{
+    color:var(--lav);
+    font-style:italic;
+    font-weight:500;
+  }
+  .sub{
+    margin-top:34px;
+    font-size:15px;line-height:1.6;color:var(--mut);max-width:36ch;
+  }
+  .meta-row{
+    position:fixed;left:44px;right:44px;bottom:32px;z-index:20;
+    display:flex;justify-content:space-between;align-items:flex-end;
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:11px;letter-spacing:.14em;color:var(--mut);
+    pointer-events:none;
+  }
+  .scrollhint{display:flex;align-items:center;gap:10px;}
+  .scrollhint .bar{
+    width:1px;height:34px;background:linear-gradient(var(--ink),transparent);
+    animation:drip 1.8s ease-in-out infinite;
+  }
+  @keyframes drip{0%{transform:scaleY(0);transform-origin:top}55%{transform:scaleY(1);transform-origin:top}56%{transform-origin:bottom}100%{transform:scaleY(0);transform-origin:bottom}}
+
+  /* ---------- end CTA ---------- */
+  .cta{
+    position:fixed;inset:0;z-index:15;
+    display:flex;flex-direction:column;gap:22px;justify-content:center;align-items:center;
+    text-align:center;opacity:0;pointer-events:none;
+  }
+  .cta .mono{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.28em;color:var(--lav);text-transform:uppercase;}
+  .cta h2{font-size:clamp(30px,4.4vw,64px);letter-spacing:-0.03em;font-weight:600;max-width:18ch;line-height:1.06;}
+  .cta a{
+    pointer-events:auto;
+    font-size:14px;text-decoration:none;color:#fff;background:var(--ink);
+    padding:16px 34px;border-radius:999px;letter-spacing:.02em;
+    transition:transform .25s ease, background .25s ease;
+  }
+  .cta a:hover{background:var(--lav);transform:translateY(-2px);}
+
+  .progress{
+    position:fixed;top:0;left:0;height:2px;background:var(--lav);z-index:40;width:0;
+  }
+  @media (max-width:640px){
+    nav{padding:20px 22px}
+    .hero{padding:0 22px}
+    .meta-row{left:22px;right:22px}
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<nav>
+  <div class="logo">Ravindra&nbsp;Pratap<span style="color:var(--lav)">.</span></div>
+  <div class="mono">DESIGN ENGINEER — PORTFOLIO ’26</div>
+  <div class="links">
+    <a href="#">Work</a><a href="#">Lab</a><a href="#">Contact</a>
+  </div>
+</nav>
+
+<div class="hero" id="hero">
+  <div class="eyebrow">Dither · Motion · Conversion</div>
+  <h1>Hi, I’m Ravindra.<br/>I make designs that <span class="convert">convert.</span></h1>
+  <div class="sub">Design engineer crafting interfaces, motion and landing pages that turn attention into action.</div>
+</div>
+
+<div class="cta" id="cta">
+  <div class="mono">Selected Work</div>
+  <h2>Attention is earned in pixels, converted in flows.</h2>
+  <a href="#">View case studies ↓</a>
+</div>
+
+<div class="meta-row">
+  <div class="scrollhint"><span class="bar"></span> SCROLL TO MORPH</div>
+  <div id="coord">θ 0.00 — DITHER/ASCII ENGINE v1</div>
+</div>
+
+<div id="runway"></div>
+<canvas id="gl"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =============================================================
+   Dither + ASCII + Motion hero — scroll-driven raymarched blob
+   Aesthetic ref: soft lavender organic forms, ordered-dither
+   grain, subtle ASCII glyphs, clean white canvas.
+============================================================= */
+const canvas = document.getElementById('gl');
+const renderer = new THREE.WebGLRenderer({canvas, antialias:false});
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 0.55));
+renderer.setSize(innerWidth, innerHeight);
+
+/* ---- ASCII glyph atlas (drawn at runtime) ---- */
+const CHARS = " .·:-~=+*x%@";
+const cell = 64;
+const atlasCanvas = document.createElement('canvas');
+atlasCanvas.width = cell * CHARS.length;
+atlasCanvas.height = cell;
+const actx = atlasCanvas.getContext('2d');
+actx.fillStyle = '#ffffff';
+actx.fillRect(0,0,atlasCanvas.width,atlasCanvas.height);
+actx.fillStyle = '#000000';
+actx.font = '700 46px ui-monospace, Menlo, monospace';
+actx.textAlign = 'center';
+actx.textBaseline = 'middle';
+for(let i=0;i<CHARS.length;i++){
+  actx.fillText(CHARS[i], i*cell + cell/2, cell/2 + 2);
+}
+const atlasTex = new THREE.CanvasTexture(atlasCanvas);
+atlasTex.minFilter = THREE.LinearFilter;
+atlasTex.magFilter = THREE.LinearFilter;
+atlasTex.wrapS = atlasTex.wrapT = THREE.ClampToEdgeWrapping;
+
+/* ---- fullscreen shader ---- */
+const uniforms = {
+  uTime:   {value:0},
+  uScroll: {value:0},
+  uRes:    {value:new THREE.Vector2(innerWidth*renderer.getPixelRatio(), innerHeight*renderer.getPixelRatio())},
+  uAtlas:  {value:atlasTex},
+  uNChars: {value:CHARS.length}
+};
+
+const frag = /* glsl */`
+precision highp float;
+uniform float uTime;
+uniform float uScroll;
+uniform vec2  uRes;
+uniform sampler2D uAtlas;
+uniform float uNChars;
+
+/* ---- ordered dithering (recursive Bayer) ---- */
+float Bayer2(vec2 a){ a = floor(a); return fract(a.x/2.0 + a.y*a.y*0.75); }
+float Bayer4(vec2 a){ return Bayer2(0.5*a)*0.25 + Bayer2(a); }
+float Bayer8(vec2 a){ return Bayer4(0.5*a)*0.25 + Bayer2(a); }
+
+/* ---- sdf helpers ---- */
+float smin(float a, float b, float k){
+  float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+  return mix(b, a, h) - k*h*(1.0-h);
+}
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+
+/* accurate ellipsoid distance bound (Inigo Quilez) */
+float sdEllipsoid(vec3 p, vec3 r){
+  float k0 = length(p/r);
+  float k1 = length(p/(r*r));
+  return k0*(k0-1.0)/k1;
+}
+
+float map(vec3 p){
+  /* bloom: 0 = closed bud, 1 = open flower (driven by scroll) */
+  float bloom = smoothstep(0.05, 0.85, uScroll);
+  float t = uTime*0.45;
+
+  /* fit the whole flower in frame */
+  float scl = (1.35 + 0.25*bloom) / 3.0;   /* 3x larger flower + bud */
+  p *= scl;
+  p.y += mix(0.45, 0.18, bloom);   /* keep the tall bud's tip in frame at 3x */
+
+  /* slow turn + tilt the flower head toward the viewer as it opens */
+  p.xz *= rot(uScroll*2.4 + uTime*0.06);
+  p.yz *= rot(mix(-0.45, -1.15, bloom));
+
+  /* gentle organic sway */
+  p.x += 0.04*sin(p.y*2.5 + t)*(1.0 - 0.5*bloom);
+
+  /* receptacle / base of the bud */
+  float d = length((p - vec3(0.0,-0.62,0.0))*vec3(1.0,1.3,1.0)) - 0.26;
+
+  /* bud core: tall closed heart that shrinks as petals take over */
+  vec3 pc = p - vec3(0.0, -0.12 + 0.05*bloom, 0.0);
+  pc.y /= 1.45 - 0.35*bloom;
+  float core = length(pc) - (0.30 - 0.04*bloom);   /* slimmer heart so petals define the bud */
+  d = smin(d, core, 0.24);
+
+  /* pistil emerges once the flower opens */
+  float pist = length(p - vec3(0.0, 0.04 + 0.12*bloom, 0.0)) - (0.02 + 0.11*bloom);
+  d = smin(d, pist, 0.18);
+
+  float rad = length(p.xz);
+  float ang = atan(p.z, p.x);
+  float sector = 6.2831853/6.0;
+
+  /* ---- outer ring: 6 petals unfurling outward ---- */
+  {
+    float a = mod(ang + 0.5*sector, sector) - 0.5*sector;
+    vec3 q = vec3(rad*cos(a), p.y, rad*sin(a));
+    float tilt = mix(0.16, 1.32, bloom) + 0.05*sin(t + ang*2.0);
+    vec3 pp = q - vec3(0.10, -0.18, 0.0);
+    float c = cos(tilt), s = sin(tilt);
+    pp.xy = mat2(c, s, -s, c) * pp.xy;
+    float plen = mix(0.52, 0.72, bloom);
+    pp.y -= plen*0.85;
+    pp.x -= mix(0.5, 0.18, bloom)*pp.y*pp.y;   /* cupped curl */
+    vec3 e = vec3(0.035, plen, mix(0.25, 0.28, bloom));   /* paper-thin */
+    float petal = sdEllipsoid(pp, e);
+    d = smin(d, petal, 0.05 + 0.1*(1.0 - bloom));
+  }
+
+  /* ---- inner ring: 6 offset petals that open later ---- */
+  {
+    float b2 = smoothstep(0.35, 1.0, bloom);
+    float a = mod(ang, sector) - 0.5*sector;
+    vec3 q = vec3(rad*cos(a), p.y, rad*sin(a));
+    float tilt = mix(0.10, 0.95, b2) - 0.05*sin(t + ang*3.0);
+    vec3 pp = q - vec3(0.07, -0.12, 0.0);
+    float c = cos(tilt), s = sin(tilt);
+    pp.xy = mat2(c, s, -s, c) * pp.xy;
+    float plen = mix(0.44, 0.56, b2);
+    pp.y -= plen*0.85;
+    pp.x -= mix(0.55, 0.22, b2)*pp.y*pp.y;
+    vec3 e = vec3(0.03, plen, mix(0.21, 0.23, b2));   /* paper-thin */
+    float petal = sdEllipsoid(pp, e);
+    d = smin(d, petal, 0.045 + 0.1*(1.0 - b2));
+  }
+
+  /* delicate surface ripple */
+  d += 0.008*sin(11.0*p.x + t*2.0)*sin(9.0*p.y - t)*sin(8.0*p.z);
+  return d/scl;
+}
+
+vec3 calcNormal(vec3 p){
+  vec2 e = vec2(0.0015, 0.0);
+  return normalize(vec3(
+    map(p+e.xyy)-map(p-e.xyy),
+    map(p+e.yxy)-map(p-e.yxy),
+    map(p+e.yyx)-map(p-e.yyx)
+  ));
+}
+
+void main(){
+  vec2 frag = gl_FragCoord.xy;
+  vec2 uv = (frag - 0.5*uRes)/uRes.y;
+
+  /* closing act: drift the flower into the lower third, clear of the CTA */
+  uv.y += 0.34*smoothstep(0.68, 1.0, uScroll);
+
+  /* camera pushes in mid-scroll, then recedes for the closing act */
+  float zoom = 3.55 - 1.0*sin(uScroll*3.14159) + 1.5*smoothstep(0.72, 1.0, uScroll);
+  vec3 ro = vec3(0.0, 0.0, zoom);
+  vec3 rd = normalize(vec3(uv, -1.65));
+
+  float lum = 1.0;           /* white background */
+  float hit = 0.0;
+  float dTravel = 0.0;
+  vec3 pos;
+  for(int i=0;i<48;i++){
+    pos = ro + rd*dTravel;
+    float d = map(pos);
+    if(d < 0.002){ hit = 1.0; break; }
+    dTravel += d;
+    if(dTravel > 9.0) break;
+  }
+
+  if(hit > 0.5){
+    vec3 n = calcNormal(pos);
+    vec3 l = normalize(vec3(0.5, 0.9, 0.65));
+    float dif  = clamp(dot(n,l)*0.5 + 0.5, 0.0, 1.0);
+    float fres = pow(1.0 - max(dot(n, -rd), 0.0), 2.2);
+    lum = clamp(dif*0.82 + fres*0.42, 0.0, 1.0);
+    /* lift overall so the form stays airy/pale like the ref */
+    lum = pow(lum, 0.75);
+  }
+
+  /* ---- ordered dither quantisation ---- */
+  float grain = 2.0 * (uRes.y/1000.0);          /* dither pixel size */
+  float bay = Bayer8(frag/grain) - 0.5;
+  float steps = 5.0;
+  float q = clamp(floor(lum*steps + bay)/(steps-1.0), 0.0, 1.0);
+
+  /* lavender palette: deep -> pale -> paper */
+  vec3 deep  = vec3(0.545, 0.480, 0.930);
+  vec3 pale  = vec3(0.875, 0.855, 0.985);
+  vec3 paper = vec3(1.0);
+  vec3 col;
+  if(hit > 0.5){
+    col = mix(deep, pale, q);
+    col = mix(col, paper, smoothstep(0.92, 1.0, q));
+  } else {
+    col = paper;
+  }
+
+  /* ---- subtle ASCII glyph layer in the mid-tones ---- */
+  if(hit > 0.5){
+    float cellPx = 11.0 * (uRes.y/1000.0);
+    vec2 cuv = fract(frag/cellPx);
+    float idx = floor((1.0-lum) * (uNChars-1.0) + 0.5);
+    vec2 auv = vec2((idx + cuv.x)/uNChars, cuv.y);
+    float glyph = 1.0 - texture2D(uAtlas, auv).r;   /* 1 where character ink */
+    float band = smoothstep(0.15, 0.35, lum) * (1.0 - smoothstep(0.75, 0.95, lum));
+    col = mix(col, deep*0.75, glyph * band * 0.38);
+  }
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+const mat = new THREE.ShaderMaterial({
+  fragmentShader: frag,
+  vertexShader: `void main(){ gl_Position = vec4(position,1.0); }`,
+  uniforms
+});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
+
+/* ---- scroll choreography ---- */
+let targetScroll = 0, smoothScroll = 0;
+/* debug: force a scroll phase with ?s=0.75 */
+const forcedScroll = parseFloat(new URLSearchParams(location.search).get('s'));
+function readScroll(){
+  const max = document.documentElement.scrollHeight - innerHeight;
+  /* map 0..96% of the scroll range to 0..1 so the finale is always reachable */
+  targetScroll = max > 0 ? Math.min(scrollY / (max * 0.88), 1) : 0;
+}
+addEventListener('scroll', readScroll, {passive:true});
+readScroll();
+
+const hero = document.getElementById('hero');
+const cta = document.getElementById('cta');
+const progress = document.getElementById('progress');
+const coord = document.getElementById('coord');
+
+const clock = new THREE.Clock();
+let lastT = 0;
+function frame(){
+  const now = clock.getElapsedTime();
+  const dt = Math.min(now - lastT, 0.5);
+  lastT = now;
+  /* time-based smoothing: settles in ~0.8s regardless of frame rate */
+  smoothScroll += (targetScroll - smoothScroll) * (1 - Math.exp(-dt * 6.0));
+  if (!isNaN(forcedScroll)) smoothScroll = forcedScroll;
+  uniforms.uScroll.value = smoothScroll;
+  uniforms.uTime.value = clock.getElapsedTime();
+
+  /* headline: parallax up + fade in the second act */
+  const p = smoothScroll;
+  const fadeOut = Math.min(Math.max((p - 0.38) / 0.3, 0), 1);
+  hero.style.transform = `translateY(${ -p * 220 }px)`;
+  hero.style.opacity = 1 - fadeOut;
+
+  /* CTA: final act */
+  const ctaIn = Math.min(Math.max((p - 0.72) / 0.22, 0), 1);
+  cta.style.opacity = ctaIn;
+  cta.style.transform = `translateY(${ (1 - ctaIn) * 60 }px)`;
+
+  document.querySelector('.scrollhint').style.opacity = Math.max(1 - p*1.6, 0);
+  progress.style.width = (p * 100) + '%';
+  coord.textContent = 'θ ' + p.toFixed(2) + ' — DITHER/ASCII ENGINE v1';
+
+  renderer.render(scene, cam);
+  requestAnimationFrame(frame);
+}
+frame();
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  uniforms.uRes.value.set(innerWidth*renderer.getPixelRatio(), innerHeight*renderer.getPixelRatio());
+  readScroll();
+});
+</script>
+</body>
+</html>

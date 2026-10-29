@@ -1,0 +1,590 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Review — typography &amp; the monochrome pass</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
+<!-- The full stack the site *should* be loading, so specimens below render
+     truthfully. Note finding T1: index.html does not currently load Inter. -->
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet"/>
+<style>
+  :root{
+    /* the new monochrome ramp — this document uses it, so it doubles as a
+       working specimen of the palette it is asking you to review */
+    --ink:#161616;
+    --ink-2:#4a4a4a;
+    --ink-3:#6e6e6e;
+    --mut:#8b8b8b;
+    --line:#ececec;
+    --line-2:#e7e7e7;
+    --paper:#ffffff;
+
+    --r-sm:8px;
+    --r-md:14px;
+    --r-lg:20px;
+    --r-pill:99px;
+
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-md:32px;
+    --t-sub-lg:40px;
+    --t-head:56px;
+    --t-head-lg:64px;
+
+    --ok:#166534;
+    --warn:#92400e;
+    --bad:#9f1239;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    font-family:Inter,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    background:var(--paper);color:var(--ink);
+    -webkit-font-smoothing:antialiased;padding-bottom:120px;
+  }
+  .wrap{max-width:1080px;margin:0 auto;padding:0 32px;}
+  .mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;}
+
+  /* ---------- page chrome ---------- */
+  header.top{border-bottom:1px solid var(--line);padding:56px 0 40px;margin-bottom:8px;}
+  header.top h1{
+    font-family:"Space Grotesk",Inter,sans-serif;font-size:var(--t-sub-lg);
+    font-weight:600;letter-spacing:-.03em;line-height:1.1;margin-bottom:16px;
+  }
+  header.top p{color:var(--ink-3);font-size:var(--t-body);line-height:1.65;max-width:66ch;}
+  header.top p + p{margin-top:12px;}
+
+  .howto{
+    border:1px solid var(--line);border-radius:var(--r-md);
+    padding:20px 24px;margin-top:28px;background:#fcfcfc;max-width:66ch;
+  }
+  .howto b{font-weight:600;}
+  .howto ol{margin:10px 0 0 20px;color:var(--ink-3);font-size:15px;line-height:1.75;}
+
+  section{padding:56px 0 8px;}
+  h2.sec{
+    font-family:"Space Grotesk",Inter,sans-serif;font-size:var(--t-sub-md);
+    font-weight:600;letter-spacing:-.025em;margin-bottom:8px;
+  }
+  .sec-note{color:var(--ink-3);font-size:16px;line-height:1.7;max-width:70ch;margin-bottom:32px;}
+  h3.grp{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;
+    letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);
+    margin:44px 0 18px;padding-bottom:10px;border-bottom:1px solid var(--line);
+  }
+
+  /* ---------- reviewable item ---------- */
+  .item{border:1px solid var(--line);border-radius:var(--r-md);margin-bottom:14px;overflow:hidden;}
+  .item.flag{border-color:#e3d9c9;}
+  .item-head{
+    display:flex;align-items:center;gap:12px;padding:12px 16px;
+    background:#fcfcfc;border-bottom:1px solid var(--line);flex-wrap:wrap;
+  }
+  .id{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;
+    letter-spacing:.08em;color:var(--paper);background:var(--ink-2);
+    padding:3px 8px;border-radius:var(--r-sm);flex:none;
+  }
+  .item.flag .id{background:var(--warn);}
+  .what{font-size:14px;font-weight:600;flex:1 1 240px;min-width:0;}
+  .spec{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11.5px;
+    color:var(--ink-3);flex:1 1 100%;line-height:1.6;word-break:break-word;
+  }
+  .body{padding:22px 16px;}
+  .stage{padding:6px 0;}
+
+  /* comment affordance */
+  .cbtn{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;
+    letter-spacing:.06em;text-transform:uppercase;
+    border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);
+    border-radius:var(--r-pill);padding:0 18px;min-height:44px;
+    cursor:pointer;flex:none;transition:border-color .2s,color .2s;
+  }
+  .cbtn:focus-visible{outline:2px solid var(--ink-2);outline-offset:2px;}
+  .cbtn:hover{border-color:var(--ink-3);color:var(--ink);}
+  .cbtn.has{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .cwrap{display:none;padding:0 16px 18px;}
+  .cwrap.open{display:block;}
+  .cwrap textarea{
+    width:100%;min-height:82px;resize:vertical;
+    font-family:Inter,-apple-system,sans-serif;font-size:15px;line-height:1.6;
+    color:var(--ink);background:var(--paper);
+    border:1px solid var(--line-2);border-radius:var(--r-sm);padding:12px 14px;
+  }
+  .cwrap textarea:focus{outline:2px solid var(--ink-2);outline-offset:2px;border-color:transparent;}
+  .chint{font-size:12px;color:var(--mut);margin-top:6px;}
+
+  /* ---------- colour swatches ---------- */
+  .pair{display:flex;align-items:stretch;gap:0;border-radius:var(--r-sm);overflow:hidden;max-width:520px;}
+  .sw{flex:1;min-height:76px;display:flex;align-items:flex-end;padding:10px;}
+  .sw span{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11px;
+    background:rgba(255,255,255,.92);color:#161616;padding:2px 6px;border-radius:4px;
+  }
+  .arrow{display:flex;align-items:center;padding:0 14px;color:var(--mut);font-size:18px;}
+  .meta{margin-top:12px;font-size:13.5px;color:var(--ink-3);line-height:1.65;}
+  .meta b{color:var(--ink);font-weight:600;}
+  .tag{
+    display:inline-block;font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;
+    padding:2px 7px;border-radius:4px;margin-right:6px;
+  }
+  .tag.ok{background:#eaf5ee;color:var(--ok);}
+  .tag.warn{background:#fdf3e7;color:var(--warn);}
+  .tag.bad{background:#fdecef;color:var(--bad);}
+
+  /* ---------- live role demos ---------- */
+  .demo{border:1px dashed var(--line-2);border-radius:var(--r-sm);padding:22px;}
+  .demo + .demo{margin-top:10px;}
+  .demo-l{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10.5px;
+    letter-spacing:.14em;text-transform:uppercase;color:var(--mut);margin-bottom:12px;
+  }
+  .side{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+  @media (max-width:760px){ .side{grid-template-columns:1fr;} }
+  .old{--ink:#16141f;--ink-2:#6a58e0;--ink-3:#8f7ff0;--mut:#8b87a0;--line:#eceaf6;--line-2:#e7e4f6;}
+
+  /* real site roles, reproduced verbatim so the specimen is not an approximation */
+  .r-h1{font-family:"Space Grotesk",Inter,sans-serif;font-size:var(--t-head-lg);line-height:1.05;letter-spacing:-.035em;font-weight:600;}
+  .r-h2{font-family:"Space Grotesk",Inter,sans-serif;font-size:var(--t-head);line-height:1.12;letter-spacing:-.03em;font-weight:600;}
+  .r-h3{font-family:"Space Grotesk",Inter,sans-serif;font-size:var(--t-sub-lg);line-height:1.12;letter-spacing:-.025em;font-weight:600;}
+  .r-em{font-family:"Instrument Serif",Georgia,serif;font-style:italic;font-weight:400;color:var(--ink-2);letter-spacing:-.01em;}
+  .r-body{font-size:var(--t-body);line-height:1.72;max-width:62ch;}
+  .r-case-p{font-size:var(--t-body);line-height:1.62;max-width:62ch;}
+  .r-mono-12-18{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-3);}
+  .r-mono-12-24{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.24em;text-transform:uppercase;color:var(--ink-3);}
+  .r-mono-12-14{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);}
+  .r-mono-12-12{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);}
+  .r-mono-12-06{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;}
+  .r-nav{font-size:13px;letter-spacing:.02em;}
+  .r-quote{border-left:2px solid var(--ink-3);padding:6px 0 6px 30px;max-width:28ch;font-size:var(--t-sub);line-height:1.4;}
+  .r-a{color:var(--ink-2);text-decoration:none;border-bottom:1px solid rgba(147,147,147,.55);}
+  .old .r-a{border-bottom-color:rgba(143,127,240,.4);}
+  .r-chip{display:inline-block;font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.06em;text-transform:uppercase;border:1px solid var(--line-2);border-radius:var(--r-pill);padding:4px 10px;color:var(--ink-3);}
+  .r-dot{color:var(--ink-3);}
+  .r-bar{height:2px;background:var(--ink-3);width:62%;border-radius:var(--r-pill);}
+  .r-wire i{display:block;height:10px;border-radius:var(--r-pill);background:#f4f4f4;margin-bottom:10px;}
+  .old .r-wire i{background:hsl(255 40% 96.5%);}
+  .r-dots{height:70px;border-radius:var(--r-sm);background:radial-gradient(circle at 1px 1px, rgba(147,147,147,.16) 1px, transparent 1.6px);background-size:9px 9px;}
+  .old .r-dots{background:radial-gradient(circle at 1px 1px, rgba(143,127,240,.13) 1px, transparent 1.6px);background-size:9px 9px;}
+  .r-btn{display:inline-flex;align-items:center;min-height:44px;padding:0 20px;border-radius:var(--r-pill);background:var(--ink);color:var(--paper);font-size:var(--t-body);letter-spacing:.02em;text-decoration:none;}
+  .r-btn.ghost{background:var(--paper);color:var(--ink);border:1px solid #dfdfdf;}
+  .old .r-btn.ghost{border-color:#e0dcf4;}
+  .r-sel{background:#e5e5e5;padding:1px 0;}
+  .old .r-sel{background:#e6e1fb;}
+  .r-chart{display:flex;align-items:flex-end;gap:8px;height:80px;}
+  .r-chart i{flex:1;border-radius:4px 4px 0 0;}
+
+  table.tok{width:100%;border-collapse:collapse;font-size:13.5px;}
+  table.tok th,table.tok td{text-align:left;padding:9px 10px;border-bottom:1px solid var(--line);vertical-align:middle;}
+  table.tok th{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--mut);font-weight:400;}
+  table.tok td.m{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;}
+  .chip-sw{display:inline-block;width:15px;height:15px;border-radius:4px;vertical-align:-3px;margin-right:7px;border:1px solid rgba(0,0,0,.08);}
+
+  /* ---------- copy bar ---------- */
+  .bar{
+    position:fixed;left:0;right:0;bottom:0;z-index:50;
+    background:rgba(255,255,255,.96);backdrop-filter:blur(8px);
+    border-top:1px solid var(--line);
+  }
+  .bar-in{max-width:1080px;margin:0 auto;padding:14px 32px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+  .count{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12.5px;color:var(--ink-3);flex:1 1 auto;}
+  .bar button{
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:11.5px;
+    letter-spacing:.06em;text-transform:uppercase;
+    min-height:44px;padding:0 20px;border-radius:var(--r-pill);cursor:pointer;border:1px solid var(--ink);
+    background:var(--ink);color:var(--paper);transition:opacity .2s;
+  }
+  .bar button.sec{background:var(--paper);color:var(--ink-2);border-color:var(--line-2);}
+  .bar button:hover{opacity:.85;}
+  #out{
+    display:none;max-width:1080px;margin:0 auto;padding:0 32px 18px;
+  }
+  #out.open{display:block;}
+  #out textarea{
+    width:100%;height:230px;font-family:ui-monospace,"SF Mono",Menlo,monospace;
+    font-size:12px;line-height:1.6;padding:14px;border:1px solid var(--line-2);
+    border-radius:var(--r-sm);color:var(--ink);text-transform:none;letter-spacing:0;
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{animation:none!important;transition:none!important;}
+    html{scroll-behavior:auto;}
+  }
+</style>
+</head>
+<body>
+
+<header class="top">
+  <div class="wrap">
+    <h1>Typography &amp; the monochrome pass</h1>
+    <p>Everything the site sets in type, and every place the lavender removal
+       landed. Specimens are reproduced from the real declarations, not
+       redrawn — where you see a heading here it is the same family, size,
+       weight and tracking the page ships.</p>
+    <p><span class="mono" style="color:var(--ink)">4 pages · 456 CSS rules · 3 typefaces · 36 type declarations · 30+ colour sites changed</span></p>
+
+    <div class="howto">
+      <b>How to review</b>
+      <ol>
+        <li>Hit <span class="mono">Comment</span> on any item and type freely.</li>
+        <li>Comments save as you type — you can close the tab and come back.</li>
+        <li>When done, press <span class="mono">Copy all comments</span> in the bottom bar.</li>
+        <li>Paste the block straight back to me. Each comment carries its item ID, so I know exactly what you meant.</li>
+      </ol>
+    </div>
+  </div>
+</header>
+
+<div class="wrap" id="doc"></div>
+
+<div class="bar">
+  <div id="out"><textarea readonly></textarea></div>
+  <div class="bar-in">
+    <span class="count" id="count">no comments yet</span>
+    <button class="sec" id="clear">Clear all</button>
+    <button id="copy">Copy all comments</button>
+  </div>
+</div>
+
+<script>
+/* ---------------------------------------------------------------------------
+   One data structure drives the whole document: the rendered specimen, the
+   comment box and the copy-out block all come from ITEMS, so a section can
+   never exist without a way to comment on it, and the export can never drift
+   out of sync with what is on screen. Same pattern as the aurora/particles
+   benches.
+   kind: 'type'   -> html specimen
+         'colour' -> old/new swatch pair
+         'side'   -> old/new live rendering, side by side
+--------------------------------------------------------------------------- */
+
+const esc = s => s.replace(/[&<>]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+
+const SECTIONS = [
+{
+  title: 'A · The three typefaces',
+  note: 'The site uses three families. Two are loaded as webfonts, one is set but — on the home page — never actually downloaded. That is finding T1 below.',
+  groups: [
+  { name: 'Families', items: [
+    { id:'T-SG', what:'Space Grotesk — all headings',
+      spec:'font-family:"Space Grotesk",Inter,sans-serif · weights 500/600/700 · used by h1, h2, h3',
+      kind:'type', html:'<div class="r-h3">Attention is earned in pixels</div>' },
+
+    { id:'T-IS', what:'Instrument Serif — the italic accent',
+      spec:'font-family:"Instrument Serif",Georgia,serif · italic 400 · used by h1 em, h2 em, and the convert. trigger',
+      kind:'type', html:'<div class="r-h3">Have a number that needs <em class="r-em">moving?</em></div>' },
+
+    { id:'T-IN', what:'Inter — all body copy',
+      spec:'font-family:Inter,-apple-system,"Segoe UI",Helvetica,Arial,sans-serif · weights 400/500/600',
+      kind:'type', html:'<p class="r-body">Most designers stop at the mockup. I prototype in code, ship the real thing, then instrument it — because a design isn\u2019t finished when it looks right, it\u2019s finished when the number moves.</p>' },
+
+    { id:'T-MO', what:'System monospace — labels and chrome',
+      spec:'font-family:ui-monospace,Menlo,monospace · 12px · uppercase · never a webfont',
+      kind:'type', html:'<div class="r-mono-12-18">DESIGN &nbsp; ENGINEERING &nbsp; GROWTH</div>' },
+  ]},
+
+  { name: 'Findings — worth fixing', items: [
+    { id:'T1', what:'index.html never loads Inter — the home page and the case studies render body copy in different typefaces',
+      spec:'index.html asks for: Instrument+Serif + Space+Grotesk:wght@500;600;700  ·  the three case pages ask for: Instrument+Serif + Space+Grotesk:wght@400;500;600;700 + Inter:wght@400;500;600',
+      kind:'note', flag:true,
+      html:'<p class="meta"><span class="tag bad">Verified</span> On index.html <b>document.fonts contains only Instrument Serif and Space Grotesk</b> — no Inter face at all. But <span class="mono">body{font-family:Inter,\u2026}</span> is set, so body copy silently falls through to <span class="mono">-apple-system</span> / <span class="mono">Segoe UI</span> / Helvetica / Arial.</p><p class="meta">On <em>this</em> machine Inter happens to be installed system-wide, so it still resolves locally and the bug is invisible — which is exactly why it survived. For a visitor without Inter installed, the home page body text is Helvetica/Segoe and the case pages are Inter. <b>Fix: add Inter to the index.html font URL.</b></p>' },
+
+    { id:'T2', what:'Two different Space Grotesk stacks are in use — sometimes on the same page',
+      spec:'"Space Grotesk", Inter, sans-serif   vs   "Space Grotesk", sans-serif',
+      kind:'note', flag:true,
+      html:'<p class="meta">index.html uses the first for all 4 heading rules. The case pages mix both: dentomate 2 rules vs 5, viewryt 2 vs 5, irbs 2 vs 4. If Space Grotesk fails to load, some headings fall to Inter and others to the generic sans. <b>Harmless today, inconsistent by construction.</b></p>' },
+
+    { id:'T3', what:'Two different monospace stacks',
+      spec:'ui-monospace, Menlo, monospace   vs   ui-monospace, "SF Mono", Menlo, monospace',
+      kind:'note', flag:true,
+      html:'<p class="meta">dentomate (8 vs 1) and irbs (7 vs 1) each carry both. index.html and viewryt only use the short one. Same class of drift as T2.</p>' },
+
+    { id:'T4', what:'Sizes that sit outside the 6-step type scale',
+      spec:'13px (nav, all 4 pages) · 12px (every mono label) · 10px and 10.5px (case-viewryt only)',
+      kind:'note', flag:true,
+      html:'<p class="meta">The scale is <span class="mono">18 / 24 / 32 / 40 / 56 / 64</span>. Nav at 13px and mono labels at 12px are deliberate chrome sizes but have <b>no token</b>, so they are magic numbers repeated across 4 files. The 10 / 10.5px on viewryt are inside device mockups. <b>Option: add --t-chrome:13px and --t-label:12px.</b></p>' },
+  ]},
+  ]
+},
+
+{
+  title: 'B · The type scale',
+  note: 'Six tokens, stepped down at 900px and 640px rather than fluid clamp(). Rendered here at desktop values.',
+  groups: [
+  { name: 'Scale', items: [
+    { id:'S-64', what:'--t-head-lg · 64px', spec:'h1, .contact-inner h2 · Space Grotesk 600 · line-height 1.05 · tracking -0.035em',
+      kind:'type', html:'<div class="r-h1">Hi, I\u2019m Ravindra.</div>' },
+    { id:'S-56', what:'--t-head · 56px', spec:'.sec-head h2, .cta h2 · Space Grotesk 600 · line-height 1.12 · tracking -0.03em',
+      kind:'type', html:'<div class="r-h2">Selected work</div>' },
+    { id:'S-40', what:'--t-sub-lg · 40px', spec:'.case h3 · Space Grotesk 600 · line-height 1.12 · tracking -0.025em',
+      kind:'type', html:'<div class="r-h3">ViewRyt — a redesign that made design\u2019s ROI undeniable</div>' },
+    { id:'S-32', what:'--t-sub-md · 32px', spec:'900px breakpoint step for .case h3 and .cta h2',
+      kind:'type', html:'<div class="r-h3" style="font-size:var(--t-sub-md)">Improper hierarchy</div>' },
+    { id:'S-24', what:'--t-sub · 24px', spec:'640px step for .case h3 · also the pull-quote size',
+      kind:'type', html:'<blockquote class="r-quote">Nothing in the type scale separates a claim from a caption.</blockquote>' },
+    { id:'S-18', what:'--t-body · 18px', spec:'the body floor · line-height varies by context: 1.5 label / 1.62 case / 1.7 case-page p / 1.72 about',
+      kind:'type', html:'<p class="r-body">Two years in, I\u2019ve shipped work across the full stack of persuasion — pixel-level interface craft, motion that guides attention, and the funnel math that tells you whether any of it worked.</p>' },
+  ]},
+
+  { name: 'Chrome sizes (no token)', items: [
+    { id:'S-13', what:'13px · navigation', spec:'nav · tracking 0.02em · logo at weight 600',
+      kind:'type', html:'<div class="r-nav" style="display:flex;gap:26px;align-items:baseline"><span style="font-weight:600">Ravindra&nbsp;Pratap<span class="r-dot">.</span></span><span style="color:var(--ink-3)">Work</span><span style="color:var(--ink-3)">About</span><span style="color:var(--ink-3)">Contact</span></div>' },
+    { id:'S-12', what:'12px mono · four different trackings',
+      spec:'.24em section kicker · .18em skills heading · .14em card label · .12em footer · .06em chip',
+      kind:'type', html:'<div class="r-mono-12-24">FINDING 01</div><div class="r-mono-12-18" style="margin-top:10px">DESIGN</div><div class="r-mono-12-14" style="margin-top:10px">THE FIX</div><div class="r-mono-12-12" style="margin-top:10px">DESIGN ENGINEER — INDIA · REMOTE</div><div style="margin-top:12px"><span class="r-chip">CRO</span> <span class="r-chip">A/B TESTING</span></div>' },
+  ]},
+  ]
+},
+
+{
+  title: 'C · Colour — the tokens',
+  note: 'Every neutral was derived by converting the lavender to OKLab and zeroing chroma, so perceived lightness is unchanged. Two were then deliberately pushed darker; those are called out.',
+  groups: [
+  { name: 'The ramp', items: [
+    { id:'C-INK', what:'--ink · primary text', kind:'colour', old:'#16141f', neu:'#161616',
+      note:'Pure lightness match. <span class="tag ok">18.2:1 &rarr; 18.1:1</span> No visible change — this was already almost black.' },
+
+    { id:'C-INK2', what:'--lav-deep \u2192 --ink-2 · emphasis, hover, the serif italic accent', kind:'colour', old:'#6a58e0', neu:'#4a4a4a',
+      note:'<span class="tag warn">Deliberately darker than an equal-lightness swap</span> Equal-L would have been <span class="mono">#737373</span> (4.7:1). I took it to <b>#4a4a4a (8.9:1)</b> so that hover states genuinely <i>strengthen</i> instead of just shifting hue sideways. <b>This is the biggest judgement call in the pass — say if it now reads too heavy.</b>' },
+
+    { id:'C-INK3', what:'--lav \u2192 --ink-3 · mono labels, hairline chrome, logo dot', kind:'colour', old:'#8f7ff0', neu:'#6e6e6e',
+      note:'<span class="tag warn">Also deliberately darker</span> Equal-L would have been <span class="mono">#939393</span> (3.1:1). The old <span class="mono">--lav</span> was only <b>3.25:1</b> and was carrying 12px uppercase labels — that failed WCAG AA for body text. <b>#6e6e6e is 5.1:1</b>, so this fixes a real accessibility problem as a side effect.' },
+
+    { id:'C-MUT', what:'--mut · secondary prose', kind:'colour', old:'#8b87a0', neu:'#8b8b8b',
+      note:'Pure lightness match. <span class="tag warn">3.4:1 — still below AA (4.5:1)</span> Pre-existing, not introduced here, but worth a decision: darken it, or restrict it to large text only?' },
+
+    { id:'C-LINE', what:'--line · hairlines', kind:'colour', old:'#eceaf6', neu:'#ececec',
+      note:'Pure lightness match. Used for every rule and border on the site.' },
+
+    { id:'C-LINE2', what:'--line-2 · secondary borders', kind:'colour', old:'#e7e4f6', neu:'#e7e7e7',
+      note:'Pure lightness match.' },
+
+    { id:'C-SHAD', what:'--shadow-pop · the single elevation token', kind:'colour', old:'#403496', neu:'#161616',
+      note:'Was <span class="mono">rgba(64,52,150,.34)</span> — a violet shadow. Now <span class="mono">rgba(22,22,22,.28)</span>. I also dropped the alpha 0.34 &rarr; 0.28, because a neutral shadow at the same alpha reads heavier than a tinted one. <b>Flag if the pop feels weaker than before.</b>' },
+  ]},
+  ]
+},
+
+{
+  title: 'D · Colour — where it actually landed',
+  note: 'Old on the left, new on the right, both rendered live. This is the part worth spending your eyes on.',
+  groups: [
+  { name: 'Type roles', items: [
+    { id:'D-EM', what:'The serif italic accent — headings', kind:'side',
+      html:'<div class="r-h3">Have a number that needs <em class="r-em">moving?</em></div>',
+      note:'Carried <span class="mono">--lav-deep</span>. This was the single most visible use of colour on the site.' },
+
+    { id:'D-KICK', what:'Mono section kickers', kind:'side',
+      html:'<div class="r-mono-12-24">FINDING 01</div><div class="r-mono-12-18" style="margin-top:12px">ENGINEERING</div>',
+      note:'The AA fix from C-INK3 shows up here — these are now legibly darker, not just greyer.' },
+
+    { id:'D-LINK', what:'Inline links in prose', kind:'side',
+      html:'<p class="r-body">On the side I keep a <a href="#" class="r-a">component lab</a> — one interface primitive a day.</p>',
+      note:'Colour plus a tinted underline at 40% alpha. The underline is now <span class="mono">rgba(147,147,147,.55)</span> — I raised the alpha because a grey line at 0.4 nearly vanished.' },
+
+    { id:'D-BODY', what:'Case-page body copy', kind:'side',
+      html:'<p class="r-case-p">Nothing in the type scale separates a claim from a caption — the body copy even reads larger than the subhead above it.</p>',
+      note:'Hardcoded <span class="mono">#5d5970</span> (a violet-grey) &rarr; <span class="mono">#5c5c5c</span>. Appears on all three case pages.' },
+  ]},
+
+  { name: 'Chrome and UI', items: [
+    { id:'D-NAV', what:'Logo, nav, and the logo dot', kind:'side',
+      html:'<div class="r-nav" style="display:flex;gap:26px;align-items:baseline"><span style="font-weight:600">Ravindra&nbsp;Pratap<span class="r-dot">.</span></span><span style="color:var(--ink-3)">Work</span><span style="color:var(--ink-3)">About</span></div>',
+      note:'The dot after the wordmark was <span class="mono">--lav</span> — a tiny but load-bearing bit of brand colour.' },
+
+    { id:'D-BTN', what:'Buttons', kind:'side',
+      html:'<a href="#" class="r-btn">Email me</a> &nbsp; <a href="#" class="r-btn ghost">X / @RavindraPatap</a>',
+      note:'The ghost button border was <span class="mono">#e0dcf4</span> &rarr; <span class="mono">#dfdfdf</span>.' },
+
+    { id:'D-QUOTE', what:'Pull-quote rule', kind:'side',
+      html:'<blockquote class="r-quote">Design was the only variable.</blockquote>',
+      note:'2px left rule, was <span class="mono">--lav</span>.' },
+
+    { id:'D-BAR', what:'Scroll progress bar', kind:'side',
+      html:'<div class="r-bar"></div>',
+      note:'Fixed 2px bar at the top of every case page. <b>This one is now quite subtle</b> — it may want <span class="mono">--ink</span> rather than <span class="mono">--ink-3</span>.' },
+
+    { id:'D-SEL', what:'Text selection highlight', kind:'side',
+      html:'<p class="r-body">Drag-select behaviour: <span class="r-sel">this is what selected text looks like now.</span></p>',
+      note:'<span class="mono">::selection</span> was <span class="mono">#e6e1fb</span> &rarr; <span class="mono">#e5e5e5</span>.' },
+  ]},
+
+  { name: 'Illustration surfaces', items: [
+    { id:'D-DOTS', what:'Dot-grid texture behind the case visuals', kind:'side',
+      html:'<div class="r-dots"></div>',
+      note:'<span class="mono">rgba(143,127,240,.13)</span> &rarr; <span class="mono">rgba(147,147,147,.16)</span>. Alpha raised 0.13 &rarr; 0.16 so the grey dots stay as present as the lavender ones were.' },
+
+    { id:'D-WIRE', what:'Wireframe bars inside the device mockups', kind:'side',
+      html:'<div class="r-wire"><i style="width:100%"></i><i style="width:72%"></i><i style="width:88%"></i></div>',
+      note:'This one was written as <span class="mono">hsl(255 40% 96.5%)</span> and <b>survived a hex/rgb search of the source</b> — it only surfaced when I read the browser-normalised CSSOM instead. Now <span class="mono">#f4f4f4</span>.' },
+
+    { id:'D-CHART', what:'SVG chart bars', kind:'side',
+      html:'<div class="r-chart"><i style="height:100%;background:var(--c1)"></i><i style="height:64%;background:var(--c2)"></i><i style="height:38%;background:var(--c3)"></i></div>',
+      note:'A JS array, not CSS: <span class="mono">[\u2018#8f7ff0\u2019,\u2018#b7aef7\u2019,\u2018#ded9fa\u2019]</span> &rarr; <span class="mono">[\u2018#939393\u2019,\u2018#b9b9b9\u2019,\u2018#dedede\u2019]</span>. Appears on all three case pages.' },
+  ]},
+  ]
+},
+
+{
+  title: 'E · Where colour deliberately survives',
+  note: 'Two places, both agreed. Neither lives in CSS, which is why a palette sweep does not touch them — and why they need checking separately.',
+  groups: [
+  { name: 'Kept', items: [
+    { id:'K-AUR', what:'The aurora hero — on click', kind:'note',
+      spec:'GLSL OKLCH constants CA(0.88,0.20,150) CB(0.92,0.13,205) CC(0.88,0.22,318) — green &rarr; cyan &rarr; magenta',
+      html:'<p class="meta"><span class="tag ok">Measured</span> Hero saturation is <b>0 at rest</b> (plain white paper) and <b>60.9 mean / 129 peak</b> after clicking <span class="mono">convert.</span> The page is fully monochrome until the visitor asks for it.</p><div style="margin-top:14px;height:150px;border-radius:var(--r-sm);background:linear-gradient(105deg,#ffffff 0%,#c8f0d8 18%,#a8ecdf 38%,#bfe8f5 56%,#e6d5f2 76%,#ffffff 100%)"></div><p class="meta">Approximation of the revealed field for reference only — the real thing is animated and lives in the shader.</p>' },
+
+    { id:'K-HOV', what:'Pointer gradient on the case illustrations', kind:'note',
+      spec:'ga(0.855,0.31,229) blue &rarr; gb(0.62,0.20,32) orange, strength eased from 0 on pointermove',
+      html:'<p class="meta"><span class="tag ok">Measured</span> Illustration saturation is <b>0 at rest</b>, then <b>peak 120 under the cursor with a mean of only 1.43</b> — proving the colour is local to the pointer rather than washing the whole illustration.</p><p class="meta">I also changed the <i>resting</i> particle colour here: <span class="mono">baseC 0.03 @ hue 296</span> &rarr; <span class="mono">baseC 0</span>. The illustrations were still sitting on a faint violet even with the CSS cleaned.</p>' },
+  ]},
+  ]
+},
+
+{
+  title: 'F · Still open',
+  note: 'Two decisions you said you wanted to make yourself, plus one I would like a steer on.',
+  groups: [
+  { name: 'Needs your call', items: [
+    { id:'O1', what:'How does anyone discover the convert. trigger?', kind:'note', flag:true,
+      html:'<p class="meta"><span class="tag warn">Made worse by this pass</span> <span class="mono">--lav-deep</span> was the only thing marking <span class="mono">convert.</span> as interactive. In monochrome it is now <span class="mono">--ink-2</span> — visually near-identical to the rest of the h1 apart from being serif italic.</p><div style="margin-top:14px" class="r-h3">I make designs that <em class="r-em">convert.</em></div>' },
+
+    { id:'O2', what:'What should a second click do?', kind:'note', flag:true,
+      html:'<p class="meta">Currently a placeholder that just replays the ripple, marked as such in the code. You said you had something in mind.</p>' },
+
+    { id:'O3', what:'--mut is 3.4:1 — below AA for body text', kind:'note', flag:true,
+      html:'<p class="meta">Pre-existing, not caused by this pass, but now that the ramp is deliberate it stands out. Options: darken to <span class="mono">#767676</span> (4.5:1, passes), leave it and only use it at 18px+, or leave it entirely.</p><p class="r-body" style="color:var(--mut)">This is --mut at 18px, for judgement.</p>' },
+  ]},
+  ]
+},
+];
+
+/* ------------------------- render ------------------------- */
+const KEY = 'portfolio-review-v1';
+let notes = {};
+try { notes = JSON.parse(localStorage.getItem(KEY) || '{}'); } catch(e) { notes = {}; }
+
+const doc = document.getElementById('doc');
+const ORDER = [];
+
+SECTIONS.forEach(sec => {
+  const s = document.createElement('section');
+  s.innerHTML = `<h2 class="sec">${esc(sec.title)}</h2><p class="sec-note">${sec.note}</p>`;
+  sec.groups.forEach(grp => {
+    const h = document.createElement('h3');
+    h.className = 'grp';
+    h.textContent = grp.name;
+    s.appendChild(h);
+    grp.items.forEach(it => {
+      ORDER.push(it);
+      const el = document.createElement('div');
+      el.className = 'item' + (it.flag ? ' flag' : '');
+
+      let stage = '';
+      if (it.kind === 'colour') {
+        stage = `
+          <div class="pair">
+            <div class="sw" style="background:${it.old}"><span>was ${it.old}</span></div>
+            <div class="sw" style="background:${it.neu}"><span>now ${it.neu}</span></div>
+          </div>
+          <div class="meta">${it.note || ''}</div>`;
+      } else if (it.kind === 'side') {
+        stage = `
+          <div class="side">
+            <div class="demo old" style="--c1:#8f7ff0;--c2:#b7aef7;--c3:#ded9fa">
+              <div class="demo-l">Before — lavender</div>${it.html}
+            </div>
+            <div class="demo" style="--c1:#939393;--c2:#b9b9b9;--c3:#dedede">
+              <div class="demo-l">After — monochrome</div>${it.html}
+            </div>
+          </div>
+          <div class="meta">${it.note || ''}</div>`;
+      } else {
+        stage = `<div class="stage">${it.html || ''}</div>`;
+      }
+
+      el.innerHTML = `
+        <div class="item-head">
+          <span class="id">${it.id}</span>
+          <span class="what">${esc(it.what)}</span>
+          <button class="cbtn" data-for="${it.id}">Comment</button>
+          ${it.spec ? `<span class="spec">${esc(it.spec)}</span>` : ''}
+        </div>
+        <div class="body">${stage}</div>
+        <div class="cwrap" id="c-${it.id}">
+          <textarea placeholder="Your note on ${it.id} — ${esc(it.what)}"></textarea>
+          <div class="chint">Saved automatically.</div>
+        </div>`;
+      s.appendChild(el);
+    });
+  });
+  doc.appendChild(s);
+});
+
+/* ------------------------- comments ------------------------- */
+function refresh(){
+  let n = 0;
+  ORDER.forEach(it => {
+    const has = (notes[it.id] || '').trim().length > 0;
+    if (has) n++;
+    const btn = document.querySelector(`.cbtn[data-for="${it.id}"]`);
+    btn.classList.toggle('has', has);
+    btn.textContent = has ? 'Commented' : 'Comment';
+  });
+  document.getElementById('count').textContent =
+    n === 0 ? 'no comments yet' : `${n} comment${n===1?'':'s'} on ${ORDER.length} items`;
+}
+
+document.querySelectorAll('.cbtn').forEach(btn => {
+  const id = btn.dataset.for;
+  const wrap = document.getElementById('c-' + id);
+  const ta = wrap.querySelector('textarea');
+  ta.value = notes[id] || '';
+  if (ta.value) wrap.classList.add('open');
+  btn.addEventListener('click', () => {
+    wrap.classList.toggle('open');
+    if (wrap.classList.contains('open')) ta.focus();
+  });
+  ta.addEventListener('input', () => {
+    notes[id] = ta.value;
+    if (!ta.value.trim()) delete notes[id];
+    localStorage.setItem(KEY, JSON.stringify(notes));
+    refresh();
+  });
+});
+refresh();
+
+/* ------------------------- export ------------------------- */
+document.getElementById('copy').addEventListener('click', async () => {
+  const lines = [];
+  ORDER.forEach(it => {
+    const v = (notes[it.id] || '').trim();
+    if (v) lines.push(`[${it.id}] ${it.what}\n${v}\n`);
+  });
+  const text = lines.length
+    ? `REVIEW COMMENTS — typography & monochrome pass\n${lines.length} of ${ORDER.length} items\n\n${lines.join('\n')}`
+    : 'No comments were left.';
+  const out = document.getElementById('out');
+  const ta = out.querySelector('textarea');
+  ta.value = text;
+  out.classList.add('open');
+  ta.select();
+  try { await navigator.clipboard.writeText(text); }
+  catch(e) { /* clipboard blocked — the textarea above is selected, so Cmd/Ctrl+C works */ }
+});
+
+document.getElementById('clear').addEventListener('click', () => {
+  if (!confirm('Delete every comment on this page?')) return;
+  notes = {};
+  localStorage.removeItem(KEY);
+  document.querySelectorAll('.cwrap textarea').forEach(t => { t.value = ''; });
+  document.getElementById('out').classList.remove('open');
+  refresh();
+});
+</script>
+</body>
+</html>

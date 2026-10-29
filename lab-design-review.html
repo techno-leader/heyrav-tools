@@ -1,0 +1,1286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Design review — rolling the ViewRyt conventions to the live cluster</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+
+<!-- =====================================================================
+     DOC CHROME
+     Every selector below is class-prefixed (.doc-*, .item, .pagerow, .btn…)
+     or an id. No bare element selectors, so nothing here can reach into a
+     mini-render — and nothing in the #specs sheet can reach back out.
+     ===================================================================== -->
+<style>
+  :root{
+    --ink:#16141f;
+    --mut:#8b87a0;
+    --line:#eceaf6;
+    --paper:#ffffff;
+    --bg:#faf9fc;
+    --lav:#8f7ff0;
+    --lav-deep:#6a58e0;
+
+    --ok:#276b46;      --ok-bg:#e9f5ee;   --ok-line:#bcdfcb;
+    --skip:#6f6b82;    --skip-bg:#f1f0f5; --skip-line:#dbd9e4;
+    --mod:#8a5c07;     --mod-bg:#fdf4e3;  --mod-line:#ecd9ae;
+
+    --r-sm:8px; --r-md:14px; --r-lg:20px; --r-pill:99px;
+    --sp-1:6px; --sp-2:12px; --sp-3:20px; --sp-4:32px; --sp-5:48px;
+    --tap:44px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{
+    background:var(--bg);color:var(--ink);
+    font-family:"Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.6;
+  }
+  .doc-mono{font-family:ui-monospace,"SF Mono",Menlo,monospace;}
+
+  /* ---------------- header ---------------- */
+  .doc-head{
+    position:sticky;top:0;z-index:50;
+    background:var(--paper);border-bottom:1px solid var(--line);
+    padding:var(--sp-3) var(--sp-4);
+  }
+  .doc-head-in{max-width:1180px;margin:0 auto;display:flex;flex-wrap:wrap;gap:var(--sp-3);align-items:center;}
+  .doc-head h1{
+    font-family:"Space Grotesk","Inter",sans-serif;font-size:22px;font-weight:600;
+    letter-spacing:-.02em;line-height:1.2;margin-right:auto;
+  }
+  .doc-head h1 em{font-family:"Instrument Serif",Georgia,serif;font-style:italic;font-weight:400;color:var(--lav-deep);}
+  .doc-count{
+    font-family:ui-monospace,Menlo,monospace;font-size:13px;letter-spacing:.06em;
+    color:var(--mut);white-space:nowrap;
+  }
+  .doc-count b{color:var(--ink);font-weight:600;}
+  .doc-saved{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--ok);white-space:nowrap;min-width:96px;}
+  .doc-saved[hidden]{display:none;}
+
+  .btn{
+    font:inherit;font-size:14px;
+    min-height:var(--tap);padding:0 18px;
+    display:inline-flex;align-items:center;justify-content:center;gap:8px;
+    border:1px solid var(--line);border-radius:var(--r-pill);
+    background:var(--paper);color:var(--ink);cursor:pointer;
+    transition:border-color .2s ease,color .2s ease,background-color .2s ease;
+  }
+  .btn:hover{border-color:var(--lav);color:var(--lav-deep);}
+  .btn:focus-visible{outline:2px solid var(--lav-deep);outline-offset:2px;}
+  .btn.primary{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .btn.primary:hover{background:var(--lav-deep);border-color:var(--lav-deep);color:var(--paper);}
+  .btn.ok{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok);}
+  .btn.danger:hover{border-color:#c0563f;color:#a8442e;}
+  .btn.small{min-height:var(--tap);padding:0 14px;font-size:13px;}
+
+  /* ---------------- filter bar ---------------- */
+  .doc-filter{
+    position:sticky;top:0;z-index:40;
+    background:var(--paper);border-bottom:1px solid var(--line);
+    padding:var(--sp-2) var(--sp-4);
+  }
+  .doc-filter-in{
+    max-width:1180px;margin:0 auto;
+    display:flex;flex-wrap:wrap;gap:var(--sp-2) var(--sp-3);align-items:center;
+  }
+  .doc-filter fieldset{border:0;display:flex;flex-wrap:wrap;gap:var(--sp-1);align-items:center;}
+  .doc-filter legend{
+    float:left;margin-right:var(--sp-2);
+    font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--mut);line-height:var(--tap);
+  }
+  .doc-filter label{
+    display:inline-flex;align-items:center;min-height:var(--tap);
+    padding:0 16px;border:1px solid var(--line);border-radius:var(--r-pill);
+    font-size:14px;cursor:pointer;background:var(--paper);
+    transition:border-color .2s ease,background-color .2s ease,color .2s ease;
+  }
+  .doc-filter label:hover{border-color:var(--lav);}
+  .doc-filter input{position:absolute;opacity:0;pointer-events:none;}
+  .doc-filter input:checked + span{color:var(--paper);}
+  .doc-filter label:has(input:checked){background:var(--ink);border-color:var(--ink);color:var(--paper);}
+  .doc-filter label:has(input:focus-visible){outline:2px solid var(--lav-deep);outline-offset:2px;}
+
+  /* ---------------- page ---------------- */
+  .doc-main{max-width:1180px;margin:0 auto;padding:var(--sp-5) var(--sp-4) 120px;}
+  .doc-note{
+    background:var(--paper);border:1px solid var(--line);border-left:3px solid var(--lav);
+    border-radius:var(--r-md);padding:var(--sp-3);margin-bottom:var(--sp-5);
+    font-size:15px;color:var(--mut);
+  }
+  .doc-note b{color:var(--ink);font-weight:600;}
+  .doc-note code{font-family:ui-monospace,Menlo,monospace;font-size:13px;color:var(--ink);}
+  .doc-note ul{margin:var(--sp-2) 0 0 20px;}
+  .doc-note li{margin-bottom:4px;}
+
+  .doc-group{
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--lav);
+    display:flex;align-items:center;gap:14px;margin:var(--sp-5) 0 var(--sp-3);
+  }
+  .doc-group::after{content:"";flex:1;height:1px;background:var(--line);}
+  .doc-group:first-child{margin-top:0;}
+
+  /* ---------------- item ---------------- */
+  .item{
+    background:var(--paper);border:1px solid var(--line);border-radius:var(--r-lg);
+    padding:var(--sp-4);margin-bottom:var(--sp-3);
+  }
+  .item[hidden]{display:none;}
+  .item-head{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-1);}
+  .item-idx{
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.16em;
+    color:var(--lav);
+  }
+  .item-head h2{
+    font-family:"Space Grotesk","Inter",sans-serif;font-size:24px;font-weight:600;
+    letter-spacing:-.02em;line-height:1.25;margin-right:auto;
+  }
+  .tag{
+    font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.12em;
+    text-transform:uppercase;color:var(--mut);
+    border:1px solid var(--line);border-radius:var(--r-pill);padding:5px 12px;white-space:nowrap;
+  }
+  .tag.proposed{color:var(--mod);border-color:var(--mod-line);background:var(--mod-bg);}
+  .why{color:var(--mut);font-size:16px;max-width:82ch;margin-bottom:var(--sp-3);}
+  .why b{color:var(--ink);font-weight:600;}
+
+  /* before / after pair */
+  .ba{display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);margin-bottom:var(--sp-3);}
+  .pane{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;background:var(--bg);}
+  .pane-h{
+    font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.18em;
+    text-transform:uppercase;color:var(--mut);
+    padding:10px 14px;border-bottom:1px solid var(--line);background:var(--paper);
+  }
+  .pane.after .pane-h{color:var(--lav-deep);}
+
+  /* CSS diff */
+  .diff{
+    font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.75;
+    background:var(--bg);border:1px solid var(--line);border-radius:var(--r-md);
+    padding:14px 16px;margin-bottom:var(--sp-3);overflow-x:auto;white-space:pre;
+  }
+  .diff .del{color:#a8442e;}
+  .diff .add{color:var(--ok);}
+  .diff .ctx{color:var(--mut);}
+
+  /* per-page decisions */
+  .pages{border-top:1px solid var(--line);}
+  .pagerow{
+    display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-2);
+    padding:var(--sp-2) 0;border-bottom:1px solid var(--line);
+  }
+  .pagerow[hidden]{display:none;}
+  .pagerow.na{opacity:.5;}
+  .pg{min-width:230px;flex:1;}
+  .pg b{
+    display:block;font-family:ui-monospace,Menlo,monospace;font-size:13px;
+    font-weight:600;letter-spacing:.02em;
+  }
+  .pg span{display:block;font-size:13px;color:var(--mut);line-height:1.45;}
+  .verdicts{display:flex;flex-wrap:wrap;gap:var(--sp-1);}
+  .v{
+    font:inherit;font-size:14px;min-height:var(--tap);min-width:var(--tap);padding:0 16px;
+    display:inline-flex;align-items:center;justify-content:center;
+    border:1px solid var(--line);border-radius:var(--r-pill);
+    background:var(--paper);color:var(--mut);cursor:pointer;
+    transition:border-color .2s ease,color .2s ease,background-color .2s ease;
+  }
+  .v:hover{border-color:var(--lav);color:var(--lav-deep);}
+  .v:focus-visible{outline:2px solid var(--lav-deep);outline-offset:2px;}
+  .v[aria-pressed="true"][data-v="adopt"]{background:var(--ok-bg);border-color:var(--ok-line);color:var(--ok);font-weight:600;}
+  .v[aria-pressed="true"][data-v="skip"]{background:var(--skip-bg);border-color:var(--skip-line);color:var(--skip);font-weight:600;}
+  .v[aria-pressed="true"][data-v="modify"]{background:var(--mod-bg);border-color:var(--mod-line);color:var(--mod);font-weight:600;}
+  .v.note-toggle{padding:0 14px;}
+  .v.note-toggle.has-note{border-color:var(--lav);color:var(--lav-deep);}
+  .note{
+    flex-basis:100%;font:inherit;font-size:14px;line-height:1.5;
+    border:1px solid var(--line);border-radius:var(--r-sm);
+    padding:10px 12px;min-height:66px;resize:vertical;color:var(--ink);background:var(--bg);
+  }
+  .note:focus-visible{outline:2px solid var(--lav-deep);outline-offset:1px;}
+  .note[hidden]{display:none;}
+  .na-msg{font-size:14px;color:var(--mut);font-style:italic;}
+
+  /* output box */
+  #out{
+    display:block;width:100%;max-width:1180px;margin:0 auto var(--sp-5);
+    font-family:ui-monospace,Menlo,monospace;font-size:12.5px;line-height:1.6;
+    border:1px solid var(--line);border-radius:var(--r-md);padding:16px;
+    min-height:280px;background:var(--paper);color:var(--ink);
+  }
+  #out[hidden]{display:none;}
+
+  @media (max-width:820px){
+    .doc-head,.doc-filter,.doc-main{padding-left:var(--sp-3);padding-right:var(--sp-3);}
+    .doc-filter{position:static;}
+    /* the pair stacks rather than squashing — a 2-up mini-render at 375px
+       is too narrow to read either side of the comparison */
+    .ba{grid-template-columns:1fr;}
+    .item{padding:var(--sp-3);}
+    .pg{min-width:100%;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .btn,.v,.doc-filter label{transition:none;}
+  }
+</style>
+
+<!-- =====================================================================
+     MINI-RENDER CSS  (#specs)
+     Every selector starts with `.spec` or `.sp-…`, so this sheet is sealed
+     inside the before/after panes. Raw hex values inside a `.spec-before`
+     block are QUOTED FROM THE SOURCE FILE on purpose — that is the whole
+     point of the before side. The `.spec-after` blocks use tokens.
+     ===================================================================== -->
+<style id="specs">
+  .spec{
+    padding:22px;min-height:170px;
+    display:flex;flex-direction:column;justify-content:center;gap:14px;
+    font-family:"Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    font-size:16px;line-height:1.6;color:var(--ink);background:var(--paper);
+  }
+  .spec .cap{
+    font-family:ui-monospace,Menlo,monospace;font-size:11px;letter-spacing:.1em;
+    color:var(--mut);text-transform:uppercase;
+  }
+  .spec .ro{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--mut);}
+  .spec .ro b{color:var(--lav-deep);font-weight:600;}
+
+  /* ---- 01 radius scale ---- */
+  .sp-radius .ladder{display:flex;flex-wrap:wrap;gap:9px;}
+  .sp-radius .ladder i{
+    font-style:normal;font-size:12px;line-height:1.3;
+    border:1px solid var(--line);background:var(--bg);padding:11px 14px;
+    display:flex;flex-direction:column;gap:3px;
+  }
+  .sp-radius .ladder i::after{font-family:ui-monospace,Menlo,monospace;font-size:10.5px;color:var(--mut);}
+  .spec-before.sp-radius .ladder i::after{content:attr(data-b);}
+  .spec-after.sp-radius  .ladder i::after{content:attr(data-a);}
+  .spec-before.sp-radius .ladder i:nth-child(1){border-radius:12px;}
+  .spec-before.sp-radius .ladder i:nth-child(2){border-radius:14px;}
+  .spec-before.sp-radius .ladder i:nth-child(3){border-radius:16px;}
+  .spec-before.sp-radius .ladder i:nth-child(4){border-radius:20px;}
+  .spec-before.sp-radius .ladder i:nth-child(5){border-radius:24px;}
+  .spec-before.sp-radius .ladder i:nth-child(6){border-radius:30px;}
+  .spec-before.sp-radius .ladder i:nth-child(7){border-radius:999px;}
+  .spec-after.sp-radius .ladder i:nth-child(1){border-radius:var(--r-sm);}
+  .spec-after.sp-radius .ladder i:nth-child(2){border-radius:var(--r-md);}
+  .spec-after.sp-radius .ladder i:nth-child(3){border-radius:var(--r-lg);}
+  .spec-after.sp-radius .ladder i:nth-child(4){border-radius:var(--r-lg);}
+  .spec-after.sp-radius .ladder i:nth-child(5){border-radius:var(--r-lg);}
+  .spec-after.sp-radius .ladder i:nth-child(6){border-radius:34px;}
+  .spec-after.sp-radius .ladder i:nth-child(7){border-radius:99px;}
+
+  /* ---- 02 type scale ---- */
+  .sp-type .ty{display:flex;flex-direction:column;gap:12px;}
+  .sp-type .ty p{position:relative;letter-spacing:-.01em;}
+  .sp-type .ty p::after{
+    display:block;font-family:ui-monospace,Menlo,monospace;font-size:10.5px;
+    letter-spacing:.1em;color:var(--mut);margin-top:2px;
+  }
+  .spec-before.sp-type .ty p::after{content:attr(data-b);}
+  .spec-after.sp-type  .ty p::after{content:attr(data-a);}
+  .sp-type .ty .b,.sp-type .ty .c{font-family:"Space Grotesk","Inter",sans-serif;font-weight:600;}
+  .spec-before.sp-type .ty .a{font-size:16px;}
+  .spec-before.sp-type .ty .b{font-size:17px;}
+  .spec-before.sp-type .ty .c{font-size:20px;}
+  .spec-after.sp-type .ty .a{font-size:var(--t-body);}
+  .spec-after.sp-type .ty .b{font-size:var(--t-sub);}
+  .spec-after.sp-type .ty .c{font-size:var(--t-sub-md);}
+  .spec-after.sp-type{--t-body:18px;--t-sub:24px;--t-sub-md:32px;}
+
+  /* ---- 03 elevation ---- */
+  .sp-shadow .sh{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;}
+  .sp-shadow .sh > div{
+    border:1px solid var(--line);border-radius:var(--r-md);background:var(--paper);
+    padding:16px 18px;font-size:13px;min-width:104px;
+  }
+  .sp-shadow .pop{font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--mut);}
+  .spec-before.sp-shadow .c1{box-shadow:0 24px 60px -30px rgba(64,52,150,.28);}
+  .spec-before.sp-shadow .c2{box-shadow:0 30px 70px -34px rgba(30,20,90,.45);}
+  .spec-before.sp-shadow .c3{box-shadow:0 24px 48px -26px rgba(106,88,224,.28);}
+  .spec-before.sp-shadow .pop{opacity:.35;box-shadow:none;}
+  .spec-after.sp-shadow .c1,
+  .spec-after.sp-shadow .c2,
+  .spec-after.sp-shadow .c3{box-shadow:none;}
+  .spec-after.sp-shadow .pop{box-shadow:0 18px 40px -22px rgba(64,52,150,.34);color:var(--lav-deep);}
+
+  /* ---- 04 stepped display sizes ---- */
+  .sp-steps .hd{
+    font-family:"Space Grotesk","Inter",sans-serif;font-weight:600;
+    letter-spacing:-.03em;line-height:1.12;
+  }
+  .spec-before.sp-steps .hd{font-size:clamp(28px,3.6vw,46px);}
+  .spec-after.sp-steps .hd{font-size:40px;}
+  @media (max-width:640px){.spec-after.sp-steps .hd{font-size:32px;}}
+
+  /* ---- 05 18px body floor ---- */
+  .sp-floor .lab{
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.14em;
+    text-transform:uppercase;color:var(--lav);
+  }
+  .sp-floor .bd{line-height:1.6;color:var(--mut);}
+  .spec-before.sp-floor .bd{font-size:16px;}
+  .spec-after.sp-floor .bd{font-size:18px;}
+
+  /* ---- 06 flat card surfaces ---- */
+  .sp-flatcard .cd{border:1px solid var(--line);border-radius:var(--r-md);padding:20px;}
+  .sp-flatcard .cd i{
+    display:block;font-style:normal;font-family:ui-monospace,Menlo,monospace;
+    font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:var(--lav);margin-bottom:10px;
+  }
+  .sp-flatcard .cd b{
+    display:block;font-family:"Space Grotesk","Inter",sans-serif;font-weight:600;
+    font-size:20px;letter-spacing:-.015em;margin-bottom:8px;
+  }
+  .sp-flatcard .cd p{font-size:15px;color:var(--mut);}
+  .spec-before.sp-flatcard .cd{background:linear-gradient(160deg,#fbfaff, #f5f3fd);}
+  .spec-after.sp-flatcard .cd{background:var(--paper);}
+
+  /* ---- 07 no lift-on-hover ---- */
+  .sp-nolift .hv{display:flex;flex-wrap:wrap;gap:14px;align-items:flex-start;}
+  .sp-nolift .cd,.sp-nolift .ln{
+    border:1px solid var(--line);border-radius:var(--r-md);background:var(--paper);
+    padding:16px 18px;font-size:14px;color:var(--ink);text-decoration:none;display:block;
+  }
+  .spec-before.sp-nolift .cd,
+  .spec-before.sp-nolift .ln{transition:transform .3s ease,border-color .3s ease;}
+  .spec-before.sp-nolift .cd:hover,
+  .spec-before.sp-nolift .ln:hover{transform:translateY(-4px);border-color:#d9d2f6;}
+  .spec-after.sp-nolift .ln{transition:border-color .3s,color .3s;}
+  .spec-after.sp-nolift .ln:hover{border-color:var(--lav);color:var(--lav-deep);}
+
+  /* ---- 08 panel fills on figures ---- */
+  .sp-panelfill .fig{
+    border:1px solid var(--line);border-radius:var(--r-lg);
+    padding:26px;display:flex;justify-content:center;
+  }
+  .sp-panelfill .fig .shot{
+    display:block;width:70%;height:82px;background:var(--paper);
+    border:1px solid var(--line);border-radius:var(--r-sm);
+  }
+  .spec-before.sp-panelfill .fig{
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(143,127,240,.15) 1px, transparent 1.6px),
+      linear-gradient(150deg,#f7f5ff 0%,#efecfc 100%);
+    background-size:11px 11px, auto;
+  }
+  .spec-after.sp-panelfill .fig{background:#faf9ff;}
+
+  /* ---- 09 device frames ---- */
+  .sp-device .phone{width:132px;margin:0 auto;background:var(--paper);overflow:hidden;}
+  .sp-device .screen{height:150px;padding:14px 12px;display:flex;flex-direction:column;gap:8px;overflow:hidden;}
+  .sp-device .screen .bar{display:block;height:9px;background:var(--line);border-radius:4px;}
+  .sp-device .screen .bar.w{width:62%;}
+  .spec-before.sp-device .phone{
+    border:1px solid #e7e4f6;border-radius:30px;
+    box-shadow:0 24px 60px -30px rgba(64,52,150,.3);
+  }
+  .spec-before.sp-device .screen{border-radius:29px;}
+  .spec-after.sp-device .phone{
+    border:2px solid var(--line);border-radius:34px;box-shadow:none;
+  }
+  .spec-after.sp-device .screen{border-radius:calc(34px - 2px);}
+
+  /* ---- 10 numbered section chrome ---- */
+  .sp-numbers .sl{
+    display:flex;align-items:center;gap:14px;
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--lav);
+  }
+  .sp-numbers .sl::after{content:"";flex:1;height:1px;background:var(--line);}
+  .spec-before.sp-numbers .sl::before{content:attr(data-b);}
+  .spec-after.sp-numbers .sl::before{content:attr(data-a);}
+  .sp-numbers .h2{
+    font-family:"Space Grotesk","Inter",sans-serif;font-size:26px;font-weight:600;
+    letter-spacing:-.025em;line-height:1.2;
+  }
+
+  /* ---- 11 sec-label hairline ---- */
+  .sp-seclabel .sl2{
+    display:flex;align-items:center;gap:14px;
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.24em;
+    text-transform:uppercase;color:var(--lav);
+  }
+  .spec-after.sp-seclabel .sl2::after{content:"";flex:1;height:1px;background:var(--line);}
+
+  /* ---- 12 stat blocks ---- */
+  .sp-stats .st b{
+    display:block;font-family:"Space Grotesk","Inter",sans-serif;font-weight:600;
+    letter-spacing:-.03em;font-variant-numeric:tabular-nums;line-height:1;
+  }
+  .spec-before.sp-stats .st{
+    border:1px solid var(--line);border-radius:24px;
+    padding:26px 20px;display:grid;grid-template-columns:repeat(3,1fr);gap:18px;text-align:center;
+    background-image:
+      radial-gradient(circle at 1px 1px, rgba(143,127,240,.13) 1px, transparent 1.6px),
+      linear-gradient(160deg,#faf9ff,#f3f0fd);
+    background-size:11px 11px, auto;
+  }
+  .spec-before.sp-stats .st b{font-size:38px;margin-bottom:8px;}
+  .spec-before.sp-stats .st .lead b{font-size:38px;}
+  .spec-before.sp-stats .st span{
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;color:var(--mut);
+  }
+  .spec-after.sp-stats .st{
+    border-top:1px solid var(--line);padding:22px 0 0;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:18px;align-items:start;
+  }
+  .spec-after.sp-stats .st > div + div{border-left:1px solid var(--line);padding-left:18px;}
+  .spec-after.sp-stats .st b{font-size:32px;margin-bottom:10px;}
+  .spec-after.sp-stats .st .lead b{color:var(--lav-deep);}
+  .spec-after.sp-stats .st span{font-size:16px;line-height:1.5;color:var(--mut);}
+
+  /* ---- 13 reduced-motion coverage ---- */
+  .sp-reduced .rm{list-style:none;display:flex;flex-direction:column;gap:8px;}
+  .sp-reduced .rm li{
+    display:flex;align-items:center;gap:10px;font-size:14px;
+    padding:8px 12px;border:1px solid var(--line);border-radius:var(--r-sm);
+  }
+  .sp-reduced .rm li::before{
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;font-weight:600;
+    width:74px;flex:none;
+  }
+  .spec-before.sp-reduced .rm li::before{content:"not covered";color:#a8442e;}
+  .spec-before.sp-reduced .rm li:nth-child(1)::before{content:"covered";color:var(--ok);}
+  .spec-after.sp-reduced .rm li::before{content:"covered";color:var(--ok);}
+  .spec-before.sp-reduced .rm li:not(:nth-child(1)){color:var(--mut);border-style:dashed;}
+
+  /* ---- 14 glossary popover ---- */
+  .sp-gloss .gl{font-size:16px;line-height:1.7;color:var(--mut);}
+  .sp-gloss .t{color:var(--ink);}
+  .sp-gloss .t i{
+    display:none;align-items:center;justify-content:center;
+    width:13px;height:13px;margin-left:5px;vertical-align:.08em;
+    border:1px solid currentColor;border-radius:99px;
+    font-family:ui-monospace,Menlo,monospace;font-size:9px;font-style:normal;line-height:1;
+    color:var(--lav-deep);
+  }
+  .sp-gloss .pop{
+    border:1px solid var(--line);border-radius:var(--r-md);background:var(--paper);
+    padding:14px 16px;font-size:15px;line-height:1.55;color:var(--mut);
+  }
+  .spec-before.sp-gloss .pop{display:none;}
+  .spec-after.sp-gloss .t{
+    text-decoration:underline dotted;text-underline-offset:3px;cursor:help;
+  }
+  .spec-after.sp-gloss .t i{display:inline-flex;}
+  .spec-after.sp-gloss .pop{box-shadow:0 18px 40px -22px rgba(64,52,150,.34);}
+
+  /* ---- 15 touch targets ---- */
+  .sp-touch .tt{display:flex;gap:18px;align-items:center;border:1px dashed var(--line);padding:0 12px;}
+  .sp-touch .tt a{color:var(--ink);text-decoration:none;font-size:13px;}
+  .spec-before.sp-touch .tt a{display:inline;padding:0;}
+  .spec-after.sp-touch .tt a{display:inline-flex;align-items:center;min-height:44px;padding:0 6px;}
+
+  /* the panes stack below 820px, so a 3-up stat row no longer fits inside one.
+     The source files collapse .impact to a single column at 900px anyway, so
+     the demo follows the same behaviour rather than inventing a squashed one. */
+  @media (max-width:820px){
+    .spec-before.sp-stats .st,
+    .spec-after.sp-stats .st{grid-template-columns:1fr;}
+    .spec-after.sp-stats .st > div + div{
+      border-left:0;border-top:1px solid var(--line);padding-left:0;padding-top:18px;
+    }
+    .spec-before.sp-stats .st b,
+    .spec-before.sp-stats .st .lead b{font-size:32px;}
+  }
+
+  @media (prefers-reduced-motion:reduce){
+    .spec-before.sp-nolift .cd,
+    .spec-before.sp-nolift .ln,
+    .spec-after.sp-nolift .ln{transition:none;}
+    .spec-before.sp-nolift .cd:hover,
+    .spec-before.sp-nolift .ln:hover{transform:none;}
+  }
+</style>
+</head>
+<body>
+
+<header class="doc-head">
+  <div class="doc-head-in">
+    <h1>Design review — rolling the <em>ViewRyt</em> conventions out</h1>
+    <span class="doc-count" id="count">— of — decided</span>
+    <span class="doc-saved" id="saved" hidden></span>
+    <button class="btn primary" id="copy-all">copy all decisions</button>
+    <button class="btn danger" id="reset">reset</button>
+  </div>
+</header>
+
+<div class="doc-filter">
+  <div class="doc-filter-in">
+    <fieldset>
+      <legend>Show</legend>
+      <label><input type="radio" name="fshow" value="all" checked /><span>all</span></label>
+      <label><input type="radio" name="fshow" value="undecided" /><span>undecided only</span></label>
+    </fieldset>
+    <fieldset>
+      <legend>Page</legend>
+      <label><input type="radio" name="fpage" value="all" checked /><span>all pages</span></label>
+      <label><input type="radio" name="fpage" value="ravindra-hero" /><span>ravindra-hero</span></label>
+      <label><input type="radio" name="fpage" value="case-irbs" /><span>case-irbs</span></label>
+      <label><input type="radio" name="fpage" value="case-dentomate" /><span>case-dentomate</span></label>
+    </fieldset>
+  </div>
+</div>
+
+<main class="doc-main">
+  <div class="doc-note">
+    <b>What this is.</b> <code>case-viewryt.html</code> now carries a specific set of conventions.
+    None of them have been rolled out to the rest of the live cluster. Each item below is one
+    convention: why it changed, a live before/after mini-render, the CSS diff, and a decision per page.
+    <b>Nothing is edited by this document</b> — it produces the brief, the refactor is a separate job.
+    <ul>
+      <li>Every “now:” value was read out of the source file, not estimated.</li>
+      <li>Rows marked <i>not present on this page</i> are excluded from the count.</li>
+      <li>Items tagged <span class="tag proposed">proposed</span> are <b>not</b> done on
+          <code>case-viewryt.html</code> either — they are house rules, so adopting one means
+          fixing ViewRyt too.</li>
+      <li>Decisions are saved to <code>localStorage</code> on every click. Closing the tab is safe.</li>
+    </ul>
+  </div>
+  <div id="items"></div>
+</main>
+
+<textarea id="out" hidden readonly aria-label="Copyable output"></textarea>
+
+<script>
+/* ============================================================
+   DATA
+   Every `now:` string below was read out of the source file.
+   Line references are given so any claim can be re-checked.
+   ============================================================ */
+
+const PAGES = [
+  {id:'ravindra-hero',  file:'ravindra-hero.html'},
+  {id:'case-irbs',      file:'case-irbs.html'},
+  {id:'case-dentomate', file:'case-dentomate.html'}
+];
+
+/* status: 'adopted'  = already true of case-viewryt.html, roll it out
+           'proposed' = house rule, not yet true of case-viewryt either  */
+const ITEMS = [
+/* ---------------------------------------------------------- Tokens */
+{
+  id:'radius', group:'Tokens', title:'Radius scale', status:'adopted',
+  why:'Five named steps replaced ad-hoc numbers, so a card, a figure and a device frame can no longer drift apart. The device step is structural — the screen radius derives from it with <b>calc()</b>, so one value moves the whole component.',
+  demo:`<div class="ladder">
+    <i data-b="12px" data-a="--r-sm">tag</i>
+    <i data-b="14px" data-a="--r-md">card</i>
+    <i data-b="16px" data-a="--r-lg">case-nav</i>
+    <i data-b="20px" data-a="--r-lg">figure</i>
+    <i data-b="24px" data-a="--r-lg">stat panel</i>
+    <i data-b="30px" data-a="--r-device">device</i>
+    <i data-b="999px" data-a="--r-pill">pill</i>
+  </div>`,
+  probe:{sel:'.ladder i:nth-child(6)', prop:'borderRadius'},
+  diff:`  :root{
+-   /* no radius tokens — every value written inline */
++   --r-sm:8px;
++   --r-md:14px;
++   --r-lg:20px;
++   --r-pill:99px;
++   --r-device:34px;   /* structural: screens derive from it */
+  }
+- .card{border-radius:14px}  .case-nav a{border-radius:16px}
+- figure{border-radius:20px} .impact{border-radius:24px}
++ .card{border-radius:var(--r-md)}
++ .case-nav a{border-radius:var(--r-md)}
++ figure{border-radius:var(--r-lg)}`,
+  pages:{
+    'ravindra-hero':'~28 border-radius declarations, 4px → 999px, all raw',
+    'case-irbs':'12 / 14 / 16 / 20 / 24px, all raw (lines 101–161)',
+    'case-dentomate':'12 / 14 / 16 / 20 / 24px, all raw (lines 97–149)'
+  }
+},
+{
+  id:'type', group:'Tokens', title:'Type scale tokens', status:'adopted',
+  why:'Six named steps with nothing between them. Anything the reader is meant to <b>read</b> sits on the scale; uppercase mono labels sit outside it deliberately, because they are chrome, not copy.',
+  demo:`<div class="ty">
+    <p class="a" data-b="16px raw" data-a="--t-body · 18px">Body copy the reader is meant to read.</p>
+    <p class="b" data-b="17px raw" data-a="--t-sub · 24px">Card subhead</p>
+    <p class="c" data-b="20px raw" data-a="--t-sub-md · 32px">Section lede</p>
+  </div>`,
+  probe:{sel:'.ty .c', prop:'fontSize'},
+  diff:`  :root{
++   --t-body:18px;    /* floor for anything read */
++   --t-sub:24px;
++   --t-sub-md:32px;
++   --t-sub-lg:40px;
++   --t-head:56px;
++   --t-head-lg:64px;
+  }
+- .card p{font-size:16px}   .case-nav b{font-size:17px}
+- .lede{font-size:20px}     .facts b{font-size:16px}
++ .card p{font-size:var(--t-body)}
++ .case-nav b{font-size:var(--t-sub)}
++ .facts b{font-size:var(--t-body)}`,
+  pages:{
+    'ravindra-hero':'no type tokens; raw sizes 8.5px → 118px plus 6 font-size clamps',
+    'case-irbs':'no type tokens; raw 12/13/16/17/18/20px plus 4 font-size clamps',
+    'case-dentomate':'no type tokens; raw 12/13/16/17/18/20px plus 4 font-size clamps'
+  }
+},
+{
+  id:'shadow', group:'Tokens', title:'One elevation token', status:'adopted',
+  why:'A single <b>--shadow-pop</b>, spent only on things that genuinely float above the text — the glossary popover. Cards, figures and tiles sit flat on the page and are separated by a hairline instead.',
+  demo:`<div class="sh">
+    <div class="c1">card</div>
+    <div class="c2">figure</div>
+    <div class="c3">tile</div>
+    <div class="pop">glossary popover</div>
+  </div>`,
+  probe:{sel:'.c2', prop:'boxShadow'},
+  diff:`- figure img.ph{box-shadow:0 30px 70px -34px rgba(30,20,90,.45)}
+- figure img.flat{box-shadow:0 24px 60px -30px rgba(64,52,150,.28)}
+- .tile:hover{box-shadow:0 24px 48px -26px rgba(106,88,224,.28)}
++ :root{--shadow-pop:0 18px 40px -22px rgba(64,52,150,.34);}
++ .define-box{box-shadow:var(--shadow-pop);}   /* the only user */
++ figure img{box-shadow:none;}`,
+  pages:{
+    'ravindra-hero':'4 distinct box-shadows (.tile hover, .d-tilt, .phone, .shot)',
+    'case-irbs':'2 distinct box-shadows (figure img.ph line 133, img.flat line 134)',
+    'case-dentomate':'1 box-shadow, on every figure img (line 125)'
+  }
+},
+/* ---------------------------------------------------------- Type */
+{
+  id:'steps', group:'Type', title:'Stepped display sizes, not clamp()', status:'adopted',
+  why:'A fluid <b>clamp()</b> renders whatever the viewport dictates — <b>clamp(28px,3.6vw,46px)</b> lands on 39.6px at 1100px wide, which is on nobody’s scale. Sizes now step at 1180 / 900 / 640 so every viewport renders one of the six named steps.',
+  demo:`<h4 class="hd">Four principles that did the heavy lifting.</h4>
+  <p class="ro">computed right now: <b data-readout="1">—</b></p>`,
+  probe:{sel:'.hd', prop:'fontSize'},
+  diff:`- h1{font-size:clamp(46px,6.6vw,96px);}
+- h2{font-size:clamp(28px,3.6vw,46px);}
++ h1{font-size:var(--t-head-lg);}          /* 64 */
++ h2{font-size:var(--t-head);}             /* 56 */
++ @media (max-width:900px){
++   h1{font-size:var(--t-head);}           /* 56 */
++   h2{font-size:var(--t-sub-lg);}         /* 40 */
++ }
++ @media (max-width:640px){
++   h1{font-size:var(--t-sub-lg);}         /* 40 */
++   h2{font-size:var(--t-sub-md);}         /* 32 */
++ }`,
+  pages:{
+    'ravindra-hero':'6 font-size clamps (lines 58, 96, 113, 125, 140, 332)',
+    'case-irbs':'4 font-size clamps (lines 62, 83, 93, 152)',
+    'case-dentomate':'4 font-size clamps (lines 59, 79, 89, 141)'
+  }
+},
+{
+  id:'floor', group:'Type', title:'18px body-copy floor', status:'adopted',
+  why:'Nothing the reader is meant to read drops below 18px — card copy, annotations and callouts included. Uppercase mono labels are <b>explicitly exempt</b>: they are chrome and stay at 12px.',
+  demo:`<div class="fl">
+    <span class="lab">Finding 02</span>
+    <p class="bd">Dense information hit visitors before the first CTA — thinking hard before caring at all.</p>
+    <span class="cap">the 12px mono label above is unchanged — chrome, not copy</span>
+  </div>`,
+  probe:{sel:'.bd', prop:'fontSize'},
+  diff:`- .card p{font-size:16px;line-height:1.55;}
+- .step div p{font-size:16px;}
+- .case-nav b{font-size:17px;}
++ .card p{font-size:var(--t-body);line-height:1.6;}
++ .case-nav b{font-size:var(--t-sub);}
+  /* unchanged, deliberately: */
+  .card i{font-family:ui-monospace;font-size:12px;text-transform:uppercase;}`,
+  pages:{
+    'ravindra-hero':'down to 8.5px (.kpi small). Note: much of it is inside decorative mock-UI, arguably chrome — worth a per-case call',
+    'case-irbs':'13px nav links; 16px card/step body; 17px case-nav titles',
+    'case-dentomate':'13px nav links; 16px card/step body; 17px case-nav titles'
+  }
+},
+/* ---------------------------------------------------------- Surfaces */
+{
+  id:'flatcard', group:'Surfaces', title:'Flat card surfaces', status:'adopted',
+  why:'The lavender gradient fill made every card read as a button. Cards are read, not clicked, so the surface is <b>var(--paper)</b> and a hairline border does the separating.',
+  demo:`<div class="cd"><i>Finding 02</i><b>Cognitive overload</b><p>Dense information hit visitors before the first CTA.</p></div>`,
+  probe:{sel:'.cd', prop:'backgroundImage'},
+  diff:`  .card{
+    border:1px solid var(--line);border-radius:var(--r-md);padding:20px;
+-   background:linear-gradient(160deg,#fbfaff, #f5f3fd);
++   background:var(--paper);
+  }`,
+  pages:{
+    'ravindra-hero':'no .card; .tile uses background:#fdfcff — flat already, but raw hex not a token (line 147)',
+    'case-irbs':'background:linear-gradient(160deg,#fbfaff, #f5f3fd) (line 102)',
+    'case-dentomate':'background:linear-gradient(160deg,#fbfaff, #f5f3fd) (line 98)'
+  }
+},
+{
+  id:'nolift', group:'Surfaces', title:'No lift-on-hover', status:'adopted',
+  why:'A card that lifts promises a click it never delivers. Cards lost their hover rule entirely; things that <b>are</b> links keep a border and colour shift only, which reads as “interactive” without pretending to be a button.',
+  demo:`<div class="hv">
+    <div class="cd">card — hover me</div>
+    <a class="ln" href="#nolift">case-nav link — hover me</a>
+  </div>`,
+  probe:{sel:'.cd', prop:'transitionProperty'},
+  diff:`- .card:hover{transform:translateY(-4px);border-color:#d9d2f6;}
+- .case-nav a:hover{transform:translateY(-4px);border-color:#d9d2f6;}
++ /* .card has no :hover rule at all — it is not interactive */
++ .case-nav a{transition:border-color .3s, color .3s;}
++ .case-nav a:hover{border-color:var(--lav);color:var(--lav-deep);}`,
+  pages:{
+    'ravindra-hero':'4 rules: .cta a −2px, .tile −5px, .case-visual .shot −8px + rotate(−.35deg), .contact-actions .primary −2px',
+    'case-irbs':'2 rules: .card −4px (line 105), .case-nav a −4px (line 164)',
+    'case-dentomate':'2 rules: .card −4px (line 101), .case-nav a −4px (line 152)'
+  }
+},
+{
+  id:'panelfill', group:'Surfaces', title:'Drop dot-grid / gradient panel fills', status:'adopted',
+  why:'A dot-grid <i>and</i> a gradient behind every screenshot competed with the screenshot. One flat tint, so the image is the only thing with texture in the frame.',
+  demo:`<div class="fig"><span class="shot"></span></div>
+  <span class="cap">figure holding a screenshot</span>`,
+  probe:{sel:'.fig', prop:'backgroundImage'},
+  diff:`  figure{
+    border:1px solid var(--line);border-radius:var(--r-lg);
+-   background:
+-     radial-gradient(circle at 1px 1px, rgba(143,127,240,.15) 1px, transparent 1.6px),
+-     linear-gradient(150deg,#f7f5ff 0%,#efecfc 100%);
+-   background-size:11px 11px, auto;
++   background:#faf9ff;   /* note: still a raw hex on ViewRyt — worth tokenising */
+  }`,
+  pages:{
+    'ravindra-hero':'.tile .stage dot-grid (line 153); .d-toggle and .d-btn also carry dither fills',
+    'case-irbs':'figure: dot-grid + gradient, light and dark variants (lines 123–130)',
+    'case-dentomate':'figure: dot-grid + gradient (lines 120–121)'
+  }
+},
+{
+  id:'device', group:'Surfaces', title:'Device frames', status:'adopted',
+  why:'A 2px hairline frame with the inner radius derived via <b>calc(var(--r-device) - 2px)</b>, so the screen always nests correctly. No bezel, no notch, no layered shadow — the frame says “this is a phone” and then gets out of the way.',
+  demo:`<div class="phone"><div class="screen">
+    <span class="bar"></span><span class="bar w"></span><span class="bar"></span>
+    <span class="bar w"></span><span class="bar"></span>
+  </div></div>`,
+  probe:{sel:'.phone', prop:'boxShadow'},
+  diff:`  .phone{
+-   border:1px solid #e7e4f6;border-radius:30px;
+-   box-shadow:0 24px 60px -30px rgba(64,52,150,.3);
++   border:2px solid var(--line);border-radius:var(--r-device);
++   background:var(--paper);box-shadow:none;
+  }
++ .screen{border-radius:calc(var(--r-device) - 2px);}
++ @media (max-width:900px){ .phone{--r-device:30px;} }  /* one value moves it all */`,
+  pages:{
+    'ravindra-hero':'.phone — 1px #e7e4f6, radius 30px, box-shadow (lines 303–306)',
+    'case-irbs':null,
+    'case-dentomate':null
+  },
+  naReason:'screenshots are flat &lt;img&gt; inside a figure — no CSS device frame exists in this file'
+},
+/* ---------------------------------------------------------- Structure & copy */
+{
+  id:'numbers', group:'Structure & copy', title:'Drop numbered section chrome', status:'adopted',
+  why:'“01 — The Problem” is deck furniture. A case study is read top to bottom, so the number tells the reader nothing they cannot see. The label keeps its job; the counter goes.',
+  demo:`<div class="sl" data-b="01 — " data-a="">The Problem</div>
+  <div class="h2">The old pages converted below 1.5%.</div>`,
+  probe:{sel:'.sl', prop:'content', pseudo:'::before'},
+  diff:`- <div class="sec-label rv">01 — The Problem</div>
++ <div class="sec-label rv">The Problem</div>
+- <div class="sec-label rv">06 — Impact</div>
++ <div class="sec-label rv">Results</div>`,
+  pages:{
+    'ravindra-hero':'01–04 on .mono-label, plus CS/01–CS/03 and FX/01–FX/03 index tags',
+    'case-irbs':'01 — The Problem … 06 — Impact (6 labels), plus CS/03 in the nav',
+    'case-dentomate':'01 — The Problem … 04 — Impact (4 labels), plus CS/02 in the nav'
+  }
+},
+{
+  id:'seclabel', group:'Structure & copy', title:'Keep .sec-label + its hairline', status:'adopted',
+  why:'The one piece of chrome doing real work: the rule runs to the right margin and physically divides the page into sections, which is what the numbers were only <i>implying</i>. Keep it; it is why the numbers were safe to remove.',
+  demo:`<div class="sl2">Principles</div>`,
+  probe:{sel:'.sl2', prop:'content', pseudo:'::after'},
+  diff:`  .sec-label{
+    display:flex;align-items:center;gap:14px;margin-bottom:30px;
+    font-family:ui-monospace;font-size:12px;letter-spacing:.24em;
+    color:var(--lav);text-transform:uppercase;
+  }
++ .sec-label::after{content:"";flex:1;height:1px;background:var(--line);}`,
+  pages:{
+    'ravindra-hero':'uses .mono-label — same type treatment, no ::after hairline (line 115)',
+    'case-irbs':'already identical, incl. the ::after hairline (lines 76–80)',
+    'case-dentomate':'already identical, incl. the ::after hairline (lines 72–76)'
+  }
+},
+{
+  id:'stats', group:'Structure & copy', title:'Stat blocks', status:'adopted',
+  why:'Scaling one number up is the block arguing for itself. Equal columns, one number size, and the lead figure differentiated by <b>colour alone</b>. Labels became body copy because they are read, not scanned.',
+  demo:`<div class="st">
+    <div class="lead"><b>3.2×</b><span>Conversion rate</span></div>
+    <div><b>4.1×</b><span>Earnings per visit</span></div>
+    <div><b>2.6×</b><span>Ad spend routed</span></div>
+  </div>`,
+  probe:{sel:'.st span', prop:'fontSize'},
+  diff:`  .impact{
+-   border:1px solid var(--line);border-radius:24px;
+-   padding:54px 48px;text-align:center;
+-   background: radial-gradient(...) , linear-gradient(160deg,#faf9ff,#f3f0fd);
++   border-top:1px solid var(--line);padding:44px 0 0;
+    display:grid;grid-template-columns:repeat(3,1fr);gap:34px;
+  }
++ .impact > div + div{border-left:1px solid var(--line);padding-left:34px;}
+- .impact b{font-size:clamp(40px,4.6vw,64px);}
++ .impact b{font-size:var(--t-sub-lg);}       /* one size for all three */
++ .impact .lead b{color:var(--lav-deep);}     /* lead differs by colour only */
+- .impact span{font-family:ui-monospace;font-size:12px;text-transform:uppercase;}
++ .impact span{font-size:var(--t-body);line-height:1.5;color:var(--mut);}`,
+  pages:{
+    'ravindra-hero':'.metrics — flex-wrap row, b clamp(24,2.4vw,34), 12px mono uppercase labels (lines 139–142)',
+    'case-irbs':'.impact — boxed panel r24, centred, b clamp(40,4.6vw,64), 12px mono labels (lines 144–154)',
+    'case-dentomate':'.impact — boxed panel r24, centred, b clamp(40,4.6vw,64), 12px mono labels (lines 133–143)'
+  }
+},
+/* ---------------------------------------------------------- Behaviour & a11y */
+{
+  id:'reduced', group:'Behaviour & a11y', title:'Reduced-motion coverage beyond .rv', status:'adopted',
+  why:'One rule that neutralises the reveal animation is not reduced motion — smooth scrolling, scroll-snap, hover transitions and animated count-ups all still run. ViewRyt covers all five, in CSS and in JS.',
+  demo:`<ul class="rm">
+    <li>reveal animation (.rv)</li>
+    <li>hover &amp; UI transitions</li>
+    <li>scroll-behavior: smooth</li>
+    <li>scroll-snap</li>
+    <li>number count-ups (JS)</li>
+  </ul>`,
+  probe:{sel:'.rm li:nth-child(3)', prop:'content', pseudo:'::before'},
+  diff:`  @media (prefers-reduced-motion:reduce){
+    .rv{opacity:1;transform:none;filter:none;transition:none;}
++   .co, .ev-cap, .ann{transition:none;}
++   .define-t,.case-nav a,.live-links a,.facts a{transition:none;}
++   html{scroll-behavior:auto;scroll-snap-type:none;}
++   .snap-stop{scroll-snap-align:none;}
+  }
++ /* and in JS: */
++ const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
++ if(REDUCED.matches){ el.textContent = pre + target.toFixed(dec) + suf; return; }`,
+  pages:{
+    'ravindra-hero':'.rv only in CSS; one JS check (const still, line 1139) guards the WebGL loop — counters and hover transitions unguarded',
+    'case-irbs':'.rv only (line 179). scroll-behavior:smooth and the count-up both ignore the preference',
+    'case-dentomate':'.rv only (line 166). scroll-behavior:smooth and the count-up both ignore the preference'
+  }
+},
+{
+  id:'gloss', group:'Behaviour & a11y', title:'Click-to-define glossary popover', status:'adopted',
+  why:'Jargon gets defined in place instead of forcing the sentence to carry the definition. Built as a real button: <b>aria-expanded</b>, <b>aria-controls</b>, Escape closes, focus returns to the trigger.',
+  demo:`<p class="gl">The result came from a <span class="t">sequential test<i>?</i></span> rather than a split.</p>
+  <div class="pop">Two versions run one after another rather than side by side, so traffic conditions can differ between them.</div>
+  <span class="cap">static illustration — the real one opens on click</span>`,
+  probe:{sel:'.pop', prop:'display'},
+  diff:`+ <span class="define">
++   <button class="define-t" aria-expanded="false" aria-controls="d1">
++     sequential test<i class="define-i">?</i>
++   </button>
++   <span class="define-box" id="d1" hidden>Two versions run one after another…</span>
++ </span>
++ /* Escape closes, focus returns to the trigger, one open at a time */`,
+  pages:{
+    'ravindra-hero':'no popover; jargon (raymarched SDF, 0 → 1) sits unexplained in mono tags',
+    'case-irbs':'no popover; research jargon carried by the sentence',
+    'case-dentomate':'no popover; business-model jargon carried by the sentence'
+  }
+},
+{
+  id:'touch', group:'Behaviour & a11y', title:'44px minimum touch targets', status:'proposed',
+  why:'House rule (Apple HIG): every interactive element gets a 44px minimum. <b>This is not done on case-viewryt.html either</b> — its nav links are ~18px tall and its .live-links pills ~29px. Adopting this means fixing ViewRyt in the same pass.',
+  demo:`<div class="tt"><a href="#touch">Work</a><a href="#touch">About</a><a href="#touch">Contact</a></div>
+  <p class="ro">tallest link box: <b data-readout="1">—</b> (target: 44px)</p>`,
+  probe:{sel:'.tt a', prop:'minHeight'},
+  diff:`  nav a{color:var(--ink);text-decoration:none;}
++ nav a{display:inline-flex;align-items:center;min-height:44px;padding:0 4px;}
+  .live-links a{padding:8px 14px;}
++ .live-links a{display:inline-flex;align-items:center;min-height:44px;padding:0 16px;}`,
+  pages:{
+    'ravindra-hero':'nav links ~19px tall (13px text, no padding); .chip 7px padding ≈ 28px; .d-btn ≈ 43px',
+    'case-irbs':'nav links ~18px tall (13px text, no padding, line 35/40); footer links likewise',
+    'case-dentomate':'nav links ~18px tall (13px text, no padding, line 34); footer links likewise'
+  }
+}
+];
+
+/* ============================================================
+   STATE + PERSISTENCE
+   Same shape as lab-evidence.html, plus a version field so a
+   later change to the key shape can migrate instead of silently
+   dropping a session of decisions.
+   ============================================================ */
+const STORE = 'dsreview';
+const state = { v:1, decisions:{}, updated:null };
+try {
+  const raw = JSON.parse(localStorage.getItem(STORE) || '{}');
+  /* only trust a payload we understand; anything else is left on disk
+     untouched rather than overwritten, so it can still be recovered */
+  if(!raw.v || raw.v === 1){
+    if(raw.decisions && typeof raw.decisions === 'object') state.decisions = raw.decisions;
+    if(raw.updated) state.updated = raw.updated;
+  } else {
+    console.warn('dsreview: stored version', raw.v, 'is newer than this doc — not loaded');
+  }
+} catch(e){ console.warn('dsreview: could not parse stored decisions', e); }
+
+const key = (itemId, pageId) => itemId + '|' + pageId;
+
+function save(){
+  state.updated = new Date().toISOString();
+  try {
+    localStorage.setItem(STORE, JSON.stringify(state));
+    stamp();
+  } catch(e){
+    const s = document.getElementById('saved');
+    s.hidden = false;
+    s.textContent = 'NOT SAVED — storage blocked';
+    s.style.color = '#a8442e';
+  }
+}
+function stamp(){
+  const s = document.getElementById('saved');
+  if(!state.updated) { s.hidden = true; return; }
+  const d = new Date(state.updated);
+  s.hidden = false;
+  s.style.color = '';
+  s.textContent = 'saved ✓ ' + String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
+}
+
+/* ============================================================
+   RENDER
+   ============================================================ */
+const esc = s => String(s).replace(/&(?!#?\w+;)/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+
+function diffHTML(src){
+  return src.split('\n').map(l => {
+    const cls = l.startsWith('-') ? 'del' : l.startsWith('+') ? 'add' : 'ctx';
+    return '<span class="' + cls + '">' + esc(l) + '</span>';
+  }).join('\n');
+}
+
+function render(){
+  const host = document.getElementById('items');
+  let html = '', lastGroup = null, n = 0;
+
+  ITEMS.forEach(item => {
+    n++;
+    if(item.group !== lastGroup){
+      html += '<div class="doc-group">' + esc(item.group) + '</div>';
+      lastGroup = item.group;
+    }
+    const idx = String(n).padStart(2,'0');
+
+    let rows = '';
+    PAGES.forEach(p => {
+      const now = item.pages[p.id];
+      if(now === null || now === undefined){
+        rows += '<div class="pagerow na" data-page="' + p.id + '" data-applicable="0">'
+              +   '<div class="pg"><b>' + esc(p.file) + '</b></div>'
+              +   '<span class="na-msg">not present on this page — ' + (item.naReason || 'component does not exist here') + '</span>'
+              + '</div>';
+        return;
+      }
+      const k = key(item.id, p.id);
+      const d = state.decisions[k] || {};
+      const noteId = 'n-' + item.id + '-' + p.id;
+      const btn = v => '<button class="v" type="button" data-v="' + v + '" data-key="' + k + '"'
+                     + ' aria-pressed="' + (d.verdict === v ? 'true' : 'false') + '">'
+                     + v.charAt(0).toUpperCase() + v.slice(1) + '</button>';
+      rows += '<div class="pagerow" data-page="' + p.id + '" data-applicable="1" data-key="' + k + '">'
+            +   '<div class="pg"><b>' + esc(p.file) + '</b><span>now: ' + esc(now) + '</span></div>'
+            +   '<div class="verdicts">'
+            +     btn('adopt') + btn('skip') + btn('modify')
+            +     '<button class="v note-toggle' + (d.note ? ' has-note' : '') + '" type="button"'
+            +       ' aria-expanded="false" aria-controls="' + noteId + '" data-key="' + k + '">comment</button>'
+            +   '</div>'
+            +   '<textarea class="note" id="' + noteId + '" data-key="' + k + '" hidden'
+            +     ' placeholder="what would you change, or why skip it?">' + esc(d.note || '') + '</textarea>'
+            + '</div>';
+    });
+
+    html += '<article class="item" id="i-' + item.id + '" data-item="' + item.id + '">'
+          +   '<div class="item-head">'
+          +     '<span class="item-idx">' + idx + '</span>'
+          +     '<h2>' + esc(item.title) + '</h2>'
+          +     (item.status === 'proposed' ? '<span class="tag proposed">proposed — not done on ViewRyt yet</span>' : '')
+          +     '<span class="tag">' + esc(item.group) + '</span>'
+          +     '<button class="btn small copy-item" type="button" data-item="' + item.id + '">copy this item</button>'
+          +   '</div>'
+          +   '<p class="why">' + item.why + '</p>'
+          +   '<div class="ba">'
+          +     '<section class="pane before"><div class="pane-h">before</div>'
+          +       '<div class="spec spec-before sp-' + item.id + '">' + item.demo + '</div></section>'
+          +     '<section class="pane after"><div class="pane-h">after — case-viewryt</div>'
+          +       '<div class="spec spec-after sp-' + item.id + '">' + item.demo + '</div></section>'
+          +   '</div>'
+          +   '<pre class="diff">' + diffHTML(item.diff) + '</pre>'
+          +   '<div class="pages">' + rows + '</div>'
+          + '</article>';
+  });
+
+  host.innerHTML = html;
+  readouts();
+}
+
+/* live computed-value readouts, so the type and touch-target items show a
+   real measured number rather than a claim */
+function readouts(){
+  document.querySelectorAll('.spec [data-readout]').forEach(b => {
+    const spec = b.closest('.spec');
+    const target = spec.querySelector('.hd') || spec.querySelector('.tt a');
+    if(!target) return;
+    const cs = getComputedStyle(target);
+    const px = spec.querySelector('.hd')
+      ? cs.fontSize
+      : Math.round(target.getBoundingClientRect().height) + 'px';
+    b.textContent = px;
+  });
+}
+addEventListener('resize', readouts);
+
+/* ============================================================
+   COUNTER + FILTERS
+   ============================================================ */
+function applicableKeys(){
+  const out = [];
+  ITEMS.forEach(i => PAGES.forEach(p => {
+    const now = i.pages[p.id];
+    if(now !== null && now !== undefined) out.push(key(i.id, p.id));
+  }));
+  return out;
+}
+const ALL_KEYS = applicableKeys();
+
+function decidedCount(){
+  return ALL_KEYS.filter(k => state.decisions[k] && state.decisions[k].verdict).length;
+}
+function updateCount(){
+  document.getElementById('count').innerHTML =
+    '<b>' + decidedCount() + '</b> of <b>' + ALL_KEYS.length + '</b> decided';
+}
+
+function currentFilter(){
+  return {
+    show: document.querySelector('input[name=fshow]:checked').value,
+    page: document.querySelector('input[name=fpage]:checked').value
+  };
+}
+function applyFilter(){
+  const f = currentFilter();
+  document.querySelectorAll('.item').forEach(item => {
+    let visible = 0;
+    item.querySelectorAll('.pagerow').forEach(row => {
+      const pageOK = f.page === 'all' || row.dataset.page === f.page;
+      let showOK = true;
+      if(f.show === 'undecided'){
+        /* an n/a row is not a pending decision, so it hides too */
+        const k = row.dataset.key;
+        showOK = row.dataset.applicable === '1'
+              && !(state.decisions[k] && state.decisions[k].verdict);
+      }
+      const on = pageOK && showOK;
+      row.hidden = !on;
+      if(on) visible++;
+    });
+    item.hidden = visible === 0;
+  });
+}
+
+/* ============================================================
+   INTERACTION — every path writes to localStorage immediately
+   ============================================================ */
+let noteTimer = null;
+
+document.addEventListener('click', e => {
+  const v = e.target.closest('.v[data-v]');
+  if(v){
+    const k = v.dataset.key, want = v.dataset.v;
+    const cur = state.decisions[k] || {};
+    /* clicking the active verdict clears it, so a misclick is one click to undo */
+    const next = cur.verdict === want ? null : want;
+    if(next === null && !cur.note) delete state.decisions[k];
+    else state.decisions[k] = Object.assign({}, cur, {verdict: next});
+    v.closest('.verdicts').querySelectorAll('.v[data-v]').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.v === next));
+    });
+    save(); updateCount(); applyFilter();
+    return;
+  }
+
+  const nt = e.target.closest('.note-toggle');
+  if(nt){
+    const box = document.getElementById(nt.getAttribute('aria-controls'));
+    const open = nt.getAttribute('aria-expanded') === 'true';
+    nt.setAttribute('aria-expanded', String(!open));
+    box.hidden = open;
+    if(!open) box.focus();
+    return;
+  }
+
+  const ci = e.target.closest('.copy-item');
+  if(ci){ copyText(itemMarkdown(ci.dataset.item), ci); return; }
+});
+
+document.addEventListener('input', e => {
+  const t = e.target.closest('.note');
+  if(!t) return;
+  const k = t.dataset.key;
+  const cur = state.decisions[k] || {};
+  cur.note = t.value.trim();
+  /* typing a comment is a decision in itself — default it to Modify rather
+     than leaving a note stranded on an undecided row */
+  if(cur.note && !cur.verdict){
+    cur.verdict = 'modify';
+    const row = t.closest('.pagerow');
+    row.querySelectorAll('.v[data-v]').forEach(b => {
+      b.setAttribute('aria-pressed', String(b.dataset.v === 'modify'));
+    });
+  }
+  if(!cur.note && !cur.verdict) delete state.decisions[k];
+  else state.decisions[k] = cur;
+  t.closest('.pagerow').querySelector('.note-toggle').classList.toggle('has-note', !!cur.note);
+  clearTimeout(noteTimer);
+  noteTimer = setTimeout(() => { save(); updateCount(); }, 300);
+});
+
+/* belt and braces: a debounced note still in flight when the tab is hidden
+   or closed gets flushed here */
+addEventListener('visibilitychange', () => { if(document.visibilityState === 'hidden') save(); });
+addEventListener('pagehide', save);
+
+/* Because this tab flushes its whole in-memory state on pagehide, a second
+   tab open on the same doc would otherwise clobber this one's decisions with
+   its own stale copy. Adopt whatever another tab wrote as soon as it writes,
+   so the two never diverge far enough to lose anything. */
+addEventListener('storage', e => {
+  if(e.key !== STORE || !e.newValue) return;
+  try {
+    const incoming = JSON.parse(e.newValue);
+    if(incoming.v !== 1 || !incoming.decisions) return;
+    state.decisions = incoming.decisions;
+    state.updated = incoming.updated;
+    render(); updateCount(); applyFilter(); stamp();
+  } catch(err){ console.warn('dsreview: ignored an unreadable cross-tab update', err); }
+});
+
+document.querySelectorAll('input[name=fshow],input[name=fpage]')
+  .forEach(r => r.addEventListener('change', applyFilter));
+
+/* ============================================================
+   OUTPUT
+   ============================================================ */
+const itemById = id => ITEMS.find(i => i.id === id);
+
+function itemMarkdown(id){
+  const it = itemById(id);
+  let s = '### ' + it.title + (it.status === 'proposed' ? ' _(proposed — not done on ViewRyt yet)_' : '') + '\n';
+  let any = false;
+  PAGES.forEach(p => {
+    const now = it.pages[p.id];
+    if(now === null || now === undefined) return;
+    const d = state.decisions[key(it.id, p.id)];
+    if(!d || !d.verdict) return;
+    any = true;
+    s += '- ' + p.file + ' — **' + d.verdict + '**';
+    if(d.note) s += ' — "' + d.note + '"';
+    s += '\n';
+  });
+  if(!any) s += '- _(undecided on every page)_\n';
+  return s;
+}
+
+function buildMarkdown(){
+  const today = new Date().toISOString().slice(0,10);
+  const total = ALL_KEYS.length, done = decidedCount();
+  let out = '## Design review — ' + today + ' (' + done + ' of ' + total + ' decided)\n';
+
+  const buckets = {adopt:[], skip:[], modify:[]};
+  const undecided = [];
+
+  ITEMS.forEach(it => {
+    const byVerdict = {adopt:[], skip:[], modify:[]};
+    const pending = [];
+    PAGES.forEach(p => {
+      const now = it.pages[p.id];
+      if(now === null || now === undefined) return;
+      const d = state.decisions[key(it.id, p.id)];
+      if(d && d.verdict) byVerdict[d.verdict].push({page:p.file, note:d.note});
+      else pending.push(p.file);
+    });
+    ['adopt','skip','modify'].forEach(v => {
+      if(!byVerdict[v].length) return;
+      const label = it.title + (it.status === 'proposed' ? ' (proposed)' : '');
+      let line = '- **' + label + '** — ' + byVerdict[v].map(x => x.page).join(', ');
+      byVerdict[v].filter(x => x.note).forEach(x => {
+        line += '\n  - ' + x.page + ': "' + x.note + '"';
+      });
+      buckets[v].push(line);
+    });
+    if(pending.length) undecided.push(it.title + ' — ' + pending.join(', '));
+  });
+
+  const counts = v => buckets[v].reduce((n,l) => n + l.split('\n')[0].split(' — ')[1].split(', ').length, 0);
+  [['adopt','Adopt'],['skip','Skip'],['modify','Modify']].forEach(([v,label]) => {
+    if(!buckets[v].length) return;
+    out += '\n### ' + label + ' (' + counts(v) + ')\n' + buckets[v].join('\n') + '\n';
+  });
+  if(undecided.length){
+    out += '\n### Undecided (' + (total - done) + ')\n'
+         + undecided.map(u => '- ' + u).join('\n') + '\n';
+  }
+  if(done === 0) out += '\n_No decisions recorded yet._\n';
+  return out;
+}
+
+/* ---- copyText / flash — lifted verbatim from lab-evidence.html ---- */
+function flash(btn, msg){
+  const old = btn.dataset.label || btn.textContent;
+  btn.dataset.label = old;
+  btn.textContent = msg;
+  btn.classList.add('ok');
+  setTimeout(() => { btn.textContent = old; btn.classList.remove('ok'); }, 1300);
+}
+/* clipboard access is blocked in plenty of contexts, so the text is always
+   dropped into a selectable box as well — the values can never get stranded */
+function copyText(t, btn){
+  const box = document.getElementById('out');
+  box.value = t;
+  box.hidden = false;
+  box.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch(e){ ok = false; }
+  if(ok){ flash(btn, 'copied ✓'); return; }
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(t)
+      .then(() => flash(btn, 'copied ✓'))
+      .catch(() => flash(btn, 'select below ↓'));
+  } else {
+    flash(btn, 'select below ↓');
+  }
+}
+
+document.getElementById('copy-all')
+  .addEventListener('click', e => copyText(buildMarkdown(), e.currentTarget));
+
+document.getElementById('reset').addEventListener('click', e => {
+  /* dump first, ask second: a misclick on reset must still be recoverable
+     from the textarea below even if the user then confirms */
+  const dump = buildMarkdown();
+  const box = document.getElementById('out');
+  box.value = dump; box.hidden = false;
+  if(!confirm('Clear all ' + decidedCount() + ' decisions?\n\nThey have been dumped into the box at the bottom of the page first, so you can still copy them.')) return;
+  state.decisions = {};
+  save();
+  render(); updateCount(); applyFilter();
+  flash(e.currentTarget, 'cleared');
+});
+
+/* expose for the verification pass */
+window.dsreview = {state, ITEMS, PAGES, ALL_KEYS, buildMarkdown, itemMarkdown, decidedCount, key};
+
+render();
+updateCount();
+applyFilter();
+stamp();
+</script>
+</body>
+</html>

@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Library - heyrav</title>
+<meta name="description" content="Every exploration behind heyrav.in: live tools, the hero through time, project thumbnails, and the benches each design decision was made on.">
+<link rel="icon" href="favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="tools/kit.css">
+<style>
+  @font-face{font-family:"Redaction 35";font-style:italic;font-weight:400;font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2");}
+  :root{--serif:"Redaction 35",Georgia,serif;--t-head:56px;--t-sub-md:32px;}
+  html,body{height:auto;}
+  body{background:var(--paper);font-size:var(--t-body);}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 24px;}
+  header.top{display:flex;align-items:center;justify-content:space-between;min-height:68px;border-bottom:1px solid var(--line);
+    position:sticky;top:0;background:var(--paper);z-index:5;}
+  header.top a{color:var(--ink);text-decoration:none;display:inline-flex;align-items:center;min-height:44px;}
+  header.top img{height:32px;width:auto;display:block;}
+  .jump{display:flex;gap:4px;font-size:var(--t-ui);}
+  .jump a{padding:0 12px;border-radius:var(--r-pill);color:var(--ink-3);}
+  .jump a:hover{color:var(--ink);background:var(--wash);}
+  h1{font-size:var(--t-head);font-weight:var(--w-head);letter-spacing:-.02em;line-height:1.05;margin:84px 0 18px;max-width:15ch;}
+  h1 em,h2 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);}
+  .intro{color:var(--ink-3);max-width:62ch;line-height:1.55;}
+  .keys{display:flex;flex-wrap:wrap;gap:8px 18px;margin-top:22px;color:var(--mut);font-size:var(--t-ui);}
+  .keys kbd{font-family:var(--mono);font-size:var(--t-label);border:1px solid var(--line);border-radius:var(--r-xs);padding:2px 6px;margin-right:6px;color:var(--ink-2);}
+
+  .group{padding-top:84px;margin-top:84px;border-top:1px solid var(--line);scroll-margin-top:68px;}
+  .group:first-of-type{border-top:0;margin-top:40px;}
+  .group-h{display:grid;gap:6px;}
+  .group-h h2{font-size:var(--t-sub-md);font-weight:var(--w-head);letter-spacing:-.01em;}
+  .group-h .count{font-size:var(--t-label);color:var(--mut);}
+  .group-h p{grid-column:1/-1;color:var(--ink-3);max-width:62ch;line-height:1.55;}
+  .items{display:grid;gap:40px 28px;margin-top:40px;}
+  .cols-2{grid-template-columns:repeat(2,1fr);}
+  .cols-3{grid-template-columns:repeat(3,1fr);}
+  .item{display:flex;flex-direction:column;gap:12px;text-decoration:none;color:var(--ink);min-height:44px;}
+  .item .shot{display:block;aspect-ratio:16/10;border-radius:var(--r-md);overflow:hidden;background:var(--wash);border:1px solid var(--line);}
+  .cols-2 .item .shot{border-radius:var(--r-lg);}
+  .item .shot img{width:100%;height:100%;object-fit:cover;display:block;transition:transform .8s var(--ease);}
+  .item:hover .shot img{transform:scale(1.03);}
+  .item:focus-visible{outline:2px solid var(--ink);outline-offset:6px;border-radius:var(--r-md);}
+  .meta{display:flex;align-items:center;gap:10px;}
+  .meta b{font-weight:var(--w-head);font-size:var(--t-body);}
+  .meta time{margin-left:auto;font-size:var(--t-label);color:var(--mut);white-space:nowrap;}
+  .tag{font-size:var(--t-label);color:var(--ink-2);border:1px solid var(--line);border-radius:var(--r-pill);padding:1px 8px;white-space:nowrap;}
+  .note{color:var(--ink-3);font-size:var(--t-ui);line-height:1.5;}
+
+  .lessons{display:grid;grid-template-columns:repeat(3,1fr);gap:40px 32px;margin-top:40px;}
+  .lessons b{display:block;font-weight:var(--w-head);margin-bottom:8px;}
+  .lessons p{color:var(--ink-3);line-height:1.5;font-size:var(--t-ui);}
+  footer{margin:128px 0 0;padding:28px 0 40px;border-top:1px solid var(--line);display:flex;gap:18px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:var(--t-label);color:var(--mut);text-transform:uppercase;letter-spacing:.06em;}
+  footer a{color:inherit;}
+
+  .rv{opacity:0;transform:translateY(8px);filter:blur(4px);transition:opacity .6s var(--ease) var(--d,0ms),transform .6s var(--ease) var(--d,0ms),filter .6s var(--ease) var(--d,0ms);}
+  .rv.in{opacity:1;transform:none;filter:none;}
+  @media (prefers-reduced-motion:reduce){ .rv{opacity:1;transform:none;filter:none;transition:none;} .item .shot img{transition:none;} }
+  @media (max-width:900px){ :root{--t-head:44px;--t-sub-md:28px;} .cols-3,.lessons{grid-template-columns:1fr 1fr;} h1{margin-top:64px;} .jump{display:none;} }
+  @media (max-width:640px){ :root{--t-head:36px;--t-sub-md:24px;} .wrap{padding:0 16px;} .cols-2,.cols-3,.lessons{grid-template-columns:1fr;} }
+</style>
+<!-- Microsoft Clarity - the same project as heyrav.in -->
+<script>
+  (function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+  t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+  y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","ysfrdr3mko");
+</script>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <a href="https://heyrav.in" aria-label="heyrav.in"><img src="tools/brand/lockup.svg" alt="Ravindra Pratap" width="194" height="63"></a>
+    <nav class="jump" aria-label="Sections"><a href="#tools">Instruments</a><a href="#hero">The hero</a><a href="#thumbs">Project thumbnails</a><a href="#system">Benches and decisions</a></nav>
+  </header>
+
+  <h1 class="rv">Everything that was tried <em>on the way.</em></h1>
+  <p class="intro rv">35 explorations behind heyrav.in, in one place: the tools for finding the visual language, the home page at every turn it took, every way the work has been framed, and the benches each decision was made on - most of them with the option that won noted on the card.</p>
+  <div class="keys rv" aria-label="Keyboard shortcuts in the instruments">
+    <span><kbd>R</kbd>random</span><span><kbd>Z</kbd>undo</span><span><kbd>⇧ Z</kbd>redo</span><span><kbd>Space</kbd>play / pause</span><span>every tool state is a link</span>
+  </div>
+
+  <section class="group" id="tools" aria-labelledby="h-tools">
+    <header class="group-h rv">
+      <h2 id="h-tools">Instruments</h2>
+      <p>Live tools with every number exposed: pull a slider, hit R for random, slow it down, export the result.</p>
+    </header>
+    <div class="items cols-2">
+      <a class="item rv" href="tools/wall.html">
+        <span class="shot"><img src="thumbs/tools-wall.webp" alt="Creative Wall - A wall of real ad variants; the middle column is a reel and whichever creative lands in the centre lights up, outlined, its label decoding." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Creative Wall</b><span class="tag">new</span><time class="num">2026-10-29</time></span>
+        <span class="note">A wall of real ad variants; the middle column is a reel and whichever creative lands in the centre lights up, outlined, its label decoding.</span>
+      </a>
+      <a class="item rv" href="tools/lines.html">
+        <span class="shot"><img src="thumbs/tools-lines.webp" alt="Line Field - The master D read as tone and redrawn as hairlines - flat or lifted into an isometric relief, hover to swell, click to ripple." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Line Field</b><time class="num">2026-10-29</time></span>
+        <span class="note">The master D read as tone and redrawn as hairlines - flat or lifted into an isometric relief, hover to swell, click to ripple.</span>
+      </a>
+      <a class="item rv" href="tools/pens.html">
+        <span class="shot"><img src="thumbs/tools-pens.webp" alt="Grid Pens - Pens trace the swash and the D inside the closing grid&#x27;s tiles, hold, and leave by blur, reverse or wipe. Exports an animated SVG." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Grid Pens</b><time class="num">2026-10-29</time></span>
+        <span class="note">Pens trace the swash and the D inside the closing grid&#x27;s tiles, hold, and leave by blur, reverse or wipe. Exports an animated SVG.</span>
+      </a>
+      <a class="item rv" href="tools/dots.html">
+        <span class="shot"><img src="thumbs/tools-dots.webp" alt="Dot Matrix - Any image as halftone, ascii or dots - flat, on a cylinder or a globe - arriving by a sweep, crossed by a scan." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Dot Matrix</b><time class="num">2026-10-29</time></span>
+        <span class="note">Any image as halftone, ascii or dots - flat, on a cylinder or a globe - arriving by a sweep, crossed by a scan.</span>
+      </a>
+      <a class="item rv" href="tools/stagger.html">
+        <span class="shot"><img src="thumbs/tools-stagger.webp" alt="Stagger - The hero&#x27;s entrance as a bench: split, offset, blur, a draggable easing curve, a live timeline. Copies the exact CSS it previews." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Stagger</b><time class="num">2026-10-29</time></span>
+        <span class="note">The hero&#x27;s entrance as a bench: split, offset, blur, a draggable easing curve, a live timeline. Copies the exact CSS it previews.</span>
+      </a>
+      <a class="item rv" href="tools/glitch.html">
+        <span class="shot"><img src="thumbs/tools-glitch.webp" alt="Glitch - The hero&#x27;s hint taken apart - fringe tear, code rain, pixel hand. The CSS export keeps the hero&#x27;s own two-half tear." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Glitch</b><time class="num">2026-10-29</time></span>
+        <span class="note">The hero&#x27;s hint taken apart - fringe tear, code rain, pixel hand. The CSS export keeps the hero&#x27;s own two-half tear.</span>
+      </a>
+    </div>
+  </section>
+  <section class="group" id="hero" aria-labelledby="h-hero">
+    <header class="group-h rv">
+      <h2 id="h-hero">The hero, through time</h2>
+      <p>The home page as it stood at each turn, rebuilt from the repository - from the first lavender Three.js hero to the one-screen version that ships today.</p>
+    </header>
+    <div class="items cols-3">
+      <a class="item rv" href="hero-2026-07-05-flower.html">
+        <span class="shot"><img src="thumbs/hero-2026-07-05-flower.webp" alt="Flower - &quot;Hi, I&#x27;m Ravindra.&quot; The first take on designs that convert, before the repository existed." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Flower</b><time class="num">2026-07-05</time></span>
+        <span class="note">&quot;Hi, I&#x27;m Ravindra.&quot; The first take on designs that convert, before the repository existed.</span>
+      </a>
+      <a class="item rv" href="hero-2026-07-07-lavender.html">
+        <span class="shot"><img src="thumbs/hero-2026-07-07-lavender.webp" alt="Lavender, in Three.js - The lavender hero that started the cluster: a live WebGL field behind the headline." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Lavender, in Three.js</b><time class="num">2026-07-07</time></span>
+        <span class="note">The lavender hero that started the cluster: a live WebGL field behind the headline.</span>
+      </a>
+      <a class="item rv" href="hero-2026-08-19-cluster.html">
+        <span class="shot"><img src="thumbs/hero-2026-08-19-cluster.webp" alt="Served from the root - The lavender cluster becomes the home page, ViewRyt&#x27;s design system rolled out across it." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Served from the root</b><time class="num">2026-08-19</time></span>
+        <span class="note">The lavender cluster becomes the home page, ViewRyt&#x27;s design system rolled out across it.</span>
+      </a>
+      <a class="item rv" href="hero-2026-09-11-monochrome.html">
+        <span class="shot"><img src="thumbs/hero-2026-09-11-monochrome.webp" alt="Monochrome - The review pass: lavender gone, Onest and Redaction 35 in, colour kept only where it is an event - the aurora behind the word." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Monochrome</b><time class="num">2026-09-11</time></span>
+        <span class="note">The review pass: lavender gone, Onest and Redaction 35 in, colour kept only where it is an event - the aurora behind the word.</span>
+      </a>
+      <a class="item rv" href="hero-2026-09-14-hint.html">
+        <span class="shot"><img src="thumbs/hero-2026-09-14-hint.webp" alt="The word advertises itself - convert. tears in RGB, code rains behind it and a pixel hand presses it - until the first click." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>The word advertises itself</b><time class="num">2026-09-14</time></span>
+        <span class="note">convert. tears in RGB, code rains behind it and a pixel hand presses it - until the first click.</span>
+      </a>
+      <a class="item rv" href="hero-2026-09-20-drum.html">
+        <span class="shot"><img src="thumbs/hero-2026-09-20-drum.webp" alt="The service drum - An iOS-picker drum of services collapses into the headline, and the case links become ink pills." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>The service drum</b><time class="num">2026-09-20</time></span>
+        <span class="note">An iOS-picker drum of services collapses into the headline, and the case links become ink pills.</span>
+      </a>
+      <a class="item rv" href="hero-2026-09-21-one-screen.html">
+        <span class="shot"><img src="thumbs/hero-2026-09-21-one-screen.webp" alt="One screen - The hero cut to exactly one viewport, the word pointed at the work, the mark hung on the About wall." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>One screen</b><time class="num">2026-09-21</time></span>
+        <span class="note">The hero cut to exactly one viewport, the word pointed at the work, the mark hung on the About wall.</span>
+      </a>
+      <a class="item rv" href="https://heyrav.in" target="_blank" rel="noopener">
+        <span class="shot"><img src="thumbs/live.webp" alt="Live today - What ships now: the closing grid with its colour sweep, the rubber-band sign-off, TAE Ad Studio as a film." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Live today</b><span class="tag">live</span><time class="num">2026-10-24</time></span>
+        <span class="note">What ships now: the closing grid with its colour sweep, the rubber-band sign-off, TAE Ad Studio as a film.</span>
+      </a>
+    </div>
+  </section>
+  <section class="group" id="thumbs" aria-labelledby="h-thumbs">
+    <header class="group-h rv">
+      <h2 id="h-thumbs">Project thumbnails</h2>
+      <p>Every way the work has been shown in a frame: shader quads, particle fields, the closing grid, the evidence reel.</p>
+    </header>
+    <div class="items cols-3">
+      <a class="item rv" href="hero-2026-08-19-cluster.html#work">
+        <span class="shot"><img src="thumbs/cluster-work.webp" alt="Raymarched quads - The first case illustrations: flat shader quads, raymarched, one per project." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Raymarched quads</b><time class="num">2026-08-19</time></span>
+        <span class="note">The first case illustrations: flat shader quads, raymarched, one per project.</span>
+      </a>
+      <a class="item rv" href="hero-2026-08-23-particles.html#work">
+        <span class="shot"><img src="thumbs/particles-work.webp" alt="Particle fields - The quads rebuilt as live particle fields that answer the pointer - what the home page still uses." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Particle fields</b><span class="tag">shipped</span><time class="num">2026-08-23</time></span>
+        <span class="note">The quads rebuilt as live particle fields that answer the pointer - what the home page still uses.</span>
+      </a>
+      <a class="item rv" href="particles.html">
+        <span class="shot"><img src="thumbs/particles.webp" alt="Particle bench - The THREE.Points bench and control panel the case fields were tuned in." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Particle bench</b><time class="num">2026-08-23</time></span>
+        <span class="note">The THREE.Points bench and control panel the case fields were tuned in.</span>
+      </a>
+      <a class="item rv" href="grid.html">
+        <span class="shot"><img src="thumbs/grid.webp" alt="Closing grid - The footer replaced by a sparse scatter of work tiles, grey at rest; hover one and every copy colours." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Closing grid</b><span class="tag">shipped</span><time class="num">2026-09-13</time></span>
+        <span class="note">The footer replaced by a sparse scatter of work tiles, grey at rest; hover one and every copy colours.</span>
+      </a>
+      <a class="item rv" href="lab-evidence.html">
+        <span class="shot"><img src="thumbs/lab-evidence.webp" alt="Evidence reel lab - The animation lab for the case pages&#x27; evidence reel." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Evidence reel lab</b><time class="num">2026-08</time></span>
+        <span class="note">The animation lab for the case pages&#x27; evidence reel.</span>
+      </a>
+      <a class="item rv" href="reel.html">
+        <span class="shot"><img src="thumbs/reel.webp" alt="Reel axis - Horizontal feed, synthetic vertical track, three scroll spans. Picked A, shipped into IRBS." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Reel axis</b><span class="tag">picked A</span><time class="num">2026-10</time></span>
+        <span class="note">Horizontal feed, synthetic vertical track, three scroll spans. Picked A, shipped into IRBS.</span>
+      </a>
+      <a class="item rv" href="herbius/bench-system.html">
+        <span class="shot"><img src="thumbs/herbius-bench-system.webp" alt="Herbius launch system - Five stations in a line - research, ads, pages, translations, launch - with the AI skills under every one." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Herbius launch system</b><time class="num">2026-10</time></span>
+        <span class="note">Five stations in a line - research, ads, pages, translations, launch - with the AI skills under every one.</span>
+      </a>
+    </div>
+  </section>
+  <section class="group" id="system" aria-labelledby="h-system">
+    <header class="group-h rv">
+      <h2 id="h-system">Benches and decisions</h2>
+      <p>Side-by-side options built so a choice could be made by looking, not by arguing. Each notes what was picked.</p>
+    </header>
+    <div class="items cols-3">
+      <a class="item rv" href="loader.html">
+        <span class="shot"><img src="thumbs/loader.webp" alt="Loader drum - The picker-wheel veil, landing pixel-exact on the hero from 1440 down to 400." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Loader drum</b><span class="tag">shipped</span><time class="num">2026-09</time></span>
+        <span class="note">The picker-wheel veil, landing pixel-exact on the hero from 1440 down to 400.</span>
+      </a>
+      <a class="item rv" href="glitch.html">
+        <span class="shot"><img src="thumbs/glitch.webp" alt="D-GLITCH - The convert word&#x27;s tear and pointer, in every variant tried." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>D-GLITCH</b><span class="tag">shipped</span><time class="num">2026-09</time></span>
+        <span class="note">The convert word&#x27;s tear and pointer, in every variant tried.</span>
+      </a>
+      <a class="item rv" href="codebg.html">
+        <span class="shot"><img src="thumbs/codebg.webp" alt="D-CODE - Three glyph sets for the rain - lowercase, mixed, uppercase - and the no-neighbour rule." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>D-CODE</b><time class="num">2026-09</time></span>
+        <span class="note">Three glyph sets for the rain - lowercase, mixed, uppercase - and the no-neighbour rule.</span>
+      </a>
+      <a class="item rv" href="aurora.html">
+        <span class="shot"><img src="thumbs/aurora.webp" alt="Northern lights - The layered-fbm curtain shader behind the hero word. Parked, not deleted." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Northern lights</b><span class="tag">parked</span><time class="num">2026-09</time></span>
+        <span class="note">The layered-fbm curtain shader behind the hero word. Parked, not deleted.</span>
+      </a>
+      <a class="item rv" href="btn.html">
+        <span class="shot"><img src="thumbs/btn.webp" alt="Case-link buttons - Six options, each beside its hover twin. Picked C, the solid ink pill." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Case-link buttons</b><span class="tag">picked C</span><time class="num">2026-09</time></span>
+        <span class="note">Six options, each beside its hover twin. Picked C, the solid ink pill.</span>
+      </a>
+      <a class="item rv" href="bar.html">
+        <span class="shot"><img src="thumbs/bar.webp" alt="Scroll progress bar - Five bars, A to E. Picked B, the comet - a full-width gradient so the fade scales with progress." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Scroll progress bar</b><span class="tag">picked B</span><time class="num">2026-09</time></span>
+        <span class="note">Five bars, A to E. Picked B, the comet - a full-width gradient so the fade scales with progress.</span>
+      </a>
+      <a class="item rv" href="foot.html">
+        <span class="shot"><img src="thumbs/foot.webp" alt="Footer sign-off - How big should the lockup be at the bottom of the page." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Footer sign-off</b><time class="num">2026-09</time></span>
+        <span class="note">How big should the lockup be at the bottom of the page.</span>
+      </a>
+      <a class="item rv" href="mark.html">
+        <span class="shot"><img src="thumbs/mark.webp" alt="Mark construction - The earlier D and swash, rebuilt on a unit grid from primitives - since superseded by the master lockup." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Mark construction</b><span class="tag">superseded</span><time class="num">2026-09</time></span>
+        <span class="note">The earlier D and swash, rebuilt on a unit grid from primitives - since superseded by the master lockup.</span>
+      </a>
+      <a class="item rv" href="tokens.html">
+        <span class="shot"><img src="thumbs/tokens.webp" alt="D-TOK - Every literal colour left on the site, and three decisions about them." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>D-TOK</b><time class="num">2026-09</time></span>
+        <span class="note">Every literal colour left on the site, and three decisions about them.</span>
+      </a>
+      <a class="item rv" href="redaction.html">
+        <span class="shot"><img src="thumbs/redaction.webp" alt="D-RED - Every place Redaction 35 renders, with a note field per instance." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>D-RED</b><time class="num">2026-09</time></span>
+        <span class="note">Every place Redaction 35 renders, with a note field per instance.</span>
+      </a>
+      <a class="item rv" href="review.html">
+        <span class="shot"><img src="thumbs/review.webp" alt="The monochrome review - The typography and colour review, kept as it was - it documents the old state." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>The monochrome review</b><time class="num">2026-09</time></span>
+        <span class="note">The typography and colour review, kept as it was - it documents the old state.</span>
+      </a>
+      <a class="item rv" href="lab-design-review.html">
+        <span class="shot"><img src="thumbs/lab-design-review.webp" alt="Rolling ViewRyt out - The review that took ViewRyt&#x27;s conventions across the whole cluster." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Rolling ViewRyt out</b><time class="num">2026-08</time></span>
+        <span class="note">The review that took ViewRyt&#x27;s conventions across the whole cluster.</span>
+      </a>
+      <a class="item rv" href="https://heyrav.in/components.html" target="_blank" rel="noopener">
+        <span class="shot"><img src="thumbs/components.webp" alt="Component lab - One component a day, on the main site." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Component lab</b><span class="tag">live</span><time class="num">ongoing</time></span>
+        <span class="note">One component a day, on the main site.</span>
+      </a>
+      <a class="item rv" href="https://heyrav.in/museum.html" target="_blank" rel="noopener">
+        <span class="shot"><img src="thumbs/museum.webp" alt="Museum - A scroll-driven fly-through of the Udaipur drawings, on the main site." loading="lazy" width="960" height="600"></span>
+        <span class="meta"><b>Museum</b><span class="tag">live</span><time class="num">2026-09</time></span>
+        <span class="note">A scroll-driven fly-through of the Udaipur drawings, on the main site.</span>
+      </a>
+    </div>
+  </section>
+
+  <section class="group" id="method" aria-labelledby="h-method">
+    <header class="group-h rv"><h2 id="h-method">How the instruments are made</h2>
+      <p>From James McDonald's Dive Club session on building with Claude (Oct 2026), and from reading how accessgrid.com's own motion is built.</p></header>
+    <div class="lessons">
+      <div class="rv"><b>Build a tool, not eight mockups</b><p>A throwaway tool you can play with finds the idea faster than a page of variations.</p></div>
+      <div class="rv"><b>Always a random button</b><p>Random across every parameter turns up results nobody would aim for. Undo keeps it safe.</p></div>
+      <div class="rv"><b>One line of help per control</b><p>Each slider says what it does, so the tool is its own documentation.</p></div>
+      <div class="rv"><b>One easing, almost everywhere</b><p>Ease-out quint, cubic-bezier(.23,1,.32,1), at 200 to 500ms. Most of "smooth" is never mixing curves.</p></div>
+      <div class="rv"><b>Write the motion as numbers</b><p>Every timing named and commented - stagger, snap, sweep - so it can be tuned, not storyboarded.</p></div>
+      <div class="rv"><b>Self-plagiarise</b><p>A shelved idea is a library entry. This page exists so none of them are lost.</p></div>
+    </div>
+  </section>
+
+  <footer><span>heyrav library</span><a href="https://heyrav.in">heyrav.in</a><span>Ravindra Pratap</span></footer>
+</div>
+<script>
+  // reveal on scroll: blur and rise, the instruments' own entrance
+  const io = 'IntersectionObserver' in window ? new IntersectionObserver(es => es.forEach(x => {
+    if (x.isIntersecting) { x.target.classList.add('in'); io.unobserve(x.target); }
+  }), { rootMargin: '0px 0px -6% 0px' }) : null;
+  document.querySelectorAll('.rv').forEach((el, i) => { el.style.setProperty('--d', (i % 3) * 70 + 'ms'); io ? io.observe(el) : el.classList.add('in'); });
+</script>
+</body>
+</html>

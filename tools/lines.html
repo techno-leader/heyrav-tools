@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Line Field - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script src="brand.js"></script>
+<script>
+/* Line Field - a source shape (the mark by default) read as tone, then drawn
+   as a field of hairlines whose width, lift and colour follow that tone.
+   Straight families are generated in plane space, optionally lifted into an
+   isometric / perspective view, and hit-tested in plane space too, so a click
+   ripple stays a circle on the tilted plane. */
+
+const SIZES = [['fill','fill'],[[1440,500],'1440 × 500 hero band'],[[1440,900],'1440 × 900 desktop'],[[1200,675],'1200 × 675 post'],[[1080,1080],'1080 × 1080 square'],[[1080,1350],'1080 × 1350 portrait']];
+const BG = [['#ffffff','paper'],['#161616','ink'],['#f5f5f5','wash'],['#0d1b4c','night']];
+const FG = [['#161616','ink'],['#ffffff','paper'],['#6e6e6e','ink 3'],['#bbfff0','mint']];
+// colour only ever arrives as an event - these are the hero glitch hues, and the selection mint
+const SCHEMES = {
+  glitch: ['oklch(.62 .171 150)','oklch(.62 .106 205)','oklch(.62 .301 318)'],
+  aurora: ['oklch(.86 .17 150)','oklch(.86 .12 205)','oklch(.80 .19 318)'],
+  mint:   ['#bbfff0','#7fe9d2','#ffffff'],
+  mono:   ['#4a4a4a','#6e6e6e','#161616'],
+};
+
+let srcImg = null, dropImg = null, field = null, fieldKey = '';
+const FS = 2;               // field is sampled at half resolution
+const ripples = [];         // {x, y, t0} in plane units
+
+async function sourceImage(S) {
+  if (S.source === 'image') return dropImg;
+  if (S.source === 'word') {
+    await document.fonts.load('600 200px Onest').catch(()=>{});
+    const c = document.createElement('canvas'), x = c.getContext('2d');
+    x.font = '600 200px Onest, sans-serif';
+    const w = Math.ceil(x.measureText(S.word || ' ').width) + 20;
+    c.width = w; c.height = 240; x.font = '600 200px Onest, sans-serif';
+    x.fillStyle = '#fff'; x.fillRect(0,0,w,240); x.fillStyle = '#000'; x.textBaseline = 'middle';
+    x.fillText(S.word || ' ', 10, 125);
+    return c;
+  }
+  if (S.source.startsWith('lab:')) {
+    try { return await Kit.loadImage('../assets/lab/001/' + S.source.slice(4) + '.png'); }
+    catch { Kit.toast('drawing failed to load'); return null; }
+  }
+  // the identity, from the supplied master SVGs (brand.js)
+  if (S.source === 'master') return BRAND.img('master', '#000', '#fff');
+  if (S.source === 'masterGrid') return BRAND.img('master', '#000', '#fff', true);
+  return BRAND.img(S.source, '#000');
+}
+async function rebuildField(S, W, H) {
+  const key = [S.source, S.word, S.fit, S.soft, S.invert, S.ox, S.oy, W, H, !!dropImg].join('|');
+  if (key === fieldKey) return;
+  fieldKey = key;
+  srcImg = await sourceImage(S);
+  try {
+    field = Kit.inkField(srcImg, Math.ceil(W/FS), Math.ceil(H/FS), { fit:S.fit, blur:S.soft/FS, invert:S.invert, ox:S.ox, oy:S.oy });
+  } catch (e) { field = null; Kit.toast('this image cannot be read here - serve the folder over http'); }
+  T.draw();
+}
+
+/* ---- projection ---- */
+function camera(S, W, H) {
+  const turn = S.turn * Math.PI/180, tilt = S.tilt * Math.PI/180;
+  const ct = Math.cos(turn), st = Math.sin(turn), cx = Math.cos(tilt), sx = Math.sin(tilt);
+  const f = 1800, k = S.zoom/100;
+  return {
+    on: S.persp,
+    // plane (x,y) + lift z -> screen
+    p(x, y, z, out) {
+      if (!S.persp) { out[0] = x; out[1] = y - z; out[2] = 1; return; }
+      let X = x - W/2, Y = y - H/2;
+      const x1 = X*ct - Y*st, y1 = X*st + Y*ct;
+      const y2 = y1*cx - z*sx, z2 = y1*sx + z*cx;
+      const s = f/(f + z2);
+      out[0] = W/2 + x1*s*k; out[1] = H/2 + y2*s*k; out[2] = s*k;
+    },
+    // screen -> plane (z = 0)
+    inv(sxp, syp) {
+      if (!S.persp) return [sxp, syp];
+      const a = (sxp - W/2)/k, b = (syp - H/2)/k;
+      const y1 = b/(cx - b*sx/f), x1 = a*(f + y1*sx)/f;
+      return [x1*ct + y1*st + W/2, -x1*st + y1*ct + H/2];
+    }
+  };
+}
+
+/* ---- line families: each returns arrays of plane points ---- */
+function families(S, W, H) {
+  const sp = S.spacing, step = Math.max(2, Math.min(4, sp/2)), lines = [];
+  const dir = S.dir;
+  if (dir === 'rings' || dir === 'rays') {
+    const cx = W/2 + S.ox*W, cy = H/2 + S.oy*H, R = Math.hypot(W, H)/2 + 40;
+    if (dir === 'rings') for (let r = sp; r < R; r += sp) {
+      const n = Math.max(24, Math.ceil(2*Math.PI*r/step)), L = [];
+      for (let i = 0; i <= n; i++) { const a = i/n*Math.PI*2; L.push([cx + Math.cos(a)*r, cy + Math.sin(a)*r, Math.cos(a), Math.sin(a), r]); }
+      lines.push(L);
+    } else {
+      const n = Math.max(12, Math.round(2*Math.PI*Math.min(W,H)*0.35/sp));
+      for (let j = 0; j < n; j++) { const a = j/n*Math.PI*2, L = [], ca = Math.cos(a), sa = Math.sin(a);
+        for (let r = 0; r < R; r += step) L.push([cx + ca*r, cy + sa*r, -sa, ca, r]);
+        lines.push(L); }
+    }
+    return lines;
+  }
+  const ang = dir === 'vertical' ? Math.PI/2 : dir === 'horizontal' ? 0 : dir === 'diagonal' ? Math.PI/4 : -Math.PI/4;
+  const dx = Math.cos(ang), dy = Math.sin(ang), nx = -dy, ny = dx, L2 = Math.hypot(W, H)/2, cx = W/2, cy = H/2;
+  for (let c = -Math.floor(L2/sp)*sp; c <= L2; c += sp) {
+    const L = [];
+    for (let t = -L2; t <= L2; t += step) {
+      const x = cx + nx*c + dx*t, y = cy + ny*c + dy*t;
+      if (x < -step || y < -step || x > W + step || y > H + step) continue;
+      L.push([x, y, nx, ny, t + L2]);
+    }
+    if (L.length > 1) lines.push(L);
+  }
+  return lines;
+}
+
+/* ---- the frame ---- */
+let famKey = '', fam = [];
+const tmp = [0,0,0];
+function frame(ctx, W, H, t, S, ptr, exporting) {
+  ctx.fillStyle = S.bg; ctx.fillRect(0, 0, W, H);
+  if (!field) return;
+  const k2 = [S.dir, S.spacing, S.ox, S.oy, W, H].join('|');
+  if (k2 !== famKey) { famKey = k2; fam = families(S, W, H); }
+  const cam = camera(S, W, H);
+  const hov = (!exporting && ptr.in && S.shift !== 'click') ? cam.inv(ptr.x, ptr.y) : null;
+  const ph = S.phase/100*Math.PI*2 + t*S.speed*2;
+  const kw = Math.PI*2/S.wave;
+  const now = t;
+  for (let i = ripples.length - 1; i >= 0; i--) if (now - ripples[i].t0 > 3.2 || now < ripples[i].t0) ripples.splice(i, 1);
+  const pal = SCHEMES[S.scheme];
+  const heat = [], Ps = []; // colour pass, collected while building the ribbons
+
+  ctx.fillStyle = S.fg;
+  for (let li = 0; li < fam.length; li++) {
+    const L = fam[li], n = L.length, P = new Float32Array(n*3), Wd = new Float32Array(n);
+    for (let i = 0; i < n; i++) {
+      let [x, y, nx, ny, s] = L[i];
+      const ink = field.lerp(x/FS, y/FS);
+      let a = S.amp;
+      if (S.waveIn) a *= ink;
+      // pointer: swell the wave and lift the plane under the cursor
+      let hot = 0, lift = ink*S.extrude;
+      if (hov) { const d = Math.hypot(x - hov[0], y - hov[1]); hot = Math.max(0, 1 - d/S.radius); hot *= hot; a += hot*S.amp*1.5 + hot*6; lift += hot*S.extrude*.6; }
+      for (const r of ripples) {
+        const age = now - r.t0, rr = age*S.rippleSpeed, d = Math.hypot(x - r.x, y - r.y);
+        const g = Math.exp(-(((d - rr)/40)**2)) * Math.max(0, 1 - age/3.2);
+        if (S.shift !== 'hover') hot = Math.max(hot, g);
+        lift += g*24; a += g*8;
+      }
+      let off = 0;
+      if (a) {
+        const u = s*kw + ph;
+        off = S.shape === 'wave' ? Math.sin(u) : S.shape === 'zigzag' ? (2/Math.PI)*Math.asin(Math.sin(u)) : S.shape === 'step' ? Math.sign(Math.sin(u)) : 0;
+        off *= a;
+      }
+      if (S.warp) off += Math.sin(x*.011 + t*.7) * Math.cos(y*.013 - t*.5) * S.warp;
+      cam.p(x + nx*off, y + ny*off, lift, tmp);
+      P[i*3] = tmp[0]; P[i*3+1] = tmp[1]; P[i*3+2] = tmp[2];
+      const tone = S.toneCurve === 1 ? ink : Math.pow(ink, S.toneCurve);
+      Wd[i] = (S.base + tone*(S.inkW - S.base)) * tmp[2];
+      if (hot > .04 && S.shift !== 'off' && (!S.shapeOnly || ink > .25)) heat.push(li, i, hot);
+    }
+    Ps.push(P);
+    ribbon(ctx, P, Wd, n);
+  }
+  // colour pass
+  if (heat.length) {
+    ctx.lineCap = 'round';
+    for (let q = 0; q < heat.length; q += 3) {
+      const L = fam[heat[q]], i = heat[q+1], hot = heat[q+2];
+      if (i + 1 >= L.length) continue;
+      const [x, y] = L[i];
+      const ci = Math.floor(((x + y)/160 + t*.6) % 3 + 3) % 3;
+      ctx.strokeStyle = pal[ci]; ctx.globalAlpha = Math.min(1, hot*1.4);
+      ctx.lineWidth = Math.max(1, S.inkW*.8)*P_scale(Ps[heat[q]], i);
+      const P = Ps[heat[q]];
+      ctx.beginPath(); ctx.moveTo(P[i*3], P[i*3+1]); ctx.lineTo(P[i*3+3], P[i*3+4]);
+      ctx.stroke();
+    }
+    ctx.globalAlpha = 1;
+  }
+}
+// one line as a filled ribbon with a varying half width
+const P_scale = (P, i) => P[i*3+2];
+function ribbon(ctx, P, Wd, n) {
+  ctx.beginPath();
+  let started = false;
+  const left = [], right = [];
+  for (let i = 0; i < n; i++) {
+    const a = Math.max(0, i - 1), b = Math.min(n - 1, i + 1);
+    let tx = P[b*3] - P[a*3], ty = P[b*3+1] - P[a*3+1]; const m = Math.hypot(tx, ty) || 1; tx /= m; ty /= m;
+    const w = Wd[i]/2;
+    if (w < .06) { if (left.length) { flush(ctx, left, right); left.length = right.length = 0; } continue; }
+    left.push(P[i*3] - ty*w, P[i*3+1] + tx*w); right.push(P[i*3] + ty*w, P[i*3+1] - tx*w);
+  }
+  if (left.length) flush(ctx, left, right);
+  ctx.fill();
+}
+function flush(ctx, l, r) {
+  ctx.moveTo(l[0], l[1]);
+  for (let i = 2; i < l.length; i += 2) ctx.lineTo(l[i], l[i+1]);
+  for (let i = r.length - 2; i >= 0; i -= 2) ctx.lineTo(r[i], r[i+1]);
+  ctx.closePath();
+}
+/* ---- svg export: the same ribbons, at rest ---- */
+function svgOut(W, H, t, S) {
+  const parts = [];
+  const fake = { beginPath(){ this.d = ''; }, moveTo(x,y){ this.d += `M${x.toFixed(1)} ${y.toFixed(1)}`; }, lineTo(x,y){ this.d += `L${x.toFixed(1)} ${y.toFixed(1)}`; },
+    closePath(){ this.d += 'Z'; }, fill(){ if (this.d) parts.push(this.d); }, fillRect(){}, set fillStyle(v){}, stroke(){}, set strokeStyle(v){}, set globalAlpha(v){}, set lineWidth(v){}, set lineCap(v){} };
+  frame(fake, W, H, t, S, { in:false }, true);
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}"><rect width="${W}" height="${H}" fill="${S.bg}"/><path fill="${S.fg}" d="${parts.join('')}"/></svg>`;
+}
+
+const T = Kit.tool({
+  title: 'Line Field', slug: 'heyrav-line-field',
+  lede: 'The identity read as tone, redrawn as hairlines. Hover to swell it, click to send a ripple.',
+  size: S => S.size,
+  presets: {
+    Default: {},
+    CRT: { dir:'horizontal', spacing:4, bg:'#161616', fg:'#bbfff0', inkW:3.2, base:.5, shape:'wave', amp:1.5, wave:40, speed:.4, scheme:'mint' },
+    Isometric: { persp:true, tilt:58, turn:-38, zoom:96, extrude:70, bg:'#0d1b4c', fg:'#ffffff', spacing:7, inkW:3, base:.4, scheme:'aurora' },
+    Rings: { dir:'rings', spacing:7, shape:'wave', amp:2, wave:60, inkW:4.5, base:.6 },
+    Waves: { dir:'diagonal', shape:'wave', amp:14, wave:180, speed:.5, waveIn:false, spacing:9, inkW:4 },
+    Relief: { dir:'horizontal', spacing:9, extrude:46, base:1, inkW:1.6, soft:16, bg:'#161616', fg:'#ffffff' },
+  },
+  groups: [
+    { name: 'canvas', controls: [
+      { k:'size', type:'select', label:'size', value:'fill', options:SIZES, rand:false, help:'Fill the stage, or pin a real artboard - the hero band is 1440 × 500.' },
+      { k:'persp', type:'toggle', label:'perspective', value:false, rand:false, help:'Lift the plane into a tilted 3D view.' },
+      { k:'tilt', type:'range', label:'tilt', min:0, max:80, value:58, unit:'°', when:S=>S.persp },
+      { k:'turn', type:'range', label:'turn', min:-90, max:90, value:-38, unit:'°', when:S=>S.persp },
+      { k:'zoom', type:'range', label:'view scale', min:40, max:160, value:96, unit:'%', when:S=>S.persp },
+      { k:'extrude', type:'range', label:'extrude', min:0, max:140, value:0, unit:'px', rand:[0,80], help:'Raise each line where the shape is darkest.' },
+    ]},
+    { name: 'source', controls: [
+      { k:'source', type:'select', label:'shape', value:'master', rand:false, options:[['master','the master - D holding the lockup'],['masterGrid','the master, with its grid'],['symbol','the swash and dot'],['lockup','the lockup - swash + name'],['D','the D'],['word','a word'],['lab:gate','drawing - gate'],['lab:haveli','drawing - haveli'],['lab:palace','drawing - palace'],['lab:umbrella','drawing - umbrella'],['image','your image']],
+        help:'Drawings are the Udaipur line art from the component lab.' },
+      { k:'word', type:'text', label:'word', value:'heyrav', rand:false, when:S=>S.source==='word' },
+      { type:'file', label:'image', when:S=>S.source==='image', prompt:'drop an image here', sub:'png, jpg, svg - or click to choose',
+        onFile: async f => { dropImg = await Kit.loadImage(URL.createObjectURL(f)); fieldKey = ''; T.set('source','image'); T.commit('source'); } },
+      { k:'fit', type:'range', label:'fit', min:.2, max:1.4, step:.01, value:.72, rand:[.5,1.1], fmt:v=>Math.round(v*100)+'%' },
+      { k:'soft', type:'range', label:'softness', min:0, max:60, value:6, unit:'px', rand:[0,30], help:'Blurs the source before it is read, so tone ramps instead of stepping.' },
+      { k:'ox', type:'range', label:'offset x', min:-.5, max:.5, step:.01, value:0, adv:true, rand:[-.15,.15] },
+      { k:'oy', type:'range', label:'offset y', min:-.5, max:.5, step:.01, value:0, adv:true, rand:[-.15,.15] },
+      { k:'invert', type:'toggle', label:'invert tone', value:false, adv:true },
+    ]},
+    { name: 'colour', controls: [
+      { k:'bg', type:'color', label:'background', value:'#ffffff', options:BG },
+      { k:'fg', type:'color', label:'strokes', value:'#161616', options:FG, rand:S=>S.bg==='#ffffff'||S.bg==='#f5f5f5'?'#161616':'#ffffff' },
+      { k:'shift', type:'seg', label:'colour shift', value:'both', options:[['off','off'],['hover','hover'],['click','click'],['both','both']], rand:false,
+        help:'Colour is an event here, never a surface - it only appears where you touch.' },
+      { k:'scheme', type:'seg', label:'scheme', value:'glitch', options:['glitch','aurora','mint','mono'], when:S=>S.shift!=='off' },
+      { k:'shapeOnly', type:'toggle', label:'colour the shape only', value:true, when:S=>S.shift!=='off' },
+    ]},
+    { name: 'lines', controls: [
+      { k:'dir', type:'seg', label:'direction', value:'vertical', options:[['vertical','vert'],['horizontal','horiz'],['diagonal','diag'],['rings','rings'],['rays','rays']] },
+      { k:'spacing', type:'range', label:'spacing', min:3, max:30, value:8, unit:'px', rand:[4,16] },
+      { k:'base', type:'range', label:'base stroke', min:0, max:3, step:.1, value:.6, unit:'px', rand:[0,1.2], help:'Width where the source is empty. 0 leaves only the shape.' },
+      { k:'inkW', type:'range', label:'ink stroke', min:.5, max:12, step:.1, value:4.2, unit:'px', rand:[1.5,7], help:'Width where the source is darkest.' },
+      { k:'toneCurve', type:'range', label:'tone curve', min:.3, max:3, step:.05, value:1, adv:true, rand:[.6,1.8] },
+      { k:'shape', type:'seg', label:'line shape', value:'straight', options:['straight','wave','zigzag','step'] },
+      { k:'amp', type:'range', label:'amplitude', min:0, max:40, value:6, unit:'px', when:S=>S.shape!=='straight', rand:[1,18] },
+      { k:'wave', type:'range', label:'wavelength', min:16, max:400, value:120, unit:'px', when:S=>S.shape!=='straight', rand:[30,260] },
+      { k:'phase', type:'range', label:'phase shift', min:0, max:100, value:0, unit:'%', adv:true, when:S=>S.shape!=='straight' },
+      { k:'waveIn', type:'toggle', label:'wave inside the shape only', value:true, when:S=>S.shape!=='straight' },
+      { k:'speed', type:'range', label:'drift', min:0, max:2, step:.05, value:.3, help:'How fast the phase travels while playing.', rand:[0,1] },
+      { k:'warp', type:'range', label:'warp', min:0, max:30, value:0, unit:'px', adv:true, rand:[0,10], help:'A slow flow field under every line.' },
+    ]},
+    { name: 'interaction', closed:true, controls: [
+      { k:'radius', type:'range', label:'hover radius', min:40, max:500, value:180, unit:'px', rand:false },
+      { k:'rippleSpeed', type:'range', label:'ripple speed', min:100, max:1400, value:520, unit:'px/s', rand:false },
+    ]},
+    { name: 'export', controls: [
+      { type:'buttons', buttons:[
+        { label:'Copy SVG', run: api => api.copy(api.svgText(), 'svg copied - paste into Figma') },
+        { label:'PNG @2x', run: api => api.png(2) },
+      ]},
+      { type:'button', label:'Record 6s WebM', run: api => api.record(6) },
+      { type:'button', label:'Copy link to this state', run: api => api.link() },
+      { type:'note', text:'Every change is written to the address bar, so a link reopens this exact field.' },
+    ]},
+  ],
+  draw: frame,
+  svg: svgOut,
+  onResize: (W, H, S) => rebuildField(S, W, H),
+  onPointer: (p, kind, S) => {
+    if (kind !== 'down') return;
+    const cam = camera(S, T.view.W, T.view.H), [x, y] = cam.inv(p.x, p.y);
+    ripples.push({ x, y, t0: T.clock.t });
+    if (!T.clock.on) { const run = () => { T.clock.t += 1/60; T.draw(); if (ripples.length) requestAnimationFrame(run); }; requestAnimationFrame(run); }
+  },
+});
+T.on((k, S) => { rebuildField(S, T.view.W, T.view.H); if (!T.clock.on) T.draw(); });
+</script>
+</body>
+</html>

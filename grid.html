@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>D-GRID — closing grid, sparse scatter</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  /* Redaction 35, italic only — copied verbatim from index.html so the <em> in
+     the pitch renders in the same cut it does on the live page. */
+  @font-face{
+    font-family:"Redaction 35";
+    font-style:italic;
+    font-weight:400;
+    font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff) format("woff");
+  }
+  /* Tokens copied verbatim from index.html — this bench invents none. */
+  :root{
+    --ink:#161616; --ink-2:#4a4a4a; --ink-3:#6e6e6e; --mut:#767676;
+    --line:#ececec; --line-2:#e7e7e7; --paper:#ffffff; --sel:#bbfff0;
+    --r-sm:8px; --r-md:14px; --r-lg:20px; --r-pill:99px;
+    --t-body:18px; --t-label:12px;
+    --t-sub:24px; --t-sub-md:32px; --t-sub-lg:40px; --t-head:56px; --t-head-lg:64px;
+    --w-head:450;
+    --gap:20px;
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --serif:"Redaction 35",Georgia,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  ::selection{background:var(--sel);}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  .page{max-width:1180px;margin-inline:auto;padding:48px 44px 40px;}
+  .mono{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.08em;
+        text-transform:uppercase;color:var(--ink-3);}
+  h1.t{font-size:40px;font-weight:var(--w-head);letter-spacing:-.03em;margin:10px 0 8px;}
+  p.lede{font-size:var(--t-body);color:var(--mut);max-width:64ch;line-height:1.55;}
+
+  /* ---------------- the section itself ----------------
+     One viewport, full bleed. The field is a 24 x 14 unit grid and only about
+     three fifths of it is filled — the white is the subject, not the
+     background, so the headline sits in a real hole rather than on top of
+     pictures. */
+  .gridsec{
+    position:relative;height:100vh;width:100%;
+    background:var(--paper);overflow:hidden;
+  }
+  .field{
+    display:grid;height:100%;width:100%;
+    grid-template-columns:repeat(24,1fr);
+    grid-template-rows:repeat(14,1fr);
+  }
+  /* The gutter is padding on the tile, not `gap` on the field. Two adjacent
+     tiles each contribute half, so any shared edge opens to a full --gap.
+     `gap` would have been the obvious move but it resizes every track to
+     (100vh - 13*gap)/14, and the void geometry the .cap padding below is built
+     from — and which is verified collision-free across 13 viewports — assumes
+     gapless tracks. Padding leaves all of that arithmetic untouched. */
+  /* A tile is a toggle, not a link — it goes nowhere, it lights its group. As an
+     <a href="#"> a click scrolled the page to the top, which is the one thing it
+     must not do. <button> also gives the touch tap, Enter/Space and focus ring
+     for free; everything below is just undoing the UA button styling. */
+  .tile{
+    position:relative;display:block;
+    padding:calc(var(--gap) / 2);
+    border:0;background:none;font:inherit;color:inherit;cursor:pointer;
+    -webkit-tap-highlight-color:transparent;
+  }
+  /* `contain`, not `cover` — nothing is cropped, so the letterboxing is real
+     and the tile must be transparent rather than a grey plate, or every asset
+     would sit in a visible box.
+
+     --grade is per-asset brightness/contrast, emitted from GRADE below. The ten
+     assets arrive at mean luminance 57.7 to 224.9, so a flat grayscale(1) makes
+     the two logos read as near-black holes next to a near-white ad. The grade
+     pulls every image toward mean 168 / sd 52 so the field reads as one pass. */
+  .tile img{
+    width:100%;height:100%;object-fit:contain;display:block;
+    filter:grayscale(1) var(--grade,brightness(1));
+    transition:filter .45s ease;
+  }
+  /* Colour is the whole hover signal, so nothing else dims. The grade comes off
+     with the grayscale: it exists to reconcile ten greys, and the images in
+     colour are already the artist's own grade. */
+  .tile.lit img{filter:none;}
+  /* Colour is the only thing hover changes — no scale, no lift. The tile keeps
+     its exact box, so nothing ever encroaches on the 20px gutter. */
+  .tile:focus-visible{outline:2px solid var(--ink);outline-offset:-2px;z-index:3;}
+
+  /* ---------------- film grain, rest state only ----------------
+     Overlay blend, deliberately: overlay against a white backdrop returns white
+     whatever the noise is, so the letterbox around each `contain`-fitted image
+     and the 20px gutter stay paper, and only the picture itself takes texture.
+     A multiply or soft-light overlay would print a grey rectangle around all
+     fifteen tiles. Measured: 0 pixels that were pure paper change when the
+     grain is on. Background is emitted from JS (see FILM). */
+  .tile::after{
+    content:"";position:absolute;inset:calc(var(--gap) / 2);pointer-events:none;
+    mix-blend-mode:overlay;opacity:1;transition:opacity .45s ease;
+  }
+  .tile.lit::after{opacity:0;}
+
+  /* The void holds the contact pitch at rest and the group's line on hover. The
+     two are stacked in one grid cell so they cross-fade in place — no tile is
+     ever behind either of them, so neither needs a plate or a blend mode. */
+  /* Padded to the void's own edges (cols 7-18 = the middle 50%, rows 5-9 =
+     4/14 down to 9/14) rather than to the section, so the content box IS the
+     hole. Centring on the section instead leaves the pitch 32px low and, worse,
+     lets a 16ch heading grow past the hole on narrower screens — at 1100px the
+     void is 550px and the heading wants 688px. */
+  .cap{
+    position:absolute;inset:0;z-index:4;
+    display:grid;place-items:center;
+    pointer-events:none;text-align:center;
+    padding:calc(100vh * 4 / 14) calc(25% + 24px) calc(100vh * 5 / 14);
+  }
+  /* opacity alone is not enough to hide these. Both layers stay in the
+     accessibility tree at opacity 0, so a screen reader reads the contact pitch
+     AND a stale group sentence at the same time, neither of which is on screen.
+     `visibility` removes them from the tree; it is delayed by the fade duration
+     when hiding so the cross-fade still plays, and immediate when showing. */
+  .cap > *{grid-area:1/1;transition:opacity .3s ease, visibility 0s linear .3s;}
+  .pitch{visibility:visible;transition:opacity .3s ease, visibility 0s;}
+  .now{visibility:hidden;}
+  .cap h2{
+    font-size:var(--t-head);line-height:1.05;letter-spacing:-.035em;
+    font-weight:var(--w-head);text-wrap:balance;
+  }
+  /* Ported from index.html .contact-inner / .contact-actions. */
+  .pitch h2{max-width:16ch;margin:0 auto 30px;}
+  .pitch h2 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-3);}
+  .contact-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;pointer-events:auto;}
+  .contact-actions a{
+    display:inline-flex;align-items:center;gap:10px;min-height:44px;
+    text-decoration:none;font-size:var(--t-body);padding:12px 32px;
+    border-radius:var(--r-pill);letter-spacing:.02em;
+    transition:background .25s ease, border-color .25s ease, color .25s ease;
+  }
+  .contact-actions .primary{background:var(--ink);color:var(--paper);}
+  .contact-actions .primary:hover{background:var(--ink-3);}
+  .contact-actions .ghost{border:1px solid var(--line-2);color:var(--ink);}
+  .contact-actions .ghost:hover{border-color:var(--ink-3);color:var(--ink-2);}
+  .contact-actions .icon{width:1em;height:1em;fill:currentColor;flex:none;}
+
+  /* The group lines are sentences, not labels — the longest is 108 characters
+     against the pitch's 32 — so this is two steps down from the heading with a
+     prose line-height. At 40px/24ch the 108-character line is five lines tall,
+     230px, inside a 321px void at 1440x900. --t-head would need eight. */
+  .cap .now{
+    font-size:var(--t-sub-lg);max-width:24ch;
+    line-height:1.15;letter-spacing:-.02em;opacity:0;
+  }
+  /* Hidden pitch must stop taking clicks, or the buttons stay hittable while
+     invisible underneath the group line. */
+  .gridsec.on .pitch{opacity:0;pointer-events:none;visibility:hidden;
+                     transition:opacity .3s ease, visibility 0s linear .3s;}
+  .gridsec.on .now{opacity:1;visibility:visible;
+                   transition:opacity .3s ease, visibility 0s;}
+
+  /* These steps track the VOID, not the viewport. The hole is a fixed 50% of
+     the width, so it narrows faster than a normal page measure — type that is
+     comfortable at 1440 wraps to three lines at 1100 and drops out of the hole
+     onto the balaayah tile. */
+  @media (min-width:1280px){ .pitch h2{font-size:var(--t-head-lg);} }
+  @media (max-width:1200px){ .cap .now{font-size:var(--t-sub-md);} }
+  @media (max-width:900px){ .cap h2{font-size:var(--t-sub-lg);} }
+  @media (max-width:640px){ .cap h2{font-size:var(--t-sub-md);} .cap .now{font-size:var(--t-sub);} }
+  @media (max-width:820px){
+    /* Portrait: 12 x 18 units, tiles only in the top and bottom thirds, so the
+       hole runs the full width and the headline is not squeezed between
+       columns. Rows 7-12 are empty, which centres the void on the section —
+       the caption is centred on the section too, so the two have to agree or
+       the headline lands on top of a tile. */
+    .field{grid-template-columns:repeat(12,1fr);grid-template-rows:repeat(18,1fr);}
+    .cap{padding:calc(100vh * 6 / 18) 6vw;}
+    .pitch h2{margin-bottom:24px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    .tile img,.tile::after,.cap > *,.contact-actions a{transition:none;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="mono">D-GRID · closing section · replaces the footer</div>
+  <h1 class="t">Sparse scatter, contact in the hole</h1>
+  <p class="lede">Ten assets across fifteen tiles — five appear twice, never next to
+  their own copy, which is what makes a small set read as a field instead of a
+  gallery. At rest the field is grey, per-image graded to one common exposure and
+  carrying a film grain, and the void holds the contact pitch. Hover any tile and its
+  <em>group</em> lights: the line in the void becomes that project's sentence, the
+  buttons step out, and every tile in the group comes back into colour at once — grain
+  and all. Nothing moves or scales.</p>
+</div>
+
+<section class="gridsec" aria-label="Selected work"></section>
+
+<div class="page"><p class="lede" style="font-size:15px">
+  Two things changed that weren't asked for, flagged rather than buried: tile
+  <span class="mono" style="text-transform:none">alt</span> text is now written
+  out instead of being the raw file name (the old one shipped
+  <span class="mono" style="text-transform:none">onbaording</span> and
+  <span class="mono" style="text-transform:none">shayog</span> to screen
+  readers), and the Ashwaresin / Shilajit pair is captioned as one “photoshoots”
+  group, so neither product is named on screen any more.</p></div>
+
+<script>
+const MAILTO = "mailto:singhravindrapratap812@gmail.com";
+const ARROW  = `<svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg>`;
+
+/* ------------------------------------------------------------------ assets
+   slug -> [alt, brightness, contrast, group].
+
+   The grade is solved, not eyeballed. CSS applies the chain as
+   out = clamp((L*b - 128)*c + 128), so b/c per asset were fitted against the
+   asset's real 256-bin grayscale histogram — with the clamp in the loop, not a
+   linear model, because the two flat-colour logos clip hard at 255 and a
+   linear fit mispredicts their output mean by ~40 levels.
+
+   Target mean 168 / sd 52, but bounded to b <= 3.0 and c <= 1.6. The
+   unbounded fit hits the target exactly (mean spread 0.5) by prescribing
+   b 4.37 / c 3.00 for the Sahyog logo and b 3.01 / c 2.95 for Torq's — which
+   blows both flat marks to pure white. That matches the numbers by deleting
+   the artwork, so it is rejected. Bounded result, measured:
+     mean 56.4-225.5 (spread 169.0)  ->  137.7-168.3 (spread 30.6)
+     sd    26.1-91.8 (spread  65.7)  ->   31.4-53.5  (spread 22.1)
+   The Sahyog logo is the one asset that does not reach the target, landing at
+   137.7 — still the darkest thing in the field, by 18 levels instead of 115. */
+const ASSET = {
+  "torq-app-logo":                                                 ["Torq app logo",                     3.00, 1.60, "torq"],
+  "torq-onbaording-screen-ui":                                     ["Torq onboarding screen",            1.28, 0.44, "torq"],
+  "ad-generated-from-tae-ad-studio-for-balaayah-body-oil":         ["Balaayah body oil ad",              2.20, 0.35, "ads"],
+  "use-a-template-workflow-from-ad-studio":                        ["TAE Ad Studio template workflow",   0.76, 1.60, "ads"],
+  "ashwaresin-community-p1-2":                                     ["Product photograph, styled set",    1.59, 0.74, "shoot"],
+  "shilajit-photoshoot-my-hand":                                   ["Product held in hand",              1.42, 0.52, "shoot"],
+  "logo-of-sahyog-project-with-guidelines":                        ["Sahyog logo and guidelines",        3.00, 0.47, "sahyog"],
+  "snapshot-from-shayog-project-dashboard-for-ambulance-tracking": ["Sahyog ambulance-tracking dashboard",1.05, 0.59, "sahyog"],
+  "one-of-many-fancy-shots-we-edit-everyday":                      ["Retouched product shot",            1.41, 0.72, "shots"],
+  "i-like-to-observe":                                             ["Observed moment, photograph",       0.71, 1.21, "observe"],
+};
+
+/* Hovering any member lights the whole group and puts its sentence in the void.
+   Groups stay scattered across the field rather than clustered, so the
+   connection is only ever revealed by the hover. */
+const GROUP = {
+  torq:    "A concept app I worked on earlier, for bike riders to plan and manage group rides.",
+  ads:     "Ad generated from one of the templates from TAE Ad Studio.",
+  shoot:   "I plan and stylize photoshoots for products. By the way, that is my hand.",
+  sahyog:  "System design project I did in my college days, on transportation service for non-emergency patients.",
+  shots:   "One of the fancy shots I edit every day :)",
+  observe: "I like to observe",
+};
+
+/* ------------------------------------------------------------------- layout
+   slug, then [col, colSpan, row, rowSpan] on the 24x14 desktop field and on
+   the 12x18 portrait field. A null portrait slot drops the tile on small
+   screens — fifteen tiles do not fit in a phone without turning to mush.
+
+   The void is cols 7-18 / rows 5-9 desktop and rows 7-12 full width portrait;
+   no tile may enter it. Spans are chosen against each asset's real aspect
+   ratio, because `contain` turns a mismatch into letterboxing.
+
+   Torq onboarding (431x900, the tallest thing in the set) now takes cols 3-6 /
+   rows 4-11 — 57% of the viewport height, hugging the left edge of the hole,
+   which is the most-looked-at slot in the frame. It was previously a two-column
+   sliver at the far left and went unnoticed.
+
+   Under `contain` only the *limiting* axis changes what you see, so growing a
+   tile on its other axis buys nothing. Rows are the limit below the hole
+   (row 10 is the first free row, row 14 the last), which is why the lower
+   Balaayah ad is 4x5 rather than 5x5 and the lower retouched shot is 8x4. */
+const TILES = [
+  ["one-of-many-fancy-shots-we-edit-everyday",                     [ 1,6, 1,3], [ 1,8,16,3]],
+  ["logo-of-sahyog-project-with-guidelines",                       [ 9,2, 1,2], [ 9,4,16,3]],
+  ["ashwaresin-community-p1-2",                                    [12,3, 1,4], null      ],
+  ["use-a-template-workflow-from-ad-studio",                       [16,5, 1,3], null      ],
+  ["ad-generated-from-tae-ad-studio-for-balaayah-body-oil",        [22,3, 1,4], [10,3, 1,3]],
+  ["torq-onbaording-screen-ui",                                    [ 3,4, 4,8], [ 1,4, 1,6]],
+  ["torq-app-logo",                                                [ 1,2, 5,2], [ 6,3, 1,2]],
+  ["i-like-to-observe",                                            [19,3, 4,2], [ 6,7, 4,3]],
+  ["shilajit-photoshoot-my-hand",                                  [21,4, 6,4], [ 8,5,13,3]],
+  ["logo-of-sahyog-project-with-guidelines",                       [ 1,2, 8,2], null      ],
+  ["torq-app-logo",                                                [19,2, 8,2], null      ],
+  ["snapshot-from-shayog-project-dashboard-for-ambulance-tracking",[19,6,10,4], [ 1,6,13,3]],
+  ["ad-generated-from-tae-ad-studio-for-balaayah-body-oil",        [15,4,10,5], null      ],
+  ["one-of-many-fancy-shots-we-edit-everyday",                     [ 7,8,11,4], null      ],
+  ["i-like-to-observe",                                            [ 1,5,12,3], null      ],
+];
+
+const area = ([c,cs,r,rs]) => `grid-area:${r}/${c}/span ${rs}/span ${cs};`;
+
+/* -------------------------------------------------------------------- grain
+   Film grain: fractal noise, one 160px tile repeated. Chosen over an ordered
+   dither and a halftone screen.
+
+   Alpha is forced opaque with a discrete transfer, because feTurbulence
+   randomises the alpha channel too and half the grain would otherwise punch
+   straight through. RGB is compressed to .275-.725 so the noise sits either
+   side of overlay's neutral point — overlay treats 128 as a no-op, so the raw
+   0..255 spread would read as static printed over the work, not as a grain. */
+const svgURL = s => `url("data:image/svg+xml,${encodeURIComponent(s)}")`;
+const FILM =
+  `<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'>`
++ `<feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/>`
++ `<feColorMatrix type='saturate' values='0'/>`
++ `<feComponentTransfer>`
++ `<feFuncR type='linear' slope='.45' intercept='.275'/>`
++ `<feFuncG type='linear' slope='.45' intercept='.275'/>`
++ `<feFuncB type='linear' slope='.45' intercept='.275'/>`
++ `<feFuncA type='discrete' tableValues='1'/>`
++ `</feComponentTransfer></filter>`
++ `<rect width='160' height='160' filter='url(#n)'/></svg>`;
+
+/* ---------------------------------------------------------------- rendering */
+const sec = document.querySelector('.gridsec');
+sec.innerHTML =
+  `<div class="field">${TILES.map(([slug], i) => {
+     const [alt] = ASSET[slug];
+     return `<button class="tile" type="button" id="t${i}" aria-pressed="false" data-key="${ASSET[slug][3]}">`
+          + `<img src="assets/grid/${slug}.webp" alt="${alt}" loading="lazy"></button>`;
+   }).join('')}</div>` +
+  `<div class="cap">` +
+    `<div class="pitch">` +
+      `<h2>Have a number that needs <em>moving?</em></h2>` +
+      `<div class="contact-actions">` +
+        `<a class="primary" href="${MAILTO}">Email me ${ARROW}</a>` +
+        `<a class="ghost" href="https://x.com/RavindraPatap" target="_blank" rel="noopener">X / @RavindraPatap</a>` +
+      `</div>` +
+    `</div>` +
+    `<h2 class="now" aria-live="polite"></h2>` +
+  `</div>`;
+
+/* Placement and grade are emitted as real CSS rather than inline styles, so the
+   portrait layout can live in a media query instead of being recomputed on
+   resize, and one --grade declaration serves every copy of an asset. */
+const wide  = TILES.map(([s,d],i)   => `#t${i}{${area(d)}--grade:brightness(${ASSET[s][1]}) contrast(${ASSET[s][2]});}`).join('');
+const nar   = TILES.map(([,,m],i)   => m ? `#t${i}{${area(m)}}` : `#t${i}{display:none;}`).join('');
+const grain = `.tile::after{background-image:${svgURL(FILM)};background-size:160px 160px;}`;
+document.head.insertAdjacentHTML('beforeend',
+  `<style>${wide}${grain}@media (max-width:820px){${nar}}</style>`);
+
+const now   = sec.querySelector('.now');
+const field = sec.querySelector('.field');
+const tiles = [...sec.querySelectorAll('.tile')];
+
+let held = null;   /* the group a tap has latched, null when nothing is latched */
+
+const light = t => {
+  const k = t.dataset.key;
+  tiles.forEach(o => {
+    const on = o.dataset.key === k;
+    o.classList.toggle('lit', on);
+    o.setAttribute('aria-pressed', on);
+  });
+  now.textContent = GROUP[k];
+  sec.classList.add('on');
+};
+const clear = () => {
+  tiles.forEach(o => { o.classList.remove('lit'); o.setAttribute('aria-pressed', 'false'); });
+  sec.classList.remove('on');
+};
+
+/* pointerover/out rather than enter/leave: these bubble, so one pair of
+   listeners covers every tile, and moving straight from one tile to its
+   neighbour does not flash the pitch back in between them. Leaving a tile for
+   the empty void does clear — otherwise the buttons would stay hidden and
+   unreachable the moment you tried to walk the pointer over to them.
+
+   Touch is excluded from both. A touch pointer is destroyed on lift, so it
+   fires over then out around a single tap and the group would flash and die;
+   taps go through the click handler below, which latches instead. */
+field.addEventListener('pointerover', e => {
+  if (e.pointerType === 'touch') return;
+  const t = e.target.closest('.tile');
+  if (t) light(t);
+});
+field.addEventListener('pointerout', e => {
+  if (e.pointerType === 'touch') return;
+  if (!e.relatedTarget || !e.relatedTarget.closest('.tile')) { held = null; clear(); }
+});
+
+/* Tap/click is the touch stand-in for hover: it latches a group on, and the
+   same group again — or anywhere in the empty field — turns it off. */
+sec.addEventListener('click', e => {
+  const t = e.target.closest('.tile');
+  const k = t && t.dataset.key;
+  if (k && k !== held) { held = k; light(t); }
+  else                 { held = null; clear(); }
+});
+
+tiles.forEach(t => {
+  t.addEventListener('focus', () => light(t));
+  t.addEventListener('blur', () => { if (!held) clear(); });
+});
+
+</script>
+</body>
+</html>

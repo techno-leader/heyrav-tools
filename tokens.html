@@ -1,0 +1,378 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Literal colours — three decisions [D-TOK]</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  @font-face{
+    font-family:"Redaction 35";
+    font-style:italic;
+    font-weight:400;
+    font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff) format("woff");
+  }
+  :root{
+    --ink:#161616;
+    --ink-2:#4a4a4a;
+    --ink-3:#6e6e6e;
+    --mut:#767676;
+    --line:#ececec;
+    --line-2:#e7e7e7;
+    --paper:#ffffff;
+
+    --r-sm:8px;
+    --r-md:14px;
+    --r-lg:20px;
+    --r-pill:99px;
+    --r-device:34px;
+
+    --shadow-pop:0 18px 40px -22px rgba(22,22,22,.28);
+
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-md:32px;
+    --t-sub-lg:40px;
+    --t-head:56px;
+    --t-label:12px;
+    --w-head:450;
+
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --serif:"Redaction 35",Georgia,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+
+    /* The three candidates for body copy, as real tokens so the samples below
+       are switching a variable rather than each carrying its own hex. */
+    --prose-now:#5c5c5c;   /* what ships: 6.69:1, not on the ramp */
+
+    /* Surface candidates. Scheme 2 uses all three; scheme 1 collapses them. */
+    --surface:#fafafa;
+    --surface-2:#f4f4f4;
+    --surface-3:#efefef;
+
+    /* The grey the alpha values are struck from. 3.07:1 on its own. */
+    --tint:#939393;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  ::selection{background:#e5e5e5;}
+  .mono{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 32px;}
+  .narrow{max-width:760px;}
+
+  header{padding:72px 0 40px;border-bottom:1px solid var(--line);}
+  h1{font-size:var(--t-sub-lg);font-weight:var(--w-head);letter-spacing:-.03em;line-height:1.1;margin:14px 0 18px;}
+  h1 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);}
+  header p{color:var(--mut);font-size:var(--t-body);line-height:1.6;max-width:62ch;}
+  code{font-family:var(--mono);font-size:.88em;color:var(--ink-2);}
+
+  /* ---- section chrome ---- */
+  .sec{padding:64px 0;border-bottom:1px solid var(--line);}
+  .sec-head{display:flex;align-items:baseline;gap:16px;margin-bottom:10px;flex-wrap:wrap;}
+  .sec-head h2{font-size:var(--t-sub-md);font-weight:var(--w-head);letter-spacing:-.025em;}
+  .sec > .wrap > p.intro{color:var(--mut);font-size:16px;line-height:1.65;max-width:70ch;margin-bottom:26px;}
+
+  /* ---- controls ---- */
+  .ctl{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:30px;}
+  .tgl{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.1em;text-transform:uppercase;
+    min-height:44px;padding:0 20px;border-radius:var(--r-pill);cursor:pointer;
+    border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);
+    transition:border-color .2s,color .2s;
+  }
+  .tgl[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);}
+  .tgl:focus-visible{outline:2px solid var(--ink-2);outline-offset:2px;}
+
+  /* ================= 1. body copy ================= */
+  /* Each sample is a whole reading environment, not a swatch: label, heading,
+     two paragraphs and a pull quote. The question is not "is this grey nice"
+     but "does prose at this weight sit correctly under a 450 heading", and a
+     colour chip cannot answer that. */
+  .samp{padding:34px 0;border-top:1px solid var(--line);}
+  .samp:first-child{border-top:none;}
+  .samp-head{display:flex;align-items:baseline;gap:14px;margin-bottom:20px;}
+  .samp-head b{font-size:var(--t-body);font-weight:600;}
+  .samp .lbl{
+    display:flex;align-items:center;gap:14px;margin-bottom:16px;
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.24em;
+    color:var(--ink-3);text-transform:uppercase;
+  }
+  .samp .lbl::after{content:"";flex:1;height:1px;background:var(--line);}
+  .samp h3{
+    font-size:var(--t-head);letter-spacing:-.03em;font-weight:var(--w-head);
+    line-height:1.12;max-width:22ch;margin-bottom:22px;
+  }
+  .samp h3 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);}
+  /* --prose is set per sample; this is the only line that differs between them */
+  .samp p{color:var(--prose);font-size:var(--t-body);line-height:1.7;margin-bottom:18px;max-width:62ch;}
+  .samp p strong{color:var(--ink);font-weight:600;}
+  .samp .pull{
+    font-family:var(--serif);font-style:italic;font-weight:400;
+    font-size:var(--t-sub-lg);line-height:1.3;color:var(--ink);letter-spacing:-.01em;
+    border-left:2px solid var(--ink-3);padding:6px 0 6px 30px;margin:34px 0;max-width:26ch;
+  }
+  .samp.s-2  {--prose:var(--ink-2);}
+  .samp.s-now{--prose:var(--prose-now);}
+  .samp.s-3  {--prose:var(--ink-3);}
+  /* Solo mode. Two greys 18 points apart both look "correct" until you stop
+     seeing them at the same time — simultaneous contrast makes the lighter one
+     read lighter than it is. Solo shows one at a time so each is judged
+     against paper alone, which is how the page is actually read. */
+  body.solo .samp{display:none;}
+  body.solo .samp.on{display:block;}
+
+  /* ================= 2. surfaces ================= */
+  .schemes{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;}
+  .scheme{border:1px solid var(--line);border-radius:var(--r-md);padding:24px;}
+  .scheme > b{display:block;font-size:var(--t-body);font-weight:600;margin-bottom:4px;}
+  .scheme > .mono{display:block;margin-bottom:18px;}
+  /* A real figure, a real wireframe stack, a real progress rail and a real
+     ghost button — the four places these greys actually occur. */
+  .demo-fig{
+    position:relative;border:1px solid var(--line);border-radius:var(--r-lg);overflow:hidden;
+    background:var(--d-fig);padding:26px 30px;display:flex;gap:20px;align-items:center;
+    margin-bottom:18px;
+  }
+  .demo-wire{flex:1 1 0;display:flex;flex-direction:column;gap:10px;}
+  .demo-wire i{display:block;height:10px;border-radius:var(--r-pill);background:var(--d-wire);}
+  .demo-wire i:nth-child(2){width:82%;}
+  .demo-wire i:nth-child(3){width:64%;}
+  .demo-rail{position:relative;width:3px;align-self:stretch;min-height:64px;border-radius:var(--r-pill);background:var(--d-rail);overflow:hidden;}
+  .demo-rail i{position:absolute;left:0;top:0;width:100%;height:46%;background:var(--ink-3);border-radius:var(--r-pill);}
+  .demo-ghost{
+    display:inline-flex;align-items:center;min-height:44px;padding:0 22px;
+    border-radius:var(--r-pill);border:1px solid var(--d-ghost);color:var(--ink);
+    font-size:15px;text-decoration:none;transition:border-color .2s,color .2s;
+  }
+  .demo-ghost:hover{border-color:var(--ink-3);color:var(--ink-2);}
+  /* scheme 1 — one fill token, edges borrow the line tokens */
+  .scheme.k1{--d-fig:var(--surface);--d-wire:var(--surface);--d-rail:var(--line);--d-ghost:var(--line-2);}
+  /* scheme 2 — a 3-step surface scale, every current value preserved */
+  .scheme.k2{--d-fig:var(--surface);--d-wire:var(--surface-2);--d-rail:var(--surface-3);--d-ghost:var(--line-2);}
+  /* scheme 3 — only figure + border tokenised, mockup interior left literal */
+  .scheme.k3{--d-fig:var(--surface);--d-wire:#f4f4f4;--d-rail:#efefef;--d-ghost:var(--line-2);}
+  /* The ghost border is the one place any scheme actually moves a pixel:
+     #dfdfdf -> --line-2 #e7e7e7. Shown against today's value for comparison. */
+  .ghost-row{display:flex;gap:14px;align-items:center;flex-wrap:wrap;margin-top:6px;}
+  .demo-ghost.today{border-color:#dfdfdf;}
+
+  /* ================= 3. alpha greys ================= */
+  .alpha-grid{display:grid;grid-template-columns:1fr 1fr;gap:24px;}
+  .abox{border:1px solid var(--line);border-radius:var(--r-md);overflow:hidden;}
+  .abox > b{display:block;font-size:var(--t-body);font-weight:600;padding:20px 24px 2px;}
+  .abox > .mono{display:block;padding:0 24px 16px;}
+  /* The dot grid, lifted from header::before on the case pages. */
+  .dots{
+    position:relative;height:150px;
+    background-image:radial-gradient(circle at 1px 1px, var(--a-dot) 1px, transparent 1.6px);
+    background-size:11px 11px;
+  }
+  /* The same three marks over a dark plate. This is the whole argument for
+     keeping alpha: flattened values are baked for white and go wrong here. */
+  .dots.on-dark{background-color:#1b1b1b;}
+  .abody{padding:20px 24px 24px;display:flex;flex-direction:column;gap:16px;align-items:flex-start;}
+  .abody a{color:var(--ink-2);text-decoration:none;font-size:var(--t-body);border-bottom:1px solid var(--a-rule);}
+  .achip{
+    display:inline-block;font-style:normal;font-family:var(--mono);
+    font-size:10px;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-2);
+    background:var(--a-fill);border-radius:var(--r-sm);padding:4px 9px;
+  }
+  /* flattened — the composite result, baked for paper */
+  .abox.flat{--a-dot:#eeeeee;--a-rule:#c4c4c4;--a-fill:#eeeeee;}
+  /* kept — real transparency, struck from --tint */
+  .abox.keep{
+    --a-dot:color-mix(in srgb, var(--tint) 16%, transparent);
+    --a-rule:color-mix(in srgb, var(--tint) 55%, transparent);
+    --a-fill:color-mix(in srgb, var(--tint) 16%, transparent);
+  }
+  .abox.on-dark-wrap{background:#1b1b1b;border-color:#2a2a2a;}
+  .abox.on-dark-wrap > b{color:#f4f4f4;}
+  .abox.on-dark-wrap .abody a{color:#dedede;}
+  .abox.on-dark-wrap .achip{color:#dedede;}
+
+  footer{padding:56px 0 110px;color:var(--mut);font-size:16px;line-height:1.7;}
+  footer b{color:var(--ink);font-weight:600;}
+  footer p{max-width:70ch;margin-bottom:14px;}
+
+  @media (max-width:900px){
+    .schemes{grid-template-columns:1fr;}
+    .alpha-grid{grid-template-columns:1fr;}
+  }
+  @media (max-width:640px){
+    .wrap{padding:0 20px;}
+    h1{font-size:var(--t-sub-md);}
+    .samp h3{font-size:var(--t-sub-md);}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="mono">D-TOK</span>
+    <h1>Twenty literal colours, <em>three decisions.</em></h1>
+    <p>Everything else in the sweep is mechanical. These three need eyes, because each one either adds a token to the ramp or moves something on screen. Nothing here is applied to the site yet.</p>
+  </div>
+</header>
+
+<!-- ============ 1 ============ -->
+<section class="sec" id="sec-prose">
+  <div class="wrap narrow">
+    <div class="sec-head"><h2>1. Body copy</h2><span class="mono">p { color: ? }</span></div>
+    <p class="intro">Today it is <code>#5c5c5c</code> at 6.69:1 — a fifth neutral that is not on the ramp, and lands exactly halfway between <code>--ink-2</code> and <code>--ink-3</code>. Read a full sample, not a swatch. Use <b>Solo</b> to see them one at a time; side by side, the lighter grey always looks lighter than it really is.</p>
+    <div class="ctl">
+      <button class="tgl" id="solo" aria-pressed="false">Solo</button>
+      <button class="tgl" id="prev" hidden>&larr; Prev</button>
+      <button class="tgl" id="next" hidden>Next &rarr;</button>
+    </div>
+  </div>
+  <div class="wrap narrow" id="samples"></div>
+</section>
+
+<!-- ============ 2 ============ -->
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head"><h2>2. Near-white surfaces</h2><span class="mono">4 fills within 1.04&ndash;1.33:1</span></div>
+    <p class="intro">A figure background, the wireframe bars, the progress rail and the ghost button&rsquo;s border. All four are almost paper. The question is whether they are one surface or a scale &mdash; look at the wireframe bars against the figure behind them, since that is the only pairing where the steps do any work.</p>
+    <div class="schemes">
+      <div class="scheme k1">
+        <b>One surface</b><span class="mono">--surface + --line</span>
+        <div class="demo-fig">
+          <div class="demo-wire"><i></i><i></i><i></i></div>
+          <div class="demo-rail"><i></i></div>
+        </div>
+        <div class="ghost-row"><a class="demo-ghost" href="#sec-prose">Ghost button</a></div>
+      </div>
+      <div class="scheme k2">
+        <b>3-step scale</b><span class="mono">--surface 1&ndash;3</span>
+        <div class="demo-fig">
+          <div class="demo-wire"><i></i><i></i><i></i></div>
+          <div class="demo-rail"><i></i></div>
+        </div>
+        <div class="ghost-row"><a class="demo-ghost" href="#sec-prose">Ghost button</a></div>
+      </div>
+      <div class="scheme k3">
+        <b>Mockups stay literal</b><span class="mono">carve-out</span>
+        <div class="demo-fig">
+          <div class="demo-wire"><i></i><i></i><i></i></div>
+          <div class="demo-rail"><i></i></div>
+        </div>
+        <div class="ghost-row"><a class="demo-ghost" href="#sec-prose">Ghost button</a></div>
+      </div>
+    </div>
+    <p class="intro" style="margin-top:26px">Schemes 2 and 3 are pixel-identical &mdash; they differ only in whether the mockup greys are named. Scheme 1 flattens the wireframe bars into the figure behind them. The ghost border moves in all three: <code>#dfdfdf</code> today vs <code>--line-2 #e7e7e7</code> proposed.</p>
+    <div class="ghost-row">
+      <a class="demo-ghost today" href="#sec-prose">Today &mdash; #dfdfdf</a>
+      <a class="demo-ghost" style="border-color:var(--line-2)" href="#sec-prose">Proposed &mdash; --line-2</a>
+    </div>
+  </div>
+</section>
+
+<!-- ============ 3 ============ -->
+<section class="sec">
+  <div class="wrap">
+    <div class="sec-head"><h2>3. The alpha greys</h2><span class="mono">rgba(147,147,147, .16 / .55)</span></div>
+    <p class="intro">Three marks are struck from <code>#939393</code> at 16% and 55%: the header dot grid, the link underline and the annotation chip. Over paper the two columns below are identical &mdash; flattening costs nothing. The bottom row is the same code over a dark plate, which is where a baked value stops being a tint and starts being a light patch.</p>
+    <div class="alpha-grid">
+      <div class="abox flat">
+        <b>Flattened</b><span class="mono">#eeeeee / #c4c4c4</span>
+        <div class="dots"></div>
+        <div class="abody">
+          <a href="#sec-prose">tae-london.com</a>
+          <span class="achip">Finding 01</span>
+        </div>
+      </div>
+      <div class="abox keep">
+        <b>Alpha kept</b><span class="mono">color-mix on --tint</span>
+        <div class="dots"></div>
+        <div class="abody">
+          <a href="#sec-prose">tae-london.com</a>
+          <span class="achip">Finding 01</span>
+        </div>
+      </div>
+      <div class="abox flat on-dark-wrap">
+        <b>Flattened, on dark</b><span class="mono">baked for paper</span>
+        <div class="dots on-dark"></div>
+        <div class="abody">
+          <a href="#sec-prose">tae-london.com</a>
+          <span class="achip">Finding 01</span>
+        </div>
+      </div>
+      <div class="abox keep on-dark-wrap">
+        <b>Alpha kept, on dark</b><span class="mono">still a tint</span>
+        <div class="dots on-dark"></div>
+        <div class="abody">
+          <a href="#sec-prose">tae-london.com</a>
+          <span class="achip">Finding 01</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<footer class="wrap">
+  <p>The site is white everywhere today, so the dark row is a hypothetical &mdash; except that <b>figure.dark</b> already exists on the IRBS page, so an inverted surface is not purely theoretical.</p>
+  <p>Left alone regardless: the <code>rgb(0,0,0)</code> stop inside <b>mask-image</b>, which is an opacity value rather than a colour, and would be wrong to tokenise.</p>
+</footer>
+
+<script>
+/* One paragraph of real ViewRyt copy per sample. Lorem would defeat the point:
+   the judgement is about reading, and reading is affected by whether the words
+   mean anything. */
+const SAMPLES = [
+  { k:'s-2',   name:'Snap up to --ink-2',   note:'#4a4a4a &middot; 8.86:1 &middot; darker than today' },
+  { k:'s-now', name:'Keep #5c5c5c',         note:'6.69:1 &middot; ships today &middot; needs a new token' },
+  { k:'s-3',   name:'Snap down to --ink-3', note:'#6e6e6e &middot; 5.10:1 &middot; lighter than today' },
+];
+
+const BODY = `
+  <div class="lbl">Improvement 02</div>
+  <h3>Decision <em>architecture</em></h3>
+  <p>ViewRyt carries the full <strong>AREDS 2 formula</strong> — the NIH clinical standard shown to reduce advanced macular degeneration risk by 25%. A genuinely strong product, buried under a page that asked the reader to work for it.</p>
+  <p>Keeping the copy identical made the test honest: whatever moved, <strong>design moved it</strong>. Colour leads the eye from the herb through to the hero ingredient, so the comparison resolves into one answer rather than three columns of numbers.</p>
+  <div class="pull">The page stopped arguing and started explaining.</div>
+  <p>TAE has strong targeting for <strong>women 50+ in the US</strong> as a natural skincare brand, and the product was deemed a strong fit.</p>`;
+
+document.getElementById('samples').innerHTML = SAMPLES.map((s, i) => `
+  <section class="samp ${s.k} ${i === 0 ? 'on' : ''}" data-samp>
+    <div class="samp-head"><b>${s.name}</b><span class="mono">${s.note}</span></div>
+    ${BODY}
+  </section>`).join('');
+
+const samps   = [...document.querySelectorAll('[data-samp]')];
+const soloBtn = document.getElementById('solo');
+const prevBtn = document.getElementById('prev');
+const nextBtn = document.getElementById('next');
+let idx = 0;
+
+function show(i){
+  idx = (i + samps.length) % samps.length;
+  samps.forEach((s, n) => s.classList.toggle('on', n === idx));
+}
+soloBtn.addEventListener('click', () => {
+  const on = soloBtn.getAttribute('aria-pressed') !== 'true';
+  soloBtn.setAttribute('aria-pressed', String(on));
+  document.body.classList.toggle('solo', on);
+  prevBtn.hidden = nextBtn.hidden = !on;
+  if (on) show(idx);
+});
+prevBtn.addEventListener('click', () => show(idx - 1));
+nextBtn.addEventListener('click', () => show(idx + 1));
+
+/* Arrow keys only while soloing, so they do not fight normal page scrolling. */
+addEventListener('keydown', e => {
+  if (!document.body.classList.contains('solo')) return;
+  if (e.key === 'ArrowLeft')  { show(idx - 1); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { show(idx + 1); e.preventDefault(); }
+});
+</script>
+</body>
+</html>

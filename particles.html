@@ -1,0 +1,1453 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Particle field — test bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16141f;
+  --lav:#8f7ff0;
+  --lav-deep:#6a58e0;
+  --mut:#8b87a0;
+  --line:#eceaf6;
+  --line-2:#e7e4f6;
+  --paper:#ffffff;
+
+  --r-sm:8px;
+  --r-md:14px;
+  --r-lg:20px;
+  --r-pill:99px;
+  --r-device:34px;
+
+  --shadow-pop:0 18px 40px -22px rgba(64,52,150,.34);
+
+  --t-body:18px;
+  --t-sub:24px;
+  --t-sub-md:32px;
+  --t-sub-lg:40px;
+  --t-head:56px;
+  --t-head-lg:64px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+html{scroll-behavior:smooth;}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:"Space Grotesk","Inter",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+}
+canvas#gl{
+  position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:0;
+}
+
+/* scroll runway — only has height when the drive is set to `scroll` */
+#runway{height:0;}
+
+.mono{
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--mut);
+}
+#hint{
+  position:fixed;left:44px;top:40px;z-index:3;
+  transition:opacity .5s ease;
+}
+#hint.off{opacity:0;}
+/* The panel owns the right edge, so the readout lives top-left. In scroll
+   mode #hint sits there too, so the readout drops below it rather than
+   overlapping. */
+#diag{
+  position:fixed;left:44px;top:40px;z-index:3;
+  letter-spacing:.06em;text-transform:none;color:var(--mut);opacity:.75;
+  white-space:pre-line;pointer-events:none;
+}
+body.scrollmode #diag{top:78px;}
+
+#fallback{
+  display:none;position:fixed;inset:0;z-index:4;
+  align-items:center;justify-content:center;padding:44px;text-align:center;
+}
+#fallback p{font-size:var(--t-body);line-height:1.6;color:var(--mut);max-width:38ch;}
+
+/* ---- control panel -------------------------------------------------
+   Lab chrome for a test bench, built from the same tokens as the rest
+   of the cluster: --line hairlines, --r-* radii, one --shadow-pop, and
+   44px minimum touch targets on every interactive row.
+   -------------------------------------------------------------------- */
+#panel{
+  position:fixed;top:24px;right:24px;z-index:5;
+  width:312px;max-height:calc(100vh - 48px);
+  display:flex;flex-direction:column;
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow-pop);
+  overflow:hidden;
+}
+#panel .head{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:0 8px 0 16px;min-height:44px;
+  border-bottom:1px solid var(--line);flex:none;
+}
+#panelBody{overflow-y:auto;overscroll-behavior:contain;flex:1 1 auto;}
+#panel.collapsed #panelBody,#panel.collapsed .foot,#panel.collapsed #dump{display:none;}
+
+#panel details{border-bottom:1px solid var(--line);}
+#panel details:last-child{border-bottom:0;}
+#panel summary{
+  list-style:none;cursor:pointer;display:flex;align-items:center;
+  min-height:44px;padding:0 16px;
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink);
+}
+#panel summary::-webkit-details-marker{display:none;}
+#panel summary::after{
+  content:"+";margin-left:auto;color:var(--mut);font-size:14px;
+}
+#panel details[open] summary::after{content:"–";}
+#panel .grp{padding:2px 16px 12px;}
+
+.row{display:flex;flex-direction:column;gap:4px;padding:6px 0;min-height:44px;justify-content:center;}
+.row .lab{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-size:13px;color:var(--mut);
+}
+.row .val{
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--lav-deep);
+}
+.row input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer;
+}
+.row input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--line-2);border-radius:var(--r-pill);}
+.row input[type=range]::-moz-range-track{height:3px;background:var(--line-2);border-radius:var(--r-pill);}
+.row input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:-6.5px;
+  background:var(--lav-deep);border-radius:var(--r-pill);border:0;
+}
+.row input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;background:var(--lav-deep);border-radius:var(--r-pill);border:0;
+}
+/* ---- colour picker ------------------------------------------------
+   Three OKLCH rails whose own track gradients are repainted live, so
+   you steer by looking at colour rather than at numbers. The C rail is
+   generated only as far as sRGB can actually go, which is why it stops
+   short of the slider end on most hues. */
+.pick .top{display:flex;align-items:center;gap:10px;min-height:44px;}
+.pick .sw{
+  width:32px;height:32px;flex:none;border-radius:var(--r-sm);
+  border:1px solid var(--line);
+}
+.pick .hex{
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--mut);
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.pick .rail{
+  -webkit-appearance:none;appearance:none;width:100%;height:22px;
+  background:transparent;cursor:pointer;margin-top:2px;
+}
+.pick .rail::-webkit-slider-runnable-track{
+  height:10px;border-radius:var(--r-pill);
+  background-image:var(--rail);border:1px solid var(--line);
+}
+.pick .rail::-moz-range-track{
+  height:10px;border-radius:var(--r-pill);
+  background-image:var(--rail);border:1px solid var(--line);
+}
+.pick .rail::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-3px;
+  background:var(--paper);border:2px solid var(--ink);border-radius:var(--r-pill);
+}
+.pick .rail::-moz-range-thumb{
+  width:14px;height:14px;background:var(--paper);
+  border:2px solid var(--ink);border-radius:var(--r-pill);
+}
+.pick .chip{display:flex;align-items:center;gap:8px;}
+.pick .chip span{
+  font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--mut);width:12px;flex:none;
+}
+.swatches{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;}
+.swatches button{
+  width:44px;height:44px;border:0;background:transparent;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);
+}
+.swatches button i{
+  display:block;width:20px;height:20px;border-radius:var(--r-pill);
+  border:1px solid rgba(22,20,31,.14);
+}
+.row select,.row input[type=color]{
+  width:100%;min-height:44px;padding:0 10px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--paper);color:var(--ink);
+  font-family:inherit;font-size:14px;cursor:pointer;
+}
+.row input[type=color]{padding:4px;}
+
+.foot{
+  display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);flex:none;
+}
+.btn{
+  flex:1 1 auto;min-height:44px;padding:0 14px;
+  border:1px solid var(--lav-deep);border-radius:var(--r-pill);
+  background:var(--lav-deep);color:var(--paper);
+  font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+}
+.btn-ghost{background:var(--paper);color:var(--lav-deep);}
+.btn-icon{
+  min-width:44px;min-height:44px;border:0;background:transparent;
+  color:var(--mut);font-size:18px;cursor:pointer;border-radius:var(--r-sm);
+}
+#dump{
+  display:none;margin:0 16px 12px;padding:12px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  background:#fbfaff;color:var(--ink);
+  font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.5;
+  white-space:pre-wrap;word-break:break-word;max-height:190px;overflow:auto;
+  /* .mono uppercases and tracks out — neither is survivable for code */
+  text-transform:none;letter-spacing:0;
+}
+#dump.on{display:block;}
+
+@media (max-width:900px){
+  #panel{
+    top:auto;bottom:0;right:0;left:0;width:auto;
+    max-height:64vh;border-radius:var(--r-lg) var(--r-lg) 0 0;
+  }
+}
+@media (max-width:640px){
+  #hint{left:22px;top:24px;}
+  /* the panel owns the bottom of the screen down here, so the readout
+     moves to the top corner instead of sitting underneath it */
+  #diag{left:22px;right:22px;bottom:auto;top:48px;}
+}
+
+@media (prefers-reduced-motion:reduce){
+  #hint{transition:none;}
+  html{scroll-behavior:auto;}
+}
+</style>
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+
+<div class="mono" id="hint">Scroll</div>
+<div class="mono" id="diag"></div>
+
+<div id="fallback"><p>This page needs WebGL, and this browser could not create a context.</p></div>
+
+<div id="panel">
+  <div class="head">
+    <span class="mono">Controls</span>
+    <button class="btn-icon" id="collapse" aria-expanded="true" aria-label="Collapse controls">–</button>
+  </div>
+  <div id="panelBody"></div>
+  <pre id="dump" class="mono"></pre>
+  <div class="foot">
+    <button class="btn" id="copyBtn">Copy values</button>
+    <button class="btn btn-ghost" id="resetBtn">Reset</button>
+  </div>
+</div>
+
+<div id="runway"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  /* ---- bake-time constants (changing these needs a re-bake) --------- */
+  const SIZE     = 512;      /* bake resolution, square                 */
+  /* No particle ceiling any more: the field is a fixed jittered lattice
+     (see rebuildGrid) sized by the Grid control, and each point decides
+     per-frame whether it is ink. Population follows the illustration
+     instead of being capped at bake time. */
+  const LUMA_MAX = 0.985;    /* below this = ink, at or above = paper   */
+  const SPAN     = 2.4;      /* world units the baked frame maps onto   */
+  const FOV      = 45;
+  const RAMP_IN  = 0.34;     /* scroll fraction to fully form           */
+  const HOLD_END = 0.72;     /* scroll fraction where it starts to fly  */
+  /* ------------------------------------------------------------------ */
+
+  const canvas = document.getElementById('gl');
+  const hint   = document.getElementById('hint');
+  const diag   = document.getElementById('diag');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let renderer;
+  try{
+    renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  }catch(e){
+    canvas.style.display = 'none';
+    document.getElementById('runway').style.display = 'none';
+    document.getElementById('panel').style.display = 'none';
+    hint.style.display = 'none';
+    diag.style.display = 'none';
+    document.getElementById('fallback').style.display = 'flex';
+    return;
+  }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+
+  /* ================================================================
+     1. BAKE — the eye is a raymarched SDF, not an image file, so it
+     has to be rendered to a texture before it can be sampled.
+     HEAD / NORM / EYE below are copied verbatim from index.html
+     (lines 776-795, 798-802, 806-856). The ONLY change is the added
+     uZoom uniform and the `uv *= uZoom;` line, which pulls the camera
+     back so the whole eyeball fits inside the square bake with paper
+     around it — at zoom 1.0 the eyeball overfills and gets cropped.
+     ================================================================ */
+
+  const HEAD = `
+    precision highp float;
+    uniform float t; uniform vec2 r;
+    uniform float uLevels;
+    float Bayer2(vec2 a){a=floor(a);return fract(a.x/2.+a.y*a.y*.75);}
+    float Bayer4(vec2 a){return Bayer2(.5*a)*.25+Bayer2(a);}
+    float Bayer8(vec2 a){return Bayer4(.5*a)*.25+Bayer2(a);}
+    mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+    float hash(vec2 v){return fract(sin(dot(v,vec2(12.9898,78.233)))*43758.5453);}
+    float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
+    float sdBox(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
+    /* hero-matched ordered-dither quantisation: deep -> pale -> paper */
+    vec3 dith(float lum,float hit){
+      float grain=max(r.y/260.,1.6);
+      float bay=Bayer8(gl_FragCoord.xy/grain)-.5;
+      /* uLevels was a hard 5 (so /4.). Five steps, minus the top one that
+         smoothsteps to white and is then dropped as paper, left about four
+         usable ink levels for the whole illustration — which is why the
+         shading read flat no matter how the light was aimed. Raising this
+         is the actual lever on tonal range. */
+      float q=clamp(floor(lum*uLevels+bay)/(uLevels-1.),0.,1.);
+      vec3 col=mix(vec3(.545,.48,.93),vec3(.875,.855,.985),q);
+      col=mix(col,vec3(1.),smoothstep(.92,1.,q));
+      return mix(vec3(1.),col,clamp(hit,0.,1.));
+    }`;
+
+  const NORM = `
+    vec3 calcN(vec3 p){
+      vec2 e=vec2(.004,0.);
+      return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));
+    }`;
+
+  const EYE = `
+      uniform float uZoom;
+      uniform float uBlinkSpeed,uBlinkPow,uBlinkAmt;
+      float map(vec3 p){
+        return length(p)-1.;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        uv*=uZoom;                                   /* framing only */
+        float wob=.05*sin(t*.27);
+        vec3 ro=vec3(0.,.08,3.05); ro.xz*=rot(wob);
+        vec3 rd=normalize(vec3(uv,-3.)); rd.xz*=rot(wob);
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<64;i++){pos=ro+rd*dt;float d=map(pos);if(d<.003){hit=1.;break;}dt+=d;if(dt>9.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.55,.85,.7));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),2.6);
+          lum=pow(clamp(dif*.8+fres*.34,0.,1.),.62);
+          /* iris + pupil painted on the gaze axis */
+          vec3 g=normalize(vec3(.16*sin(t*.33),.08*sin(t*.55+1.7),1.));
+          vec3 pn=normalize(pos);
+          float ang=acos(clamp(dot(pn,g),-1.,1.));
+          if(ang<.62){
+            vec3 u=normalize(cross(g,vec3(0.,1.,0.))),v=cross(u,g);
+            vec2 q=vec2(dot(pn,u),dot(pn,v));
+            float rad=ang/.55, a=atan(q.y,q.x);
+            float irisL=.46+.16*sin(a*24.+rad*5.)+.09*sin(a*7.-2.)+.08*sin(rad*24.);
+            irisL*=.35+.75*dif;
+            irisL-=.3*smoothstep(.72,1.,rad);
+            if(rad<.34) irisL=.05;
+            lum=mix(lum,clamp(irisL,0.,1.),smoothstep(1.12,.98,rad));
+          }
+          vec3 hv=normalize(l-rd);
+          lum+=pow(max(dot(n,hv),0.),70.)*1.2;
+          lum=clamp(lum,0.,1.);
+          /* eyelid mask — lids sweep in and blank the covered eyeball */
+          float b=pow(abs(sin(t*uBlinkSpeed)),uBlinkPow)*uBlinkAmt;
+          float lidY=pos.y+.16*pos.x*pos.x;
+          float top=mix(1.08,-.05,b), bot=mix(-1.08,-.15,b);
+          float m=clamp(smoothstep(top,top+.03,lidY)+smoothstep(bot,bot-.03,lidY),0.,1.);
+          lum=mix(lum,1.,m); hit*=1.-m;
+        } else {
+          float tp=(-1.5-ro.y)/rd.y;
+          if(tp>0.){
+            vec3 sp=ro+rd*tp;
+            float s=exp(-1.4*dot(sp.xz,sp.xz));
+            lum=1.-.42*s; hit=smoothstep(.03,.25,s);
+          }
+        }
+        gl_FragColor=vec4(dith(lum,hit),hit>.5?lum:1.);  /* alpha = UNDITHERED lum, for particle shading */
+      }`;
+
+  /* Dentomate's dental cast — index.html:862-926, verbatim except uZoom.
+     Baked at t=0: the sway rot(.55*sin(0)) is identity so the arch faces
+     front, and `open` sits at its .3 midpoint, a clean open bite. */
+  const TOOTH = `
+      uniform float uZoom;
+      float jaw(vec3 p){
+        float R=.78;
+        float a=atan(p.x,p.z);
+        float rr=length(p.xz)-R;
+        float gum=length(vec2(rr,p.y-.12))-.125;
+        gum+=.012*sin(a*22.)*sin(p.y*30.);
+        float da=.24;
+        float ai=clamp(floor(a/da+.5),-5.,5.)*da;
+        float s=(a-ai)*R;
+        float h=hash(vec2(ai*10.,3.7));
+        float w=.055+.03*smoothstep(.3,1.2,abs(ai));
+        float ht=.21+.05*h;
+        float mol=smoothstep(.5,1.2,abs(ai));
+        vec3 q=vec3(s,p.y+ht*.5,rr);
+        q.x*=1.+.9*q.y;
+        float th=sdBox(q,vec3(w,ht*.5,.048+.014*mol))-.03;
+        th+=.012*mol*cos(q.x/w*3.14159);
+        th-=.008*cos(q.y*16.);
+        th+=.006*smoothstep(.02,.09,q.y);
+        float d=smin(gum,th,.035);
+        float base=max(length(p.xz)-(R+.05),abs(p.y-.28)-.08);
+        d=smin(d,base,.07);
+        return max(d,-(p.z+.3));
+      }
+      float map(vec3 p){
+        p.xz*=rot(.55*sin(t*.25));
+        p.yz*=rot(.5236);
+        float open=.3+.05*sin(t*.6);
+        vec3 pu=p; pu.y-=open;
+        vec3 pl=p; pl.y=-(p.y+open);
+        pl.xz*=rot(.04);
+        return min(jaw(pu),jaw(pl))*.55;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        uv*=uZoom;                                   /* framing only */
+        vec3 ro=vec3(0.,.5,3.); vec3 rd=normalize(vec3(uv.x,uv.y-.28,-3.6));
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<90;i++){pos=ro+rd*dt;float d=map(pos);if(d<.003){hit=1.;break;}dt+=d;if(dt>9.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.55,.9,.6));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),2.4);
+          lum=pow(clamp(dif*.85+fres*.32,0.,1.),.6);
+          float ao=clamp(map(pos+n*.22)/.22,0.,1.);
+          lum*=.55+.45*ao;
+          vec3 hv=normalize(l-rd);
+          lum+=pow(max(dot(n,hv),0.),40.)*.9;
+          lum=clamp(lum,0.,1.);
+        } else {
+          float tp=(-1.25-ro.y)/rd.y;
+          if(tp>0.){
+            vec3 sp=ro+rd*tp;
+            float s=exp(-1.7*dot(sp.xz,sp.xz));
+            lum=1.-.4*s; hit=smoothstep(.03,.25,s);
+          }
+        }
+        gl_FragColor=vec4(dith(lum,hit),hit>.5?lum:1.);  /* alpha = UNDITHERED lum, for particle shading */
+      }`;
+
+  /* IRBS' isometric room grid — index.html:928-970, verbatim except uZoom.
+     Baked at t=0, where the orbit angle is .55 and every block height
+     bH() is frozen mid-cycle, so the grid shows a mix of occupancies. */
+  const ROOMS = `
+      uniform float uZoom;
+      uniform float uHeight;
+      uniform float uLightAz,uLightEl,uWrap,uGamma,uAO;
+      uniform float uCamY,uCamR;
+      uniform float uFaceAmt,uFaceX,uFaceZ;
+      float bH(vec2 id){
+        float h=hash(id);
+        float occ=smoothstep(-.25,.65,sin(t*.5+h*6.2831));
+        /* uHeight scales ONLY the raised term. The .06 pad is what an
+           unoccupied plot collapses to when occ hits 0, so scaling the
+           whole return would grow the empty plots into blocks too and
+           lose the occupancy read. Pads stay flat, towers get taller. */
+        return .06+.46*uHeight*occ*(.55+.45*hash(id+7.1));
+      }
+      float map(vec3 p){
+        vec2 id=clamp(floor(p.xz/.6+.5),vec2(-2.,-1.),vec2(3.,2.));
+        float h=bH(id);
+        float d=sdBox(p-vec3(id.x*.6,h*.5,id.y*.6),vec3(.2,h*.5,.2))-.03;
+        float fl=sdBox(p-vec3(.3,-.09,.3),vec3(2.05,.05,1.45))-.02;
+        return min(d,fl)*.6;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        uv*=uZoom;                                   /* framing only */
+        vec3 ta=vec3(.3,0.,.3);
+        float orb=.55+t*.05;
+        /* The original (.8 out, 3.6 up) is a 77deg near-plan view, which
+           foreshortens the block height almost to nothing — taller towers
+           just grow sideways and merge instead of reading as height.
+           Pulling the camera down and out is what actually makes them
+           read as buildings. */
+        vec3 ro=ta+vec3(uCamR*cos(orb),uCamY,uCamR*sin(orb));
+        vec3 f=normalize(ta-ro),rt2=normalize(cross(f,vec3(0.,1.,0.))),up=cross(rt2,f);
+        vec3 rd=normalize(uv.x*rt2+uv.y*up+3.*f);
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<80;i++){pos=ro+rd*dt;float d=map(pos);if(d<.004){hit=1.;break;}dt+=d;if(dt>12.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          /* Light rebuilt from azimuth/elevation instead of the fixed
+             (.6,.9,.4). That vector is dominated by its y term, so the
+             tops lit and all four sides landed on nearly the same value
+             — which is most of why the block faces read flat. Dropping
+             the elevation separates the sides. */
+          float ce=cos(uLightEl);
+          vec3 l=normalize(vec3(ce*cos(uLightAz),sin(uLightEl),ce*sin(uLightAz)));
+          /* uWrap 0.5 is the original half-lambert, which maps a face
+             pointing straight AWAY from the light to 0.5 and throws away
+             half the tonal range. 1.0 is true lambert. */
+          float dif=clamp(dot(n,l)*uWrap+(1.-uWrap),0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),3.);
+          float ao=clamp(map(pos+n*.18)/.18,0.,1.);
+          if(pos.y>.03){
+            /* uGamma <1 lifts the darks (the original .7), >1 deepens
+               them. This is the second half of the flatness. */
+            lum=pow(clamp(dif*.85+.12,0.,1.),uGamma);
+            vec2 id=clamp(floor(pos.xz/.6+.5),vec2(-2.,-1.),vec2(3.,2.));
+            float pend=step(.93,hash(id));
+            lum=mix(lum,.22+.18*sin(t*3.),pend);
+          } else {
+            lum=pow(clamp(dif,0.,1.),.35)*.99;
+          }
+          /* Per-AXIS face shading. One directional light cannot reliably
+             separate three mutually perpendicular faces: the top's value
+             is sin(elevation) while a side's is cos(elevation)*sin(az),
+             and those collide at some azimuth no matter where the sun is
+             put — which is exactly why the tops and one wall were landing
+             on the same tone. Weighting by |n.x| / |n.z| / n.y instead
+             gives each face its own value independent of sun position,
+             the way isometric illustration shades a box. The weights sum
+             to ~1 on an axis-aligned box, so this picks rather than
+             darkens, and the floor (n=(0,1,0)) is left untouched. */
+          float face = max(n.y,0.) + abs(n.x)*uFaceX + abs(n.z)*uFaceZ;
+          lum = mix(lum, lum*face, uFaceAmt);
+          /* contact shading, scaled: 0 removes it, 1 is the original */
+          lum*=1.-uAO*(.5-.5*ao);
+          lum+=.14*fres;
+          lum=clamp(lum,0.,1.);
+        }
+        gl_FragColor=vec4(dith(lum,hit),hit>.5?lum:1.);  /* alpha = UNDITHERED lum, for particle shading */
+      }`;
+
+  /* Per-source framing. The originals render into wide case-card canvases,
+     where uv.x spans further than uv.y; a square bake would crop them, so
+     each gets its own zoom. `lid` marks the one source the eyelid blink
+     applies to — the other two have no lids to sweep. */
+  const SRC = {
+    eye:   {frag:EYE,   zoom:1.5,  period:Math.PI/0.4},
+    tooth: {frag:TOOTH, zoom:1.6,  period:2*Math.PI/0.6},
+    rooms: {frag:ROOMS, zoom:2.2,  period:2*Math.PI/0.5}
+  };
+
+  const rt = new THREE.WebGLRenderTarget(SIZE, SIZE);
+  rt.texture.minFilter = rt.texture.magFilter = THREE.NearestFilter;
+  rt.texture.generateMipmaps = false;
+  const bakeScene = new THREE.Scene();
+  const bakeCam   = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+  /* t = 0 for every source: for the eye the blink term pow(abs(sin(0)),20.)
+     is 0 so the lids are fully open and the gaze sits on axis; for the
+     tooth the turntable sway is identity; for the rooms the orbit is at
+     its .55 start. One clean, front-on frame each. */
+  const bakeMesh = new THREE.Mesh(new THREE.PlaneGeometry(2,2), null);
+  bakeScene.add(bakeMesh);
+  const bakeMats = {};
+  function bakeMat(key){
+    if(!bakeMats[key]) bakeMats[key] = new THREE.ShaderMaterial({
+      uniforms:{ t:{value:0}, r:{value:new THREE.Vector2(SIZE,SIZE)},
+                 uZoom:{value:SRC[key].zoom}, uBlinkSpeed:{value:.4},
+                 uBlinkPow:{value:20.}, uBlinkAmt:{value:1.},
+                 uHeight:{value:1.}, uLightAz:{value:0.588},
+                 uLightEl:{value:0.895}, uWrap:{value:.5},
+                 uGamma:{value:.7}, uAO:{value:1.},
+                 uCamY:{value:3.6}, uCamR:{value:.8},
+                 uFaceAmt:{value:0.}, uFaceX:{value:1.}, uFaceZ:{value:1.},
+                 uLevels:{value:5.} },
+      vertexShader:'void main(){gl_Position=vec4(position,1.0);}',
+      fragmentShader:HEAD+SRC[key].frag
+    });
+    return bakeMats[key];
+  }
+
+  const px = new Uint8Array(SIZE*SIZE*4);
+
+  /* ================================================================
+     2. EXTRACT — dith() returns mix(vec3(1.), col, hit), so paper is
+     pure white and anything darker is eye. Colours are taken straight
+     from the readback, which means the particles inherit the exact
+     lavender dither ramp rather than inventing new values.
+     ================================================================ */
+
+
+  /* ================================================================
+     3. POINTS — geometry is rebuilt whenever the source changes, so
+     `geo` and BAKE_INFO are reassigned rather than fixed at load.
+     ================================================================ */
+
+  let geo = new THREE.BufferGeometry();
+  let points = null;
+  let BAKE_INFO = '';
+  let builtKey = null;
+  let builtZoom = null;
+  let builtGrid = null;
+  let gridN = 0;
+
+  /* Render the source SDF into rt at animation time `t`. This runs EVERY
+     frame and never reads back, so the original motion — the eye's blink
+     and gaze, the jaw opening, the room blocks rising — survives intact
+     and costs one 512² pass. */
+  function renderBake(key, t){
+    const m = bakeMat(key);
+    m.uniforms.t.value = t;
+    m.uniforms.uZoom.value = P.bakeZoom;
+    /* shared by every source: dith() lives in HEAD */
+    m.uniforms.uLevels.value = P.toneLevels;
+    if(m.uniforms.uBlinkSpeed) m.uniforms.uBlinkSpeed.value = P.blinkSpeed;
+    if(m.uniforms.uBlinkPow)   m.uniforms.uBlinkPow.value   = P.blinkPow;
+    if(m.uniforms.uBlinkAmt)   m.uniforms.uBlinkAmt.value   = P.blinkAmt;
+    /* rooms-only shaping. Guarded the same way as the blink block, so the
+       eye and tooth materials simply do not carry these. */
+    if(m.uniforms.uHeight)  m.uniforms.uHeight.value  = P.roomHeight;
+    if(m.uniforms.uLightAz) m.uniforms.uLightAz.value = P.lightAz;
+    if(m.uniforms.uLightEl) m.uniforms.uLightEl.value = P.lightEl;
+    if(m.uniforms.uWrap)    m.uniforms.uWrap.value    = P.lightWrap;
+    if(m.uniforms.uGamma)   m.uniforms.uGamma.value   = P.lightGamma;
+    if(m.uniforms.uAO)      m.uniforms.uAO.value      = P.lightAO;
+    if(m.uniforms.uCamY)    m.uniforms.uCamY.value    = P.camY;
+    if(m.uniforms.uCamR)    m.uniforms.uCamR.value    = P.camR;
+    if(m.uniforms.uFaceAmt) m.uniforms.uFaceAmt.value = P.faceAmt;
+    if(m.uniforms.uFaceX)   m.uniforms.uFaceX.value   = P.faceX;
+    if(m.uniforms.uFaceZ)   m.uniforms.uFaceZ.value   = P.faceZ;
+    bakeMesh.material = m;
+    renderer.setRenderTarget(rt);
+    renderer.render(bakeScene, bakeCam);
+    renderer.setRenderTarget(null);
+  }
+
+  /* The lattice is independent of what the bake contains: every particle
+     owns a fixed UV and re-decides each frame whether it is ink. A regular
+     grid would beat against the dither into moire, so each sample is
+     jittered inside its own cell. */
+  function rebuildGrid(){
+    const G = Math.max(16, P.grid|0);
+    const pos = [], uv = [], tgt = [], seed = [];
+    for(let gy=0; gy<G; gy++){
+      for(let gx=0; gx<G; gx++){
+        const u = (gx + Math.random())/G, v = (gy + Math.random())/G;
+        uv.push(u, v);
+        tgt.push((u - .5)*SPAN, (v - .5)*SPAN, 0);
+        seed.push(Math.random());
+        const a = Math.random()*2-1, th = Math.random()*Math.PI*2;
+        const rr = Math.cbrt(Math.random()), sq = Math.sqrt(1-a*a);
+        pos.push(rr*sq*Math.cos(th), rr*sq*Math.sin(th), rr*a*0.7);
+      }
+    }
+    const ng = new THREE.BufferGeometry();
+    ng.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    ng.setAttribute('aTarget',  new THREE.Float32BufferAttribute(tgt, 3));
+    ng.setAttribute('aUV',      new THREE.Float32BufferAttribute(uv, 2));
+    ng.setAttribute('aSeed',    new THREE.Float32BufferAttribute(seed, 1));
+    const old = geo; geo = ng;
+    if(points) points.geometry = ng;
+    if(old) old.dispose();
+    builtGrid = G; gridN = seed.length;
+  }
+
+  function build(key){
+    if(builtGrid !== Math.max(16, P.grid|0)) rebuildGrid();
+    /* one readback, purely so the diag can report ink coverage; nothing
+       in the render path depends on it */
+    renderBake(key, 0);
+    renderer.readRenderTargetPixels(rt, 0, 0, SIZE, SIZE, px);
+    let inkPx = 0;
+    for(let i=0; i<SIZE*SIZE; i++){
+      const o = i*4;
+      const luma = (0.2126*px[o] + 0.7152*px[o+1] + 0.0722*px[o+2])/255;
+      if(luma < LUMA_MAX) inkPx++;
+    }
+    BAKE_INFO =
+      key + ' — ' + gridN.toLocaleString() + ' lattice points, live bake\n' +
+      (100*inkPx/(SIZE*SIZE)).toFixed(1) + '% of the ' + SIZE + '² frame is ink at t=0\n' +
+      'target extent ±' + (SPAN/2).toFixed(2) + ' world units';
+    builtKey = key; builtZoom = P.bakeZoom;
+  }
+
+  /* OKLCH -> sRGB, done per-vertex. Interpolating the gradient in OKLCH
+     rather than sRGB keeps the midpoint from going muddy or grey, which
+     is the whole reason for using it on a two-stop lavender ramp. */
+  const OKLCH = `
+    vec3 oklab2lrgb(vec3 lab){
+      float l_ = lab.x + 0.3963377774*lab.y + 0.2158037573*lab.z;
+      float m_ = lab.x - 0.1055613458*lab.y - 0.0638541728*lab.z;
+      float s_ = lab.x - 0.0894841775*lab.y - 1.2914855480*lab.z;
+      float l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+      return vec3(
+        4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+       -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+       -0.0041960863*l - 0.7034186147*m + 1.7076147010*s);
+    }
+    vec3 lrgb2srgb(vec3 c){
+      c = max(c, vec3(0.));
+      vec3 lo = c*12.92;
+      vec3 hi = 1.055*pow(c, vec3(1./2.4)) - 0.055;
+      return mix(lo, hi, step(vec3(0.0031308), c));
+    }
+    vec3 oklch2rgb(vec3 lch){
+      float h = radians(lch.z);
+      vec3 lab = vec3(lch.x, lch.y*cos(h), lch.y*sin(h));
+      return clamp(lrgb2srgb(oklab2lrgb(lab)), 0., 1.);
+    }`;
+
+  const mat = new THREE.ShaderMaterial({
+    /* Normal alpha blending, NOT additive. The Shopify reference is
+       additive because it sits on near-black; on white paper additive
+       blows every particle out to white. On a light ground the dots
+       have to darken, so alpha blending is the correct translation. */
+    transparent:true,
+    depthWrite:false,
+    blending:THREE.NormalBlending,
+    uniforms:{
+      uForm:{value:0}, uTime:{value:0}, uDrift:{value:1},
+      uBake:{value:null}, uLumaMax:{value:LUMA_MAX},
+      uIdleAmt:{value:0.014}, uIdleSpeed:{value:1}, uIdleZ:{value:0.5}, uIdleMode:{value:0},
+      uLifeMix:{value:0.5}, uLifeRate:{value:0.18}, uLifeVary:{value:0.6},
+      uLifeSize:{value:0.5}, uLifeRise:{value:0.05},
+      uSize:{value:0.0062}, uScale:{value:1},
+      uPointer:{value:new THREE.Vector2()}, uPointerW:{value:new THREE.Vector2()},
+      uSpread:{value:0.25}, uScatter:{value:1.7}, uLooseBoost:{value:0.9},
+      uAlphaS:{value:0.55}, uAlphaInk:{value:0.42}, uEdge:{value:0.05},
+      uParallax:{value:1},
+      uBlinkAmt:{value:1}, uBlinkSpeed:{value:0.4}, uBlinkPow:{value:20},
+      uHoverMode:{value:0}, uHoverR:{value:0.5}, uHoverS:{value:0.18},
+      uMonoMix:{value:1}, uInkShade:{value:0.55}, uShadeClean:{value:1},
+      uBase:{value:new THREE.Vector3(0.55,0.19,285)},
+      uHoverColMix:{value:1}, uHoverColR:{value:0.6}, uHoverAlpha:{value:0.6},
+      uGA:{value:new THREE.Vector3(0.62,0.20,20)},
+      uGB:{value:new THREE.Vector3(0.62,0.20,20)},
+      uHuePath:{value:2}, uGradSrc:{value:0}
+    },
+    vertexShader:`
+      attribute vec3 aTarget; attribute vec2 aUV; attribute float aSeed;
+      uniform sampler2D uBake; uniform float uLumaMax;
+      uniform float uForm,uTime,uDrift,uSize,uScale,uSpread,uScatter,uLooseBoost;
+      uniform float uIdleAmt,uIdleSpeed,uIdleZ;
+      uniform float uLifeMix,uLifeRate,uLifeVary,uLifeSize,uLifeRise;
+      uniform int uIdleMode;
+      uniform float uAlphaS,uAlphaInk,uParallax;
+      uniform float uHoverR,uHoverS;
+      uniform float uMonoMix,uInkShade,uHoverColMix,uHoverColR,uHoverAlpha;
+      uniform float uShadeClean;
+      uniform int uHoverMode,uHuePath,uGradSrc;
+      uniform vec3 uBase,uGA,uGB;
+      uniform vec2 uPointer,uPointerW;
+      varying vec3 vColor; varying float vAlpha;
+      `+OKLCH+`
+      void main(){
+        /* uBake is re-rendered from the source SDF every frame, so this is
+           the LIVE illustration, not a frozen still. Sampling it here is
+           what keeps the mouth opening and the room blocks rising — the
+           particles inherit the original animation instead of replacing
+           it. Declared as locals so the colour maths below is unchanged. */
+        vec4 tex = texture2D(uBake, aUV);
+        float luma = dot(tex.rgb, vec3(.2126, .7152, .0722));
+        vec3  aColor = tex.rgb;
+        /* Shade from the UNDITHERED luminance the bake carries in alpha,
+           not from the dithered rgb. Ordered dither scatters neighbouring
+           pixels across tone levels on purpose — it encodes tone as dot
+           DENSITY, to be averaged by the eye. One particle samples one
+           pixel, so reading rgb gives it dither noise rather than shading,
+           and the field averages out to a flat grey. tex.a is the smooth
+           value, so lightness now tracks the actual lighting. rgb still
+           drives the silhouette below, keeping the stippled edge. */
+        float aInk   = 1. - mix(luma, tex.a, uShadeClean);
+        /* paper carries no particle — park it off-clip. As the shape moves,
+           particles switch between parked and visible, which is how the
+           animation reads across a fixed lattice. */
+        if(luma >= uLumaMax){
+          gl_Position = vec4(2., 2., 2., 1.);
+          gl_PointSize = 0.;
+          return;
+        }
+
+        float e = uForm*uForm*(3.-2.*uForm);
+        /* per-particle stagger so the image assembles rather than snapping */
+        float s = clamp((e - aSeed*uSpread)/max(1.-uSpread, .001), 0., 1.);
+        s = s*s*(3.-2.*s);
+        vec3 p = mix(position*uScatter, aTarget, s);
+
+        float loose = (1.-s)*uDrift;
+        p.x += sin(uTime*.61 + aSeed*39.1)*.16*loose;
+        p.y += cos(uTime*.47 + aSeed*27.3)*.16*loose;
+        p.z += sin(uTime*.38 + aSeed*61.7)*.24*loose;
+        p.xy += uPointer*(.06 + .26*loose)*uParallax;
+
+        /* ---- idle motion -------------------------------------------
+           The wander above is scaled by (1-s), so it dies off exactly as
+           the image forms and a settled eye sits perfectly still. This
+           term is scaled by s instead, so it only exists once particles
+           are AT their places — it keeps the formed eye alive without
+           moving anything off target. Amplitude is in world units and
+           SPAN is 2.4, so useful values are small. */
+        float ph = aSeed*6.2831853;
+        float it = uTime*uIdleSpeed;
+        vec3 idle;
+        if(uIdleMode == 0){        /* drift — slow, uncorrelated wander */
+          idle = vec3(sin(it*.61 + ph*6.1), cos(it*.47 + ph*4.3), sin(it*.38 + ph*9.7));
+        } else if(uIdleMode == 1){ /* jitter — fast, grainy, per-particle */
+          idle = vec3(sin(it*3.7 + ph*11.), cos(it*4.3 + ph*7.), sin(it*3.1 + ph*13.));
+        } else if(uIdleMode == 2){ /* breathe — radial pulse from centre */
+          vec2 d = aTarget.xy/max(length(aTarget.xy), 1e-4);
+          idle = vec3(d*sin(it*.9 - length(aTarget.xy)*2.2), 0.);
+        } else if(uIdleMode == 3){ /* orbit — each particle circles its spot */
+          idle = vec3(cos(it*1.3 + ph), sin(it*1.3 + ph), 0.);
+        } else {                   /* flow — neighbours move together */
+          float a = sin(aTarget.x*3.1 + it*.5) + cos(aTarget.y*2.7 - it*.4);
+          idle = vec3(cos(a*3.1), sin(a*2.7), sin(a));
+        }
+        idle.z *= uIdleZ;
+        p += idle*uIdleAmt*s*uDrift;
+
+        /* ---- birth & death -----------------------------------------
+           Each particle runs its own loop: fade in, hold, fade out,
+           respawn. aSeed offsets the phase and a second derived random
+           varies the rate, so the field turns over continuously instead
+           of pulsing in unison. At uDrift 0 (reduced motion) the whole
+           envelope collapses to 1 so nothing flickers. */
+        float r2 = fract(aSeed*137.13);
+        float rate = uLifeRate*mix(1., .35 + 1.3*r2, uLifeVary);
+        float life = fract(uTime*rate + aSeed*7.13);
+        float env = smoothstep(0., .18, life)*smoothstep(1., .82, life);
+        float lifeE = mix(1., env, uLifeMix*uDrift);
+        /* born rising into place, dying drifting on out the other side */
+        p.y += (life < .5 ? -1. : 1.)*(1. - env)*uLifeRise*uLifeMix*uDrift;
+
+        /* hover — uPointerW is the cursor projected onto the z=0 plane in
+           world units, so uHoverR is a real radius rather than a screen
+           fraction and stays honest when the window is resized. */
+        if(uHoverMode > 0){
+          vec2 d = p.xy - uPointerW;
+          float dist = length(d);
+          vec2 dir = d/max(dist, 1e-4);
+          float infl = 1. - smoothstep(0., uHoverR, dist);
+          if(uHoverMode == 1)      p.xy += dir*infl*uHoverS;   /* repel  */
+          else if(uHoverMode == 2) p.xy -= dir*infl*uHoverS;   /* attract*/
+          else if(uHoverMode == 3) p.xy += vec2(-dir.y, dir.x)*infl*uHoverS; /* swirl */
+          else                     p.z  += infl*uHoverS;       /* lift   */
+        }
+
+        vec4 mv = modelViewMatrix*vec4(p,1.);
+        gl_Position = projectionMatrix*mv;
+        /* loose particles are drawn a touch larger so the cloud reads
+           as a cloud rather than dissolving into nothing */
+        gl_PointSize = uSize*(1. + uLooseBoost*(1.-s))*uScale/max(-mv.z, .001)
+                     * mix(1., .25 + .75*env, uLifeSize*uLifeMix*uDrift);
+
+        /* ---- colour ------------------------------------------------
+           Resting state is MONOCHROME: one picked OKLCH hue, with the
+           baked ink level moving only lightness (and a little chroma) so
+           the eye keeps its modelling instead of turning into a flat
+           silhouette. uMonoMix crossfades back to the original dither
+           ramp if you want the old look. */
+        float ink = clamp(aInk, 0., 1.);
+        float Le = clamp(uBase.x + uInkShade*(1.-uBase.x)*(1.-ink), 0., 1.);
+        float Ce = uBase.y*mix(1. - .55*uInkShade, 1., ink);
+        vec3 baseCol = mix(aColor, oklch2rgb(vec3(Le, Ce, uBase.z)), uMonoMix);
+
+        /* ---- hover gradient ----------------------------------------
+           Independent of uHoverMode, so colour can respond to the cursor
+           with no displacement at all. cInfl is 1 under the cursor and
+           falls to 0 at uHoverColR. */
+        vec2 dc = p.xy - uPointerW;
+        float dist2 = length(dc);
+        float cInfl = 1. - smoothstep(0., uHoverColR, dist2);
+        float g;
+        if(uGradSrc == 0)      g = clamp(dist2/max(uHoverColR, 1e-4), 0., 1.);
+        else if(uGradSrc == 1) g = clamp(length(aTarget.xy)/1.2, 0., 1.);
+        /* atan(0,0) is undefined, and the dead-centre pixel lands exactly
+           there, so nudge x off zero to keep that one particle out of NaN */
+        else if(uGradSrc == 2) g = atan(aTarget.y, aTarget.x + 1e-6)/6.2831853 + .5;
+        else                   g = ink;
+        /* Hue path. The shortest-path form alone can never sweep more than
+           180deg, which is why a 0 -> 359 pair used to travel 1deg instead
+           of the whole spectrum. Adding a full turn makes the sweep reach
+           360deg and beyond, so a real spectrum is now expressible. */
+        float dh = mod(uGB.z - uGA.z + 540., 360.) - 180.;
+        if(uHuePath == 1)      dh = dh > 0. ? dh - 360. : dh + 360.;
+        else if(uHuePath == 2) dh = dh + 360.;
+        else if(uHuePath == 3) dh = dh - 360.;
+        vec3 grad = oklch2rgb(vec3(
+          mix(uGA.x, uGB.x, g),
+          mix(uGA.y, uGB.y, g),
+          uGA.z + dh*g));
+        vColor = mix(baseCol, grad, cInfl*uHoverColMix);
+
+        /* ink drives opacity, so the pupil reads solid and the
+           highlights stay as faint as they are in the source */
+        vAlpha = mix(uAlphaS, 1., s)*mix(uAlphaInk, 1., sqrt(aInk));
+
+        /* blink — the lid mask from index.html:842-846. Particles the lids
+           sweep over fade out instead of being painted paper white, which
+           lands the same way on a white ground. aLid is the sentinel 999
+           for shadow/background particles, which the lids never touched in
+           the original either. Scaled by s so a scattered cloud does not
+           blink, and by uDrift so reduced-motion holds the eye open. */
+
+        /* Particles are 0.42-0.55 opaque over white paper, which dilutes
+           any colour toward the background. Lifting alpha under the cursor
+           is what actually lets the hover gradient read as saturated. */
+        vAlpha = mix(vAlpha, 1., cInfl*uHoverAlpha);
+
+        /* life last, so a dying particle still fades even under the
+           cursor's opacity lift */
+        vAlpha *= lifeE;
+      }`,
+    fragmentShader:`
+      precision highp float;
+      uniform float uEdge;
+      varying vec3 vColor; varying float vAlpha;
+      void main(){
+        vec2 c = gl_PointCoord - .5;
+        float d = dot(c,c);
+        if(d > .25) discard;
+        gl_FragColor = vec4(vColor, smoothstep(.25, uEdge, d)*vAlpha);
+      }`
+  });
+
+  const scene = new THREE.Scene();
+  const camera = new THREE.PerspectiveCamera(FOV, innerWidth/innerHeight, .1, 100);
+  points = new THREE.Points(geo, mat);
+  scene.add(points);
+
+  const halfTan = Math.tan(FOV*Math.PI/360);
+  let halfH = 1, halfW = 1;
+  function size(){
+    const aspect = innerWidth/innerHeight;
+    renderer.setSize(innerWidth, innerHeight);
+    camera.aspect = aspect;
+    /* frame the baked square in whichever dimension is tighter */
+    const need = SPAN*0.54;
+    camera.position.z = Math.max(need/halfTan, need/(halfTan*aspect));
+    camera.updateProjectionMatrix();
+    const db = new THREE.Vector2(); renderer.getDrawingBufferSize(db);
+    mat.uniforms.uScale.value = db.y/(2*halfTan);
+    /* world half-extents on the z=0 plane, for cursor -> world mapping */
+    halfH = halfTan*camera.position.z;
+    halfW = halfH*aspect;
+  }
+  size();
+  addEventListener('resize', size);
+
+  /* ================================================================
+     4. CONTROLS — spec-driven, so the panel, the uniform wiring and
+     the copy-out block all read from one list and cannot drift apart.
+     ================================================================ */
+
+  const HOVER = ['none','repel','attract','swirl','lift'];
+  const GRAD  = ['from cursor','radial','angular','by ink'];
+  const HUEP  = ['short','long','spectrum +','spectrum −'];
+  const IDLE  = ['drift','jitter','breathe','orbit','flow'];
+
+  /* ---- OKLCH -> hex, the same maths as the shader, for painting the
+     picker rails and swatches. Kept adjacent to the shader copy so the
+     two are obviously meant to agree. ---------------------------------- */
+  function oklchLin(L, C, H){
+    const h = H*Math.PI/180, a = C*Math.cos(h), b = C*Math.sin(h);
+    const l_ = L + 0.3963377774*a + 0.2158037573*b;
+    const m_ = L - 0.1055613458*a - 0.0638541728*b;
+    const s_ = L - 0.0894841775*a - 1.2914855480*b;
+    const l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+    return [ 4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+            -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+            -0.0041960863*l - 0.7034186147*m + 1.7076147010*s];
+  }
+  const inGamut = (L,C,H) => oklchLin(L,C,H).every(v => v >= -0.001 && v <= 1.001);
+  function oklchHex(L, C, H){
+    const to8 = v => {
+      v = Math.max(0, Math.min(1, v));
+      v = v <= 0.0031308 ? v*12.92 : 1.055*Math.pow(v, 1/2.4) - 0.055;
+      return Math.round(Math.max(0, Math.min(1, v))*255).toString(16).padStart(2,'0');
+    };
+    return '#' + oklchLin(L,C,H).map(to8).join('');
+  }
+  /* Largest chroma sRGB can actually hold at this L and hue. The rails use
+     it so the C slider stops where colour stops changing, instead of
+     running on into a region the clamp() silently flattens. */
+  function maxC(L, H){
+    let lo = 0, hi = 0.4;
+    for(let i=0; i<18; i++){ const m = (lo+hi)/2; inGamut(L,m,H) ? lo = m : hi = m; }
+    return lo;
+  }
+  const PRESETS = [
+    [0.55,0.19,285], [0.66,0.16,288], [0.24,0.03,285],
+    [0.62,0.20,25],  [0.70,0.16,150], [0.62,0.18,330]
+  ];
+
+  const SPEC = [
+    {g:'Drive', k:'source',     t:'sel',  o:['eye','tooth','rooms'], v:'eye'},
+    {g:'Drive', k:'bakeZoom',   t:'rng',  min:.6,  max:3,   st:.05,   v:1.5,  l:'Bake zoom'},
+    {g:'Drive', k:'drive',      t:'sel',  o:['auto','scroll','manual'], v:'auto'},
+    {g:'Drive', k:'formStart',  t:'rng',  min:0,   max:1,   st:.001,  v:0.863,    l:'Form start'},
+    {g:'Drive', k:'formEnd',    t:'rng',  min:0,   max:1,   st:.001,  v:0.557, l:'Form end'},
+    {g:'Drive', k:'manualForm', t:'rng',  min:0,   max:1,   st:.01,   v:0.22,   l:'Manual form'},
+    {g:'Drive', k:'formSec',    t:'rng',  min:.2,  max:6,   st:.1,    v:1.7,  l:'Form (s)'},
+    {g:'Drive', k:'holdMode',   t:'sel',  o:['one full loop','seconds'], v:'one full loop', l:'Hold until'},
+    {g:'Drive', k:'animLoops',  t:'rng',  min:1,   max:4,   st:1,     v:1,    l:'Loops before disperse'},
+    {g:'Drive', k:'holdSec',    t:'rng',  min:0,   max:8,   st:.1,    v:2.4,  l:'Hold (s)'},
+    {g:'Drive', k:'dispSec',    t:'rng',  min:.2,  max:6,   st:.1,    v:1.9,  l:'Disperse (s)'},
+    {g:'Drive', k:'restSec',    t:'rng',  min:0,   max:4,   st:.1,    v:0.4,   l:'Rest (s)'},
+    {g:'Drive', k:'timeSpeed',  t:'rng',  min:0,   max:3,   st:.01,   v:0.94,    l:'Speed'},
+
+    {g:'Particles', k:'grid',       t:'rng', min:64, max:512, st:16, v:384, l:'Lattice (n²)'},
+    {g:'Particles', k:'pt',         t:'rng', min:.001, max:.02, st:.0001, v:0.0063, l:'Point size'},
+    {g:'Particles', k:'scatter',    t:'rng', min:.4,  max:4,   st:.01,   v:1.9,  l:'Scatter radius'},
+    {g:'Particles', k:'spread',     t:'rng', min:0,   max:.9,  st:.01,   v:0.21,  l:'Stagger spread'},
+    {g:'Particles', k:'drift',      t:'rng', min:0,   max:2,   st:.01,   v:0.74,    l:'Drift'},
+    {g:'Particles', k:'looseBoost', t:'rng', min:0,   max:3,   st:.01,   v:0.72,   l:'Loose size boost'},
+    {g:'Particles', k:'alphaS',     t:'rng', min:.1,  max:1,   st:.01,   v:0.55,  l:'Loose opacity'},
+    {g:'Particles', k:'alphaInk',   t:'rng', min:.1,  max:1,   st:.01,   v:0.42,  l:'Faint-ink opacity'},
+    {g:'Particles', k:'edge',       t:'rng', min:.01, max:.24, st:.005,  v:0.05,  l:'Dot softness'},
+
+    {g:'Idle motion', k:'idleMode',  t:'sel', o:IDLE, v:'drift', l:'Mode'},
+    {g:'Idle motion', k:'idleAmt',   t:'rng', min:0, max:.12, st:.001, v:0.009, l:'Amount'},
+    {g:'Idle motion', k:'idleSpeed', t:'rng', min:0, max:4,   st:.01,  v:2.43,    l:'Speed'},
+    {g:'Idle motion', k:'idleZ',     t:'rng', min:0, max:1,   st:.01,  v:0.9,   l:'Depth share'},
+
+    {g:'Life', k:'lifeMix',  t:'rng', min:0, max:1,   st:.01,  v:0.85,  l:'Birth/death amount'},
+    {g:'Life', k:'lifeRate', t:'rng', min:0, max:1.5, st:.01,  v:0.7, l:'Turnover rate'},
+    {g:'Life', k:'lifeVary', t:'rng', min:0, max:1,   st:.01,  v:0.46,  l:'Lifespan variation'},
+    {g:'Life', k:'lifeSize', t:'rng', min:0, max:1,   st:.01,  v:0.5,  l:'Size follows life'},
+    {g:'Life', k:'lifeRise', t:'rng', min:0, max:.3,  st:.005, v:0.005, l:'Drift in / out'},
+
+    {g:'Base colour', k:'base', t:'pick', v:[0.485,0.03,285], l:'Particle colour'},
+    {g:'Base colour', k:'monoMix',  t:'rng', min:0, max:1, st:.01, v:1,   l:'Monochrome amount'},
+    {g:'Base colour', k:'inkShade', t:'rng', min:0, max:1, st:.01, v:0.65, l:'Ink shading'},
+    /* governs the bake for EVERY source, not just rooms — dith() is in HEAD */
+    {g:'Base colour', k:'toneLevels', t:'rng', min:3, max:16, st:1, v:5, l:'Tone levels'},
+    /* 1 = shade from the clean alpha channel, 0 = the old dithered rgb */
+    {g:'Base colour', k:'shadeClean', t:'rng', min:0, max:1, st:.01, v:1, l:'Smooth shading'},
+    {g:'Base colour', k:'bg', t:'col', v:'#ffffff', l:'Background'},
+
+    {g:'Hover colour', k:'ga', t:'pick', v:[0.855,0.31,229],  l:'Gradient from'},
+    {g:'Hover colour', k:'gb', t:'pick', v:[0.62,0.2,32],  l:'Gradient to'},
+    {g:'Hover colour', k:'huePath',     t:'sel', o:HUEP, v:'spectrum +', l:'Hue path'},
+    {g:'Hover colour', k:'gradSrc',     t:'sel', o:GRAD, v:'by ink', l:'Gradient axis'},
+    {g:'Hover colour', k:'hoverColMix', t:'rng', min:0, max:1, st:.01, v:0.56,  l:'Gradient amount'},
+    {g:'Hover colour', k:'hoverColR',   t:'rng', min:.05, max:2.5, st:.01, v:0.53, l:'Gradient radius'},
+    {g:'Hover colour', k:'hoverAlpha',  t:'rng', min:0, max:1, st:.01, v:0.6, l:'Opacity lift'},
+
+    {g:'Hover motion', k:'hoverMode', t:'sel', o:HOVER, v:'attract', l:'Mode'},
+    {g:'Hover motion', k:'hoverR',    t:'rng', min:.05, max:2,  st:.01, v:0.59,  l:'Radius'},
+    {g:'Hover motion', k:'hoverS',    t:'rng', min:0,   max:1,  st:.01, v:0.01, l:'Strength'},
+    {g:'Hover motion', k:'parallax',  t:'rng', min:0,   max:3,  st:.01, v:1,   l:'Parallax'},
+    {g:'Hover motion', k:'ease',      t:'rng', min:.01, max:1,  st:.01, v:0.35, l:'Follow ease'},
+
+    {g:'Blink', k:'blinkAmt',   t:'rng', min:0, max:1,  st:.01, v:1,   l:'Amount'},
+    {g:'Blink', k:'blinkSpeed', t:'rng', min:0, max:2,  st:.01, v:0.4,  l:'Speed'},
+    {g:'Blink', k:'blinkPow',   t:'rng', min:2, max:60, st:1,   v:15,  l:'Sharpness'},
+
+    /* Rooms-only. Defaults are NOT the shader's originals: height 1 and
+       wrap .5 / gamma .7 are what made the blocks read as a flat plan
+       rather than a city, so the shipped values open the tonal range. */
+    {g:'Rooms', k:'roomHeight', t:'rng', min:1,  max:6,   st:.05, v:1.9,  l:'Building height'},
+    {g:'Rooms', k:'camY',       t:'rng', min:.6, max:4,   st:.05, v:2.3,  l:'Camera height'},
+    {g:'Rooms', k:'camR',       t:'rng', min:.4, max:3.5, st:.05, v:2.9,  l:'Camera distance'},
+    {g:'Rooms', k:'lightWrap',  t:'rng', min:.5, max:1,   st:.01, v:0.55, l:'Light contrast'},
+    {g:'Rooms', k:'lightGamma', t:'rng', min:.4, max:2.2, st:.01, v:0.95, l:'Shading gamma'},
+    {g:'Rooms', k:'lightEl',    t:'rng', min:.1, max:1.5, st:.01, v:0.52, l:'Sun elevation'},
+    {g:'Rooms', k:'lightAz',    t:'rng', min:0,  max:6.28,st:.01, v:0.59, l:'Sun azimuth'},
+    {g:'Rooms', k:'lightAO',    t:'rng', min:0,  max:2,   st:.01, v:1.25, l:'Contact shading'},
+    /* per-axis face tones: top is fixed at 1, these are the two walls */
+    {g:'Rooms', k:'faceAmt',    t:'rng', min:0,  max:1,   st:.01, v:1,    l:'Face contrast'},
+    {g:'Rooms', k:'faceX',      t:'rng', min:.2, max:1.2, st:.01, v:0.52, l:'Wall tone X'},
+    {g:'Rooms', k:'faceZ',      t:'rng', min:.2, max:1.2, st:.01, v:0.24, l:'Wall tone Z'}
+  ];
+
+  /* A picker owns three flat keys (…L/…C/…H) so the copy-out block stays a
+     plain list of scalars and can be pasted straight back in. */
+  const CH = ['L','C','H'];
+  const DEFAULTS = {};
+  SPEC.forEach(s => {
+    if(s.t === 'pick') CH.forEach((c,i) => DEFAULTS[s.k+c] = s.v[i]);
+    else DEFAULTS[s.k] = s.v;
+  });
+  const P = Object.assign({}, DEFAULTS);
+
+  /* reduced motion: hold a static frame at the form ceiling and stop the
+     clock entirely, so there is no cycle, no drift and no blink */
+  if(reduce){ P.drive = 'manual'; P.manualForm = 1; P.drift = 0; P.timeSpeed = 0; }
+
+  const STORE = 'particles-bench-v1';
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if(saved && !reduce) Object.keys(DEFAULTS).forEach(k => {
+      if(saved[k] !== undefined) P[k] = saved[k];
+    });
+  }catch(e){ /* corrupt or blocked storage — defaults are fine */ }
+
+  const body = document.getElementById('panelBody');
+  const inputs = {};
+  const groups = [];
+  SPEC.forEach(s => { if(!groups.includes(s.g)) groups.push(s.g); });
+
+  groups.forEach((gname, gi) => {
+    const d = document.createElement('details');
+    if(gi === 0) d.open = true;
+    const sm = document.createElement('summary');
+    sm.textContent = gname;
+    d.appendChild(sm);
+    const wrap = document.createElement('div');
+    wrap.className = 'grp';
+    SPEC.filter(s => s.g === gname).forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const lab = document.createElement('label');
+      lab.className = 'lab';
+      const name = document.createElement('span');
+      name.textContent = s.l || s.k;
+      const val = document.createElement('span');
+      val.className = 'val';
+      lab.appendChild(name); lab.appendChild(val);
+      row.appendChild(lab);
+
+      if(s.t === 'pick'){
+        row.classList.add('pick');
+        val.remove();
+        const top = document.createElement('div'); top.className = 'top';
+        const sw  = document.createElement('div'); sw.className = 'sw';
+        const hex = document.createElement('span'); hex.className = 'hex';
+        top.appendChild(sw); top.appendChild(hex);
+        row.appendChild(top);
+
+        const rails = {};
+        CH.forEach(c => {
+          const chip = document.createElement('div'); chip.className = 'chip';
+          const tag = document.createElement('span'); tag.textContent = c;
+          const r = document.createElement('input');
+          r.type = 'range'; r.className = 'rail'; r.id = 'c_' + s.k + c;
+          r.min = 0; r.step = c === 'H' ? 1 : 0.005;
+          r.max = c === 'H' ? 360 : (c === 'L' ? 1 : 0.4);
+          r.value = P[s.k+c];
+          chip.appendChild(tag); chip.appendChild(r);
+          row.appendChild(chip);
+          rails[c] = r;
+          r.addEventListener('input', () => {
+            P[s.k+c] = parseFloat(r.value);
+            paint(); apply(); save();
+          });
+        });
+
+        const swatches = document.createElement('div');
+        swatches.className = 'swatches';
+        PRESETS.forEach(pr => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.setAttribute('aria-label', 'Set ' + (s.l||s.k) + ' to ' + oklchHex(pr[0],pr[1],pr[2]));
+          const dot = document.createElement('i');
+          dot.style.background = oklchHex(pr[0], pr[1], pr[2]);
+          b.appendChild(dot);
+          b.addEventListener('click', () => {
+            CH.forEach((c,i) => { P[s.k+c] = pr[i]; rails[c].value = pr[i]; });
+            paint(); apply(); save();
+          });
+          swatches.appendChild(b);
+        });
+        row.appendChild(swatches);
+
+        function paint(){
+          const L = P[s.k+'L'], C = P[s.k+'C'], H = P[s.k+'H'];
+          const cap = maxC(L, H);
+          const ramp = (fn, n) => {
+            const out = [];
+            for(let i=0; i<=n; i++) out.push(fn(i/n) + ' ' + (100*i/n).toFixed(1) + '%');
+            return 'linear-gradient(90deg,' + out.join(',') + ')';
+          };
+          rails.L.style.setProperty('--rail', ramp(u => oklchHex(u, Math.min(C, maxC(u,H)), H), 10));
+          /* only draw as far as the gamut goes, then hold — the flat tail
+             is an honest picture of where clamp() would kick in */
+          rails.C.style.setProperty('--rail', ramp(u => oklchHex(L, Math.min(u*0.4, cap), H), 10));
+          rails.H.style.setProperty('--rail', ramp(u => oklchHex(L, Math.min(C, maxC(L, u*360)), u*360), 14));
+          const hx = oklchHex(L, Math.min(C, cap), H);
+          sw.style.background = hx;
+          hex.textContent = hx + (C > cap + 0.002 ? '  (C clipped ' + cap.toFixed(2) + ')' : '');
+        }
+        paint();
+        inputs[s.k] = {pick:true, keys:CH.map(c => s.k+c), rails, paint, s};
+        wrap.appendChild(row);
+        return;
+      }
+
+      let el;
+      if(s.t === 'rng'){
+        el = document.createElement('input');
+        el.type = 'range'; el.min = s.min; el.max = s.max; el.step = s.st;
+        el.value = P[s.k];
+        val.textContent = (+P[s.k]).toFixed(String(s.st).split('.')[1] ? String(s.st).split('.')[1].length : 0);
+      }else if(s.t === 'sel'){
+        el = document.createElement('select');
+        s.o.forEach(o => {
+          const op = document.createElement('option');
+          op.value = o; op.textContent = o; el.appendChild(op);
+        });
+        el.value = P[s.k];
+        val.textContent = '';
+      }else{
+        el = document.createElement('input');
+        el.type = 'color'; el.value = P[s.k];
+        val.textContent = P[s.k];
+      }
+      el.id = 'c_' + s.k;
+      lab.setAttribute('for', el.id);
+      row.appendChild(el);
+      wrap.appendChild(row);
+      inputs[s.k] = {el, val, s};
+
+      el.addEventListener('input', () => {
+        P[s.k] = (s.t === 'rng') ? parseFloat(el.value) : el.value;
+        if(s.t === 'rng'){
+          const dp = String(s.st).split('.')[1] ? String(s.st).split('.')[1].length : 0;
+          val.textContent = P[s.k].toFixed(dp);
+        }
+        if(s.t === 'col') val.textContent = P[s.k];
+        apply(); save();
+      });
+    });
+    d.appendChild(wrap);
+    body.appendChild(d);
+  });
+
+  function save(){
+    try{ localStorage.setItem(STORE, JSON.stringify(P)); }catch(e){}
+  }
+
+  function apply(){
+    /* re-bake only when the source actually changed — this walks
+       262,144 pixels and rebuilds six buffers, so it must not run
+       on every slider drag. */
+    if(P.source !== builtKey){
+      /* each source frames differently in a square bake, so switching
+         snaps the zoom to that source's sensible default */
+      P.bakeZoom = SRC[P.source].zoom;
+      const z = inputs.bakeZoom;
+      if(z){ z.el.value = P.bakeZoom; z.val.textContent = P.bakeZoom; }
+    }
+    if(P.source !== builtKey || P.bakeZoom !== builtZoom) build(P.source);
+    else if(builtGrid !== Math.max(16, P.grid|0)) rebuildGrid();
+    const u = mat.uniforms;
+    u.uSize.value       = P.pt;
+    u.uScatter.value    = P.scatter;
+    u.uSpread.value     = P.spread;
+    u.uDrift.value      = P.drift;
+    u.uLooseBoost.value = P.looseBoost;
+    u.uIdleAmt.value    = P.idleAmt;
+    u.uIdleSpeed.value  = P.idleSpeed;
+    u.uIdleZ.value      = P.idleZ;
+    u.uIdleMode.value   = IDLE.indexOf(P.idleMode);
+    u.uLifeMix.value    = P.lifeMix;
+    u.uLifeRate.value   = P.lifeRate;
+    u.uLifeVary.value   = P.lifeVary;
+    u.uLifeSize.value   = P.lifeSize;
+    u.uLifeRise.value   = P.lifeRise;
+    u.uAlphaS.value     = P.alphaS;
+    u.uAlphaInk.value   = P.alphaInk;
+    u.uEdge.value       = P.edge;
+    u.uParallax.value   = P.parallax;
+    u.uBlinkAmt.value   = P.blinkAmt;
+    u.uBlinkSpeed.value = P.blinkSpeed;
+    u.uBlinkPow.value   = P.blinkPow;
+    u.uHoverMode.value  = HOVER.indexOf(P.hoverMode);
+    u.uHoverR.value     = P.hoverR;
+    u.uHoverS.value     = P.hoverS;
+    u.uMonoMix.value     = P.monoMix;
+    u.uInkShade.value    = P.inkShade;
+    u.uShadeClean.value  = P.shadeClean;
+    u.uHoverColMix.value = P.hoverColMix;
+    u.uHoverColR.value   = P.hoverColR;
+    u.uHoverAlpha.value  = P.hoverAlpha;
+    u.uHuePath.value     = HUEP.indexOf(P.huePath);
+    u.uGradSrc.value     = GRAD.indexOf(P.gradSrc);
+    u.uBase.value.set(P.baseL, P.baseC, P.baseH);
+    u.uGA.value.set(P.gaL, P.gaC, P.gaH);
+    u.uGB.value.set(P.gbL, P.gbC, P.gbH);
+    renderer.setClearColor(new THREE.Color(P.bg), 1);
+    document.body.style.background = P.bg;
+    /* the runway only needs height when scroll is actually driving */
+    const scrolling = P.drive === 'scroll';
+    runway.style.height = scrolling ? '320vh' : '0px';
+    hint.style.display  = scrolling ? '' : 'none';
+    document.body.classList.toggle('scrollmode', scrolling);
+    if(!scrolling) scrollTo(0, 0);
+  }
+
+  document.getElementById('collapse').addEventListener('click', function(){
+    const p = document.getElementById('panel');
+    const open = !p.classList.toggle('collapsed');
+    this.textContent = open ? '–' : '+';
+    this.setAttribute('aria-expanded', String(open));
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    Object.assign(P, DEFAULTS);
+    Object.keys(inputs).forEach(k => {
+      const entry = inputs[k];
+      if(entry.pick){
+        entry.keys.forEach((key, i) => entry.rails[CH[i]].value = P[key]);
+        entry.paint();
+        return;
+      }
+      const {el, val, s} = entry;
+      el.value = P[k];
+      if(s.t === 'rng'){
+        const dp = String(s.st).split('.')[1] ? String(s.st).split('.')[1].length : 0;
+        val.textContent = (+P[k]).toFixed(dp);
+      }else if(s.t === 'col') val.textContent = P[k];
+    });
+    try{ localStorage.removeItem(STORE); }catch(e){}
+    apply();
+    document.getElementById('dump').classList.remove('on');
+  });
+
+  const copyBtn = document.getElementById('copyBtn');
+  const dump    = document.getElementById('dump');
+  copyBtn.addEventListener('click', () => {
+    const changed = Object.keys(DEFAULTS).filter(k => P[k] !== DEFAULTS[k]);
+    const fmt = v => typeof v === 'string' ? "'" + v + "'" : v;
+    const lines = Object.keys(DEFAULTS).map(k =>
+      '  ' + k + ': ' + fmt(P[k]) + (P[k] !== DEFAULTS[k] ? ',   // changed from ' + fmt(DEFAULTS[k]) : ','));
+    const text =
+      '/* particles.html bench values — ' + changed.length + ' changed from default */\n' +
+      'const P = {\n' + lines.join('\n') + '\n};';
+    dump.textContent = text;
+    dump.classList.add('on');
+    const done = ok => {
+      copyBtn.textContent = ok ? 'Copied' : 'Select below';
+      setTimeout(() => copyBtn.textContent = 'Copy values', 1600);
+    };
+    /* clipboard needs a secure context, so file:// will reject it — the
+       <pre> above is the fallback and is always populated either way */
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
+    }else{
+      done(false);
+    }
+  });
+
+  /* ================================================================
+     5. DRIVE
+     ================================================================ */
+
+  const runway = document.getElementById('runway');
+  function progress(){
+    const span = runway.offsetHeight - innerHeight;
+    return span > 0 ? Math.min(Math.max(scrollY/span, 0), 1) : 0;
+  }
+  /* Three-stage scroll envelope — ramp in, hold, fly apart. */
+  function shape(p){
+    if(p < RAMP_IN)  return p/RAMP_IN;
+    if(p < HOLD_END) return 1;
+    return 1 - (p-HOLD_END)/(1-HOLD_END);
+  }
+  /* The same three stages, but on a clock instead of the scrollbar, with
+     a rest beat so the field reads as breathing rather than strobing. */
+  let phase = 'form';
+  /* How long one full loop of the source's OWN animation takes, in the
+     same scaled time the cycle counts in. The eye's is its blink, whose
+     speed is a control; the other two are fixed in their shaders. */
+  function animPeriod(){
+    if(P.source === 'eye') return Math.PI/Math.max(P.blinkSpeed, 1e-3);
+    return SRC[P.source].period;
+  }
+
+  function cycle(tc){
+    const a = P.formSec;
+    /* "disperse only after the animation completes" — hold is measured in
+       whole loops of the illustration, so the jaw finishes opening AND
+       closing before the field breaks up. */
+    const b = P.holdMode === 'one full loop' ? animPeriod()*P.animLoops : P.holdSec;
+    const c = P.dispSec, d = P.restSec;
+    const period = a + b + c + d;
+    if(period <= 0){ phase = 'hold'; return 1; }
+    const u = tc % period;
+    if(u < a)         { phase = 'form';     return u/a; }
+    if(u < a+b)       { phase = 'hold';     return 1; }
+    if(u < a+b+c)     { phase = 'disperse'; return 1 - (u-a-b)/c; }
+    phase = 'rest';   return 0;
+  }
+
+  let smooth = 0, tAnim = 0, tCycle = 0;
+  const pointer = new THREE.Vector2();
+  if(!reduce){
+    addEventListener('pointermove', ev => {
+      pointer.set(ev.clientX/innerWidth*2-1, -(ev.clientY/innerHeight*2-1));
+    });
+  }
+
+
+  apply();
+
+  let last = performance.now();
+  (function frame(){
+    const now = performance.now();
+    /* frame-rate independent easing. index.html and museum.html both use a
+       flat `* 0.075` per frame, which stalls badly on a slow device — at
+       ~2fps the field barely moves. Converting to a per-second rate keeps
+       the response identical at 60fps and correct everywhere else. */
+    const dt = Math.min((now - last)/1000, 0.1); last = now;
+    const k = 1 - Math.pow(1 - 0.075, dt*60);
+
+    tAnim  += dt*P.timeSpeed;
+    tCycle += dt*P.timeSpeed;
+
+    let raw;
+    if(P.drive === 'auto'){
+      raw = cycle(tCycle);
+    }else if(P.drive === 'scroll'){
+      const p = progress();
+      smooth = smooth + (p - smooth)*k;
+      raw = shape(smooth);
+      phase = p < RAMP_IN ? 'form' : (p < HOLD_END ? 'hold' : 'disperse');
+      hint.classList.toggle('off', p > 0.02);
+    }else{
+      raw = P.manualForm;
+      phase = 'manual';
+    }
+    /* The drive produces a normalised 0..1 sweep; start/end decide what
+       that sweep actually spans. start > 0 means the field never fully
+       scatters, end < 1 means it never fully resolves — the ceiling that
+       keeps the eye soft instead of snapping to a sharp diagram. */
+    const form = P.formStart + (P.formEnd - P.formStart)*raw;
+
+    mat.uniforms.uForm.value = form;
+    mat.uniforms.uTime.value = tAnim;
+    mat.uniforms.uPointer.value.lerp(pointer, reduce ? 1 : P.ease);
+    mat.uniforms.uPointerW.value.set(
+      mat.uniforms.uPointer.value.x*halfW,
+      mat.uniforms.uPointer.value.y*halfH);
+
+    /* re-render the source at the current animation time, then point the
+       particles at the result. Order matters: the bake must be current
+       before the points sample it. */
+    renderBake(P.source, tAnim);
+    mat.uniforms.uBake.value = rt.texture;
+
+    renderer.render(scene, camera);
+
+    /* live state — this is a test bench, so it shows its own numbers */
+    diag.textContent = BAKE_INFO +
+      '\ndrive ' + P.drive + '  phase ' + phase + '  form ' + form.toFixed(3) +
+      '  loop ' + animPeriod().toFixed(2) + 's' +
+      '\nt ' + tAnim.toFixed(2) + '  blink ' +
+      Math.pow(Math.abs(Math.sin(tAnim*P.blinkSpeed)), P.blinkPow).toFixed(3);
+    requestAnimationFrame(frame);
+  })();
+})();
+</script>
+</body>
+</html>

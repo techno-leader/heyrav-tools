@@ -1,0 +1,1711 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ravindra — Designs that convert</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  /* Redaction 35 is not on Google Fonts. Fontsource repackages the official
+     OFL-1.1 release and serves it from jsDelivr, so it loads like any other
+     CDN font and no binaries land in the repo. Only the italic is declared:
+     it is the single cut the site uses, on the <em> accents. */
+  @font-face{
+    font-family:"Redaction 35";
+    font-style:italic;
+    font-weight:400;
+    font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff) format("woff");
+  }
+  :root{
+    /* Monochrome ramp. Every step is a true neutral — colour on this site is
+       spent only where it carries meaning: the aurora hero and the pointer
+       gradient on the case illustrations. Lightness is inherited from the
+       lavender palette this replaced (matched in OKLab), so the page keeps its
+       old weight; only the hue is gone. */
+    --ink:#161616;    /* primary text            18.1:1 */
+    --ink-2:#4a4a4a;  /* emphasis, hover, accent  8.9:1 */
+    --ink-3:#6e6e6e;  /* mono labels, chrome      5.1:1 */
+    --mut:#767676;    /* secondary prose          4.5:1 */
+    --line:#ececec;
+    --line-2:#e7e7e7;
+    --paper:#ffffff;
+    /* Selection is the third and last place colour is allowed. Not picked by
+       eye and not read off the GLSL constants either — the aurora's CA/CB/CC
+       stops are green/cyan/magenta, but the field as it actually renders is
+       a mint at hue 180 (sampled: 535,647 coloured pixels, mean #b0fded).
+       This is that mean pushed to oklch(0.95 0.07 180), the lightest in-gamut
+       point on the same hue: 16.1:1 behind --ink, up from 14.4:1 on the old
+       neutral. */
+    --sel:#bbfff0;
+
+    /* radius scale — every corner on the page resolves to one of these */
+    --r-sm:8px;
+    --r-md:14px;
+    --r-lg:20px;
+    --r-pill:99px;
+    --r-device:34px;
+
+    /* one elevation token, used only by floating UI */
+    --shadow-pop:0 18px 40px -22px rgba(22,22,22,.28);
+
+    /* five-step type scale, 18px body floor */
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-md:32px;
+    --t-sub-lg:40px;
+    --t-head:56px;
+    --t-head-lg:64px;
+    --t-label:12px;   /* mono labels — the one size every one of them uses */
+    /* Display weight. Was a literal 600 in ~25 places and shouted next to
+       Onest; 450 is a genuine instance of the 400..600 variable range,
+       not a synthesised in-between. */
+    --w-head:450;
+
+    /* One stack per role. Onest carries display and body alike, so the old
+       Space Grotesk / Inter split is gone; Redaction 35 is italic-only. */
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --serif:"Redaction 35",Georgia,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  /* the three case pages had this and the home page did not, so selecting
+     text here fell through to the browser's default blue */
+  ::selection{background:var(--sel);}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:var(--sans);
+    overflow-x:hidden;
+  }
+  /* total scroll runway */
+  #runway{height:340vh;position:relative;}
+
+  canvas#gl{
+    position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:0;
+  }
+
+  /* ---------- nav ---------- */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:30;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 44px;
+    font-size:13px;letter-spacing:.02em;
+  }
+  nav .logo{font-weight:600;}
+  nav .links{display:flex;gap:28px;}
+  /* 44px minimum touch target — the padding is on the link, not the bar */
+  nav a{
+    color:var(--ink);text-decoration:none;opacity:.65;transition:opacity .2s;
+    display:inline-flex;align-items:center;min-height:44px;
+  }
+  nav a:hover{opacity:1;}
+
+  /* ---------- hero copy ---------- */
+  /* The inner .wrap is the same container every section below uses, so the
+     h1 starts on the exact vertical line as "Selected work". Padding lives
+     on .wrap, not here — one gutter definition for the whole page. */
+  .hero{
+    position:fixed;inset:0;z-index:10;
+    display:flex;flex-direction:column;justify-content:center;
+    pointer-events:none;
+  }
+  /* .wrap is a flex item here, and its auto side margins suppress the
+     default cross-axis stretch. Without width:100% it shrink-wraps to the
+     h1 and self-centres, landing nowhere near the 1180 grid. */
+  .hero > .wrap{width:100%;}
+  /* stepped at 1180/900/640 rather than clamp() — a clamp lands on off-scale sizes */
+  h1{
+    font-family:var(--sans);
+    font-size:var(--t-head-lg);
+    line-height:1.05;
+    letter-spacing:-0.035em;
+    font-weight:var(--w-head);
+    /* centred in the .wrap grid: the 13ch measure still governs where the
+       line breaks, the auto margins put that measure in the middle */
+    max-width:13ch;
+    margin-inline:auto;
+    text-align:center;
+  }
+  /* The reveal trigger is a real <button>: keyboard-reachable and
+     announced as a control, but stripped back to inherit the h1's type
+     so it still reads as a word in the sentence. .hero is
+     pointer-events:none, so it has to opt back in. */
+  h1 .convert{
+    font-family:var(--serif);
+    color:var(--ink-2);
+    font-style:italic;
+    font-weight:400;
+    letter-spacing:-.01em;
+    font-size:inherit;line-height:inherit;
+    background:none;border:0;padding:0;margin:0;
+    pointer-events:auto;cursor:pointer;
+  }
+  h1 .convert:focus-visible{
+    outline:2px solid var(--ink-2);
+    outline-offset:4px;
+    border-radius:var(--r-sm);
+  }
+  /* ---------- end CTA ---------- */
+  .cta{
+    position:fixed;inset:0;z-index:15;
+    display:flex;flex-direction:column;gap:22px;justify-content:center;align-items:center;
+    text-align:center;opacity:0;pointer-events:none;
+  }
+  .cta h2{font-family:var(--sans);font-size:var(--t-head);letter-spacing:-0.03em;font-weight:var(--w-head);max-width:18ch;line-height:1.06;}
+  /* no lift — the colour shift carries the affordance */
+  .cta a{
+    pointer-events:auto;
+    display:inline-flex;align-items:center;gap:10px;min-height:44px;
+    font-size:var(--t-body);text-decoration:none;color:var(--paper);background:var(--ink);
+    padding:12px 34px;border-radius:var(--r-pill);letter-spacing:.02em;
+    transition:background .25s ease;
+  }
+  .cta a:hover{background:var(--ink-3);}
+
+  /* "Comet": the tail is the bar's own width, so the fade stretches as you
+     scroll — near the top it is a short dark nib, at the bottom a long sweep.
+     A fixed-length tail (the other candidate) reads as a constant-size object
+     sliding across, which fights the idea that the bar measures the page. */
+  .progress{
+    position:fixed;top:0;left:0;height:2px;z-index:40;width:0;
+    background:linear-gradient(90deg,transparent 0%,var(--ink) 100%);
+  }
+  /* ================= page sections ================= */
+  #content{position:relative;z-index:25;background:var(--paper);border-top:1px solid var(--line);}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 44px;}
+  section{padding:120px 0 40px;}
+  /* the mono counterweight is gone; the hairline is the one piece of chrome
+     still doing real work, so it runs on from the heading instead */
+  /* the rules flex equally on both sides, so the heading centres itself
+     without a text-align — it reads as a divider, not a page title */
+  .sec-head{display:flex;align-items:center;gap:20px;margin-bottom:24px;}
+  .sec-head::before,
+  .sec-head::after{content:"";flex:1;height:1px;background:var(--line);}
+  .sec-head h2{font-family:var(--sans);font-size:var(--t-head);letter-spacing:-.03em;font-weight:var(--w-head);line-height:1.12;}
+  h2 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);}
+
+  /* inline glossary: a term the reader may not know, defined in place on click
+     so the sentence stays short and nobody has to leave the page */
+  .define{position:relative;}
+  .define-t{
+    font:inherit;color:inherit;background:none;border:0;cursor:help;
+    padding:2px 4px;margin:-2px -4px;
+    text-decoration:underline dotted;text-underline-offset:3px;
+  }
+  /* Phosphor "Info" (regular), inlined — the ring, stem and dot are one glyph,
+     so nothing can sit off-centre the way a bordered span wrapped around a
+     monospace "i" did */
+  .define-i{
+    display:inline-block;width:16px;height:16px;margin-left:5px;
+    vertical-align:-.12em;color:var(--ink-2);fill:currentColor;
+  }
+  /* Phosphor arrows, inlined and sized in em so each one tracks the type it
+     sits in rather than needing a size per context */
+  .icon{width:1em;height:1em;fill:currentColor;flex:none;vertical-align:-.125em;}
+  .define-t:hover,.define-t[aria-expanded="true"]{color:var(--ink-2);}
+  .define-box{
+    position:absolute;z-index:20;left:0;top:calc(100% + 10px);
+    width:max-content;max-width:min(400px,78vw);
+    background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);
+    box-shadow:var(--shadow-pop);padding:16px 18px;
+    font-size:var(--t-body);line-height:1.55;color:var(--mut);text-align:left;
+  }
+  .define-box[hidden]{display:none;}
+
+  /* ---- case studies ---- */
+  .case{
+    display:grid;grid-template-columns:1fr 1.05fr;gap:64px;align-items:center;
+    padding:84px 0;
+  }
+  /* the rule separates one case from the next; on the first it would sit a few
+     px under the section divider and read as a doubled hairline */
+  .case + .case{border-top:1px solid var(--line);}
+  .case.flip .case-visual{order:-1;}
+  .case h3{font-family:var(--sans);font-size:var(--t-sub-lg);letter-spacing:-.025em;font-weight:var(--w-head);line-height:1.12;margin-bottom:14px;}
+  /* .chip has no .chips container any more — the case cards dropped their tag
+     rows; the surviving user is .taglist in the About section */
+  .chip{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.06em;color:var(--mut);
+    border:1px solid var(--line-2);border-radius:var(--r-pill);padding:7px 14px;text-transform:uppercase;
+  }
+  .case p{color:var(--mut);font-size:var(--t-body);line-height:1.62;margin-bottom:20px;max-width:50ch;}
+  .case p strong{color:var(--ink);font-weight:600;}
+  .did{list-style:none;margin:0 0 26px;}
+  .did li{
+    position:relative;padding-left:22px;margin-bottom:10px;
+    color:var(--mut);font-size:var(--t-body);line-height:1.6;
+  }
+  .did li::before{content:"→";position:absolute;left:0;color:var(--ink-3);}
+
+  /* ---- scroll-reveal motion (hero-matched easing) ---- */
+  .rv{opacity:0;transform:translateY(38px);filter:blur(7px);
+      transition:opacity .95s cubic-bezier(.22,1,.36,1),transform .95s cubic-bezier(.22,1,.36,1),filter .95s ease;}
+  .rv.in{opacity:1;transform:translateY(0);filter:blur(0);}
+  .rv-vis{transform:translateY(46px) scale(.965);}
+  .rv-vis.in{transform:translateY(0) scale(1);}
+  .rv-d1{transition-delay:.1s}.rv-d2{transition-delay:.2s}.rv-d3{transition-delay:.3s}
+  @media (prefers-reduced-motion:reduce){
+    .rv,.rv-vis{opacity:1;transform:none;filter:none;transition:none;}
+    .case-link .ring,.case-link .icon,.case-link .label,.cta a,.contact-actions a,nav a,footer a,.define-t{transition:none;}
+    html{scroll-behavior:auto;}
+  }
+
+  /* case-study link — arrow in a ring, label underlined beside it */
+  .case-link{
+    display:inline-flex;align-items:center;gap:14px;margin-top:6px;
+    text-decoration:none;color:var(--ink);
+  }
+  /* the ring is 44px, so it carries the touch target on its own */
+  .case-link .ring{
+    flex:none;width:44px;height:44px;border-radius:var(--r-pill);font-size:18px;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line-2);color:var(--ink-2);
+    transition:background .3s ease,border-color .3s ease,color .3s ease;
+  }
+  .case-link .icon{transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  /* body copy, not mono chrome — the label reads as a sentence, not a tag */
+  .case-link .label{
+    font-size:var(--t-body);line-height:1.5;
+    border-bottom:1px solid var(--ink-3);padding-bottom:4px;
+    transition:color .3s ease,border-color .3s ease;
+  }
+  .case-link:hover .ring{background:var(--ink-2);border-color:var(--ink-2);color:var(--paper);}
+  .case-link:hover .icon{transform:translateX(3px);}
+  .case-link:hover .label{color:var(--ink-2);border-color:var(--ink-2);}
+
+  /* ---- mockup panels ---- */
+  /* flat panel fill and no lift — the mockup is read, not clicked */
+  /* ---- case FX canvases (abstract dithered illustrations) ---- */
+  .fx-wrap{
+    position:relative;width:100%;aspect-ratio:4/3;border-radius:var(--r-lg);overflow:hidden;
+    background:var(--paper);border:1px solid var(--line-2);
+  }
+  .fx-wrap canvas{display:block;width:100%;height:100%;}
+
+  /* ---- about ---- */
+  /* no border-top: the .sec-head rules already draw a hairline through the
+     heading, and a second one 24px below read as a doubled rule */
+  .about-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:64px;padding-top:64px;}
+  .about-grid p{color:var(--mut);font-size:var(--t-body);line-height:1.72;margin-bottom:18px;}
+  .about-grid p strong{color:var(--ink);font-weight:600;}
+  /* inline prose link — ported verbatim from .facts a in case-viewryt.html */
+  .about-grid p a{color:var(--ink-2);text-decoration:none;border-bottom:1px solid rgba(147,147,147,.55);transition:border-color .25s,color .25s;}
+  .about-grid p a:hover{color:var(--ink);border-bottom-color:var(--ink-3);}
+  .skills h4{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.18em;color:var(--ink-3);text-transform:uppercase;margin:26px 0 14px;}
+  .skills h4:first-child{margin-top:0;}
+  .taglist{display:flex;flex-wrap:wrap;gap:8px;}
+
+  /* ---- contact ---- */
+  #contact{padding-bottom:0;}
+  .contact-inner{border-top:1px solid var(--line);padding:110px 0 90px;text-align:center;}
+  .contact-inner h2{font-size:var(--t-head-lg);letter-spacing:-.035em;font-weight:var(--w-head);line-height:1.05;max-width:16ch;margin:0 auto 30px;}
+  /* 400, not 500: this em picks up --serif from the global `h2 em` rule, and
+     Redaction 35 ships only 400 and 700 — 500 was never a real weight here. */
+  .contact-inner h2 em{color:var(--ink-3);font-style:italic;font-weight:400;}
+  .contact-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+  /* no lift — the colour shift carries the affordance */
+  .contact-actions a{
+    display:inline-flex;align-items:center;gap:10px;min-height:44px;
+    text-decoration:none;font-size:var(--t-body);padding:12px 32px;border-radius:var(--r-pill);letter-spacing:.02em;
+    transition:background .25s ease, border-color .25s ease, color .25s ease;
+  }
+  .contact-actions .primary{background:var(--ink);color:var(--paper);}
+  .contact-actions .primary:hover{background:var(--ink-3);}
+  .contact-actions .ghost{border:1px solid #dfdfdf;color:var(--ink);}
+  .contact-actions .ghost:hover{border-color:var(--ink-3);color:var(--ink-2);}
+  footer{
+    display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.12em;color:var(--mut);
+    border-top:1px solid var(--line);padding:26px 0 30px;text-transform:uppercase;
+  }
+
+  @media (max-width:1180px){
+    .contact-inner h2{font-size:var(--t-head);}
+  }
+  @media (max-width:900px){
+    h1{font-size:var(--t-head);}
+    .cta h2{font-size:var(--t-sub-lg);}
+    .sec-head h2{font-size:var(--t-sub-lg);}
+    .contact-inner h2{font-size:var(--t-sub-lg);}
+    .case h3{font-size:var(--t-sub-md);}
+    .case{grid-template-columns:1fr;gap:36px;padding:64px 0;}
+    .case.flip .case-visual{order:0;}
+    .about-grid{grid-template-columns:1fr;gap:40px;}
+  }
+  @media (max-width:640px){
+    h1{font-size:var(--t-sub-lg);}
+    .cta h2{font-size:var(--t-sub-md);}
+    .sec-head h2{font-size:var(--t-sub-md);}
+    .contact-inner h2{font-size:var(--t-sub-md);}
+    .case h3{font-size:var(--t-sub);}
+    nav{padding:4px 22px}
+    .wrap{padding:0 22px}
+    section{padding:80px 0 20px}
+  }
+  @media (max-width:560px){
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<nav>
+  <div class="logo">Ravindra&nbsp;Pratap<span style="color:var(--ink-3)">.</span></div>
+  <div class="links">
+    <a href="#work">Work</a><a href="#about">About</a><a href="#contact">Contact</a>
+  </div>
+</nav>
+
+<div class="hero" id="hero">
+  <div class="wrap">
+    <h1>Hi, I’m Ravindra.<br/>I make designs that <button type="button" class="convert" id="trigger">convert.</button></h1>
+  </div>
+</div>
+
+<div class="cta" id="cta">
+  <h2>Attention is earned in pixels, converted in flows.</h2>
+  <a href="#work">View case studies <svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M205.66,149.66l-72,72a8,8,0,0,1-11.32,0l-72-72a8,8,0,0,1,11.32-11.32L120,196.69V40a8,8,0,0,1,16,0V196.69l58.34-58.35a8,8,0,0,1,11.32,11.32Z"/></svg></a>
+</div>
+
+<div id="runway"></div>
+
+<main id="content">
+
+  <!-- ================= SELECTED WORK ================= -->
+  <section id="work">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <h2>Selected work</h2>
+      </div>
+      <!-- ViewRyt -->
+      <article class="case" id="viewryt">
+        <div class="case-info rv">
+          <h3>ViewRyt — a redesign that made design's ROI undeniable</h3>
+          <p>A <span class="define"><button type="button" class="define-t" aria-expanded="false" aria-controls="def-d2c">D2C<svg class="define-i" viewBox="0 0 256 256" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"/></svg></button><span class="define-box" id="def-d2c" role="tooltip" hidden>Direct-to-consumer — a brand that sells straight to the buyer through its own site and ads, with no retailer or marketplace in between, so the landing page is the entire storefront.</span></span> supplement landing page for the US market was losing money on ads. I rebuilt it with <strong>identical copy</strong>, so design was the only variable — and turned it profitable.</p>
+          <a class="case-link" href="https://heyrav.in/case-viewryt.html" aria-label="View the ViewRyt case study"><span class="ring"><svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg></span><span class="label">View</span></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="fx-wrap">
+            <canvas class="fx" data-fx="eye"></canvas>
+          </div>
+        </div>
+      </article>
+
+      <!-- Dentomate -->
+      <article class="case flip" id="dentomate">
+        <div class="case-info rv">
+          <h3>Dentomate — killing the "WhatsApp tax" for Indian dental clinics</h3>
+          <p>A SaaS platform I <strong>founded, designed and built</strong> to end the ₹6–15k/month "WhatsApp tax" Indian dental clinics pay to message patients — and bring them back automatically.</p>
+          <a class="case-link" href="https://heyrav.in/case-dentomate.html" aria-label="View the Dentomate case study"><span class="ring"><svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg></span><span class="label">View</span></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="fx-wrap">
+            <canvas class="fx" data-fx="tooth"></canvas>
+          </div>
+        </div>
+      </article>
+
+      <!-- IRBS -->
+      <article class="case" id="irbs">
+        <div class="case-info rv">
+          <h3>IRBS — room booking for a 7,000-student campus</h3>
+          <p>A <strong>three-step room-booking flow</strong> I researched and designed for IIT Guwahati's <span class="define"><button type="button" class="define-t" aria-expanded="false" aria-controls="def-onestop">OneStop<svg class="define-i" viewBox="0 0 256 256" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"/></svg></button><span class="define-box" id="def-onestop" role="tooltip" hidden>OneStop IITG is a centralized mobile application developed by the Students' Web Committee to assist the IIT Guwahati community with daily campus life. It consolidates essential services into a single platform, offering features like academic timetables, bus and ferry schedules, room bookings and a lost-and-found portal.</span></span> app, replacing a broken legacy portal. Live for the campus since September 2023.</p>
+          <a class="case-link" href="https://heyrav.in/case-irbs.html" aria-label="View the IRBS case study"><span class="ring"><svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg></span><span class="label">View</span></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="fx-wrap">
+            <canvas class="fx" data-fx="rooms"></canvas>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= ABOUT ================= -->
+  <section id="about">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <h2>About</h2>
+      </div>
+      <div class="about-grid">
+        <div class="rv">
+          <p><strong>I sit where design meets code meets revenue.</strong> Two years in, I've shipped work across the full stack of persuasion — pixel-level interface craft, motion that guides attention, and the funnel math that tells you whether any of it worked.</p>
+          <p>Most designers stop at the mockup. I prototype in code, ship the real thing, then instrument it — because a design isn't finished when it looks right, it's finished when the number moves.</p>
+          <p>On the side I keep a <a href="https://heyrav.in/components.html">component lab</a> — one interface primitive a day, built to the last pixel. It's where the craft stays sharp between projects.</p>
+          <p>Currently open to <strong>product design and design-engineering roles</strong> with teams that care about craft and outcomes in equal measure.</p>
+        </div>
+        <div class="skills rv rv-d1">
+          <h4>Design</h4>
+          <div class="taglist"><span class="chip">Figma</span><span class="chip">UX / UI</span><span class="chip">Interaction</span><span class="chip">Design systems</span></div>
+          <h4>Engineering</h4>
+          <div class="taglist"><span class="chip">React</span><span class="chip">Three.js / GLSL</span><span class="chip">Tailwind</span><span class="chip">Framer Motion</span></div>
+          <h4>Growth</h4>
+          <div class="taglist"><span class="chip">CRO</span><span class="chip">A/B testing</span><span class="chip">Landing pages</span><span class="chip">Analytics</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONTACT ================= -->
+  <section id="contact">
+    <div class="wrap">
+      <div class="contact-inner rv">
+        <h2>Have a number that needs <em>moving?</em></h2>
+        <div class="contact-actions">
+          <a class="primary" href="mailto:singhravindrapratap812@gmail.com">Email me <svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg></a>
+          <a class="ghost" href="https://x.com/RavindraPatap" target="_blank" rel="noopener">X / @RavindraPatap</a>
+        </div>
+      </div>
+      <footer>
+        <span>© 2026 Ravindra Pratap</span>
+        <span>Design Engineer — India · Remote</span>
+      </footer>
+    </div>
+  </section>
+
+</main>
+
+<canvas id="gl"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =============================================================
+   Northern-lights hero — layered fbm curtains on white paper.
+
+   Resting state is plain paper: uReveal is 0 and main() bails out
+   before any noise is sampled, so the default page costs a compare
+   per pixel rather than 4 layers x 3 fbm x OCT octaves. The field is
+   only paid for after the visitor clicks "convert.", which fires an
+   expanding ripple that distorts the sample position as it passes.
+
+   Tuned in aurora.html; the values below are that bench's export,
+   baked in as constants so the compiler can fold them.
+============================================================= */
+const canvas = document.getElementById('gl');
+/* The shader background is an enhancement, not the page. WebGLRenderer throws
+   when no context can be created (blocked, no GPU, driver blacklist) — and this
+   is one script, so an uncaught throw here would take the scroll reveals,
+   count-ups, case studies and glossary with it and leave every .rv at opacity:0,
+   i.e. a blank page. Stub the renderer instead: everything downstream builds
+   plain objects and only render() touches the GPU, so the rest still runs. */
+let renderer, hasGL = true;
+try{
+  renderer = new THREE.WebGLRenderer({canvas, antialias:false});
+}catch(err){
+  hasGL = false;
+  canvas.style.display = 'none';
+  const noop = () => {};
+  renderer = {setPixelRatio:noop, setSize:noop, getPixelRatio:() => 1, render:noop};
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 0.55));
+renderer.setSize(innerWidth, innerHeight);
+/* paper, so any clear or dropped frame shows white rather than black */
+if(hasGL) renderer.setClearColor(0xffffff, 1);
+
+/* ---- fullscreen shader ---- */
+const uniforms = {
+  uTime:      {value:0},
+  uScroll:    {value:0},
+  uRes:       {value:new THREE.Vector2(innerWidth*renderer.getPixelRatio(), innerHeight*renderer.getPixelRatio())},
+  uReveal:    {value:0},
+  uRevOrigin: {value:new THREE.Vector2(0.5, 0.5)}
+};
+
+const frag = /* glsl */`
+precision highp float;
+uniform float uTime;
+uniform float uScroll;
+uniform vec2  uRes;
+uniform float uReveal;
+uniform vec2  uRevOrigin;
+
+/* ---- tuned in aurora.html, baked as constants ----------------
+   Octaves are 3 here against the bench's 5. The hero renders at
+   0.55 pixel ratio, so octaves 4 and 5 land below the resampling
+   threshold and cost 40% of the shader for detail that is thrown
+   away on the upscale. */
+#define OCT 3
+const int   LAYERS = 4;
+const float SCALE  = 1.40;
+const float WARP   = 0.98;
+const float BAND   = 0.30;
+const float SHARP  = 1.40;
+const float RISE   = 0.50;
+const float TILT   = 0.12;
+const float SEP    = 0.47;
+const float DRIFT  = 0.57;
+const float INTENS = 0.51;
+const float AGAMMA = 1.11;
+const float GRAIN  = 0.058;
+/* ripple — see ripple() below for what each of these does */
+const float RIP_AMP   = 0.15;   /* peak displacement of the field       */
+const float RIP_RINGS = 26.0;   /* crests per unit radius               */
+const float RIP_SPEED = 9.0;    /* < RIP_RINGS, or the crests run ahead */
+const float RIP_TRAIL = 2.4;    /* how fast crests die behind the front */
+const float RIP_WIDTH = 0.16;   /* softness of the reveal edge          */
+const float RIP_CREST = 0.055;  /* thickness of the contact ring        */
+const float RIP_LEAD  = 1.6;    /* how much the ring outweighs a crest  */
+const float RIP_GLOW  = 0.42;   /* how much the ring darkens the paper  */
+/* OKLCH stops: green -> cyan -> magenta, all high-L so they sit
+   light on white paper */
+const vec3 CA = vec3(0.88, 0.20, 150.0);
+const vec3 CB = vec3(0.92, 0.13, 205.0);
+const vec3 CC = vec3(0.88, 0.22, 318.0);
+
+vec3 oklab2lrgb(vec3 lab){
+  float l_ = lab.x + 0.3963377774*lab.y + 0.2158037573*lab.z;
+  float m_ = lab.x - 0.1055613458*lab.y - 0.0638541728*lab.z;
+  float s_ = lab.x - 0.0894841775*lab.y - 1.2914855480*lab.z;
+  float l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+  return vec3(
+    4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+   -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+   -0.0041960863*l - 0.7034186147*m + 1.7076147010*s);
+}
+vec3 lrgb2srgb(vec3 c){
+  c = max(c, vec3(0.));
+  vec3 lo = c*12.92;
+  vec3 hi = 1.055*pow(c, vec3(1./2.4)) - 0.055;
+  return mix(lo, hi, step(vec3(0.0031308), c));
+}
+vec3 oklch2rgb(vec3 lch){
+  float h = radians(lch.z);
+  vec3 lab = vec3(lch.x, lch.y*cos(h), lch.y*sin(h));
+  return clamp(lrgb2srgb(oklab2lrgb(lab)), 0., 1.);
+}
+/* shortest-path hue, so a green->magenta pair does not sweep the
+   long way round through mud */
+vec3 lchMix(vec3 a, vec3 b, float t){
+  float dh = mod(b.z - a.z + 540.0, 360.0) - 180.0;
+  return vec3(mix(a.x,b.x,t), mix(a.y,b.y,t), a.z + dh*t);
+}
+vec3 ramp3(float t){
+  t = clamp(t, 0.0, 1.0);
+  vec3 lch = t < 0.5 ? lchMix(CA, CB, t*2.0) : lchMix(CB, CC, (t-0.5)*2.0);
+  return oklch2rgb(lch);
+}
+
+float hash13(vec3 p){
+  p = fract(p*0.3183099 + vec3(0.1,0.2,0.3));
+  p *= 17.0;
+  return fract(p.x*p.y*p.z*(p.x+p.y+p.z));
+}
+float vnoise(vec3 x){
+  vec3 i = floor(x), f = fract(x);
+  f = f*f*(3.0-2.0*f);
+  return mix(mix(mix(hash13(i+vec3(0,0,0)), hash13(i+vec3(1,0,0)), f.x),
+                 mix(hash13(i+vec3(0,1,0)), hash13(i+vec3(1,1,0)), f.x), f.y),
+             mix(mix(hash13(i+vec3(0,0,1)), hash13(i+vec3(1,0,1)), f.x),
+                 mix(hash13(i+vec3(0,1,1)), hash13(i+vec3(1,1,1)), f.x), f.y), f.z);
+}
+float fbm(vec3 p){
+  float a = 0.5, s = 0.0;
+  for(int i=0;i<OCT;i++){
+    s += a*vnoise(p);
+    p *= 2.02; a *= 0.5;
+  }
+  return s;
+}
+
+/* Set by ripple() before the field is sampled. */
+vec2  gWarp  = vec2(0.0);
+float gMask  = 1.0;
+float gCrest = 0.0;
+
+/* Expanding ripple front, in the shape a phone draws when two of them
+   are touched head to head: not one lobe but a TRAIN of concentric
+   crests leaving the origin together, led by a single bright contact
+   ring, dying out behind so the field settles instead of shimmering.
+   The old version was one sin() lobe riding the edge — it read as a
+   wipe because there was only ever one crest on screen at a time. */
+void ripple(vec2 uv){
+  vec2  d = (uv - uRevOrigin) * vec2(uRes.x/uRes.y, 1.0);
+  /* +epsilon: d is exactly zero at the origin pixel and d/length(d)
+     would be NaN there — the same trap as atan(0,0). */
+  float r = length(d) + 1e-6;
+
+  /* Distance to the farthest corner FROM THIS ORIGIN, in the same
+     aspect-corrected space as r. The old code used length(vec2(aspect,1))
+     — the full diagonal — but from a roughly centred origin r only ever
+     reaches half of that, so the front hit the last corner at 38% of the
+     ramp and the remaining 62% of the 1.4s was dead time. That, not the
+     wave shape, is why the reveal felt like it fizzled. */
+  vec2  far  = max(uRevOrigin, 1.0 - uRevOrigin);
+  float maxR = length(far * vec2(uRes.x/uRes.y, 1.0));
+
+  /* 1.12 so the contact ring clears the corner instead of parking on it */
+  float front = uReveal * maxR * 1.12;  /* radius of the leading edge */
+  float band  = front - r;              /* >0 once the front has passed */
+
+  gMask = smoothstep(0.0, RIP_WIDTH, band);
+
+  /* Phase advances with the front, so crests keep being emitted for as
+     long as the front is moving and stop dead when it stops. Because
+     RIP_RINGS > RIP_SPEED the crests travel outward slower than the
+     front — they trail it, which is what makes it read as a wake
+     rather than a moving stripe. */
+  float rings = sin(band*RIP_RINGS - front*RIP_SPEED)
+              * exp(-max(band, 0.0)*RIP_TRAIL);
+
+  /* The contact ring: one narrow gaussian pinned to the front. This is
+     the part the eye actually tracks, so it drives brightness as well
+     as displacement. */
+  float crest = exp(-band*band/(RIP_CREST*RIP_CREST));
+
+  gWarp  = (d/r) * (rings + crest*RIP_LEAD) * RIP_AMP
+         * smoothstep(0.0, RIP_WIDTH*1.5, band);
+  gCrest = crest;
+}
+
+/* Layered fbm curtains. Each layer is a band whose centre line is an
+   fbm curve in x: a hard lower edge with rays fading above it. */
+void curtains(vec2 uv, out float cov, out float ct){
+  vec2 p = (uv - 0.5 + gWarp) * vec2(uRes.x/uRes.y, 1.0) * SCALE;
+  float T = uTime * DRIFT;
+  float acc = 0.0, colAcc = 0.0;
+  for(int i=0;i<4;i++){
+    if(i>=LAYERS) break;
+    float fi = float(i);
+    float off = fi * SEP;
+    float w1 = fbm(vec3(p.x*0.8 + off*3.1, T*0.25 + off, off*3.0));
+    float w2 = fbm(vec3(p.x*1.9 - off*2.0, T*0.15, 5.0 + off));
+    float base = (w1-0.5)*WARP + (w2-0.5)*WARP*0.45
+               + TILT*p.x + (fi - float(LAYERS-1)*0.5)*SEP*0.35;
+    float h = p.y - base;
+    float prof = smoothstep(-BAND, BAND*0.35, h)
+               * exp(-max(h, 0.0)/RISE);
+    float ray = 0.55 + 0.45*fbm(vec3(p.x*7.0 + off*11.0, T*0.6, 3.0));
+    float band = pow(prof, SHARP) * ray;
+    acc += band;
+    colAcc += band*clamp(h/RISE*0.6, 0.0, 1.0);
+  }
+  cov = acc;
+  ct  = acc > 1e-4 ? colAcc/acc : 0.0;
+}
+
+void main(){
+  vec2 uv = gl_FragCoord.xy / uRes;
+  /* Resting state is plain paper. Bailing out here skips the whole
+     field, so the default page costs a compare per pixel. */
+  if(uReveal <= 0.0){ gl_FragColor = vec4(1.0); return; }
+
+  ripple(uv);
+  float cov, ct;
+  curtains(uv, cov, ct);
+  cov = pow(clamp(cov, 0.0, 1.0), AGAMMA) * INTENS * gMask;
+  /* The contact ring is added to coverage, not to colour: on white paper
+     "bright" means more ink, so the ring darkens toward the aurora ramp
+     rather than blowing out to white the way an additive glow would. */
+  cov += gCrest * RIP_GLOW;
+  /* the field fades back out as the sections take over the screen */
+  cov *= 1.0 - smoothstep(0.35, 0.75, uScroll);
+  cov += (hash13(vec3(gl_FragCoord.xy, uTime*60.0)) - 0.5)*GRAIN;
+  cov = clamp(cov, 0.0, 1.0);
+
+  vec3 col = ramp3(ct);
+  /* multiply onto paper: overlapping curtains deepen instead of
+     washing out to white, which is what additive would do here */
+  gl_FragColor = vec4(mix(vec3(1.0), col, cov), 1.0);
+}
+`;
+
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+const mat = new THREE.ShaderMaterial({
+  fragmentShader: frag,
+  vertexShader: `void main(){ gl_Position = vec4(position,1.0); }`,
+  uniforms
+});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
+
+/* ---- scroll choreography ---- */
+let targetScroll = 0, smoothScroll = 0, lastT = 0;
+/* debug: force a scroll phase with ?s=0.75 */
+const forcedScroll = parseFloat(new URLSearchParams(location.search).get('s'));
+function readScroll(){
+  /* the morph lives inside the runway only; sections scroll over it after */
+  const max = document.getElementById('runway').offsetHeight - innerHeight;
+  targetScroll = max > 0 ? Math.min(scrollY / max, 1) : 0;
+}
+addEventListener('scroll', readScroll, {passive:true});
+readScroll();
+
+const hero = document.getElementById('hero');
+const cta = document.getElementById('cta');
+const progress = document.getElementById('progress');
+
+/* ---- aurora reveal ------------------------------------------------
+   The field does not exist until the visitor asks for it. Everything
+   before the first click renders as plain paper for the price of one
+   compare per pixel, which is the whole performance story: most
+   visitors never pay for the shader at all. */
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const REVEAL_DUR = 1.4;
+/* revealDir is 0 at rest, +1 while the front expands, -1 while it
+   collapses back. The click toggles it, so a second click on the word
+   pulls the field back into the button it came out of. */
+let reveal = 0, revealDir = 0;
+/* debug: freeze a phase with ?reveal=0.35 */
+const forcedReveal = parseFloat(new URLSearchParams(location.search).get('reveal'));
+const frozenReveal = !isNaN(forcedReveal);
+if(frozenReveal) reveal = Math.min(Math.max(forcedReveal, 0), 1);
+
+const trigger = document.getElementById('trigger');
+trigger.setAttribute('aria-pressed', 'false');
+trigger.addEventListener('click', () => {
+  /* Toggle on the direction, not on `reveal`, so a click mid-flight
+     turns the front around from wherever it has got to instead of
+     snapping to an end state. */
+  revealDir = revealDir === 1 ? -1 : 1;
+  trigger.setAttribute('aria-pressed', String(revealDir === 1));
+
+  /* Only re-anchor when starting from rest. Moving the origin while the
+     front is in flight would tear the wake off its centre. */
+  if(reveal === 0){
+    const r = trigger.getBoundingClientRect();
+    uniforms.uRevOrigin.value.set(
+      (r.left + r.width/2)/innerWidth,
+      1 - (r.top + r.height/2)/innerHeight
+    );
+  }
+  /* No travelling wave to watch under reduced motion, so land on the
+     target state directly rather than animating the front across. */
+  if(reduceMotion) reveal = revealDir === 1 ? 1 : 0;
+});
+
+/* The hero canvas is fixed and full-screen, so it keeps shading even
+   when the sections have scrolled over it. The case illustrations
+   already gate on visibility; this gives the hero the same treatment. */
+let heroVisible = true;
+new IntersectionObserver(en => { heroVisible = en[0].isIntersecting; })
+  .observe(canvas);
+
+const clock = new THREE.Clock();
+function frame(){
+  const now = clock.getElapsedTime();
+  const dt = Math.min(now - lastT, 0.5);
+  lastT = now;
+  smoothScroll += (targetScroll - smoothScroll) * (1 - Math.exp(-dt * 6.0));
+  if (!isNaN(forcedScroll)) smoothScroll = forcedScroll;
+  uniforms.uScroll.value = smoothScroll;
+  uniforms.uTime.value = now;
+
+  /* 0<->1 ramp, eased so the front decelerates into place. The collapse
+     runs faster than the reveal: pulling back is an undo, and an undo
+     that takes as long as the thing it undoes feels stuck. */
+  if(revealDir !== 0 && !frozenReveal){
+    const dur = revealDir === 1 ? REVEAL_DUR : REVEAL_DUR * 0.7;
+    /* revealDir is deliberately NOT cleared on arrival — it is the record
+       of which way the last click pointed, and the toggle reads it. */
+    reveal = revealDir === 1
+      ? Math.min(1, reveal + dt/dur)
+      : Math.max(0, reveal - dt/dur);
+  }
+  uniforms.uReveal.value = frozenReveal ? reveal : 1 - Math.pow(1 - reveal, 3);
+
+  /* headline: parallax up + fade in the second act */
+  const p = smoothScroll;
+  const fadeOut = Math.min(Math.max((p - 0.38) / 0.3, 0), 1);
+  hero.style.transform = `translateY(${ -p * 220 }px)`;
+  hero.style.opacity = 1 - fadeOut;
+
+  /* CTA: final act */
+  const ctaIn = Math.min(Math.max((p - 0.72) / 0.22, 0), 1);
+  cta.style.opacity = ctaIn;
+  cta.style.transform = `translateY(${ (1 - ctaIn) * 60 }px)`;
+
+  progress.style.width = (p * 100) + '%';
+
+  /* fade the fixed hero chrome once the sections take over */
+  const runwayEnd = document.getElementById('runway').offsetHeight - innerHeight;
+  const over = Math.min(Math.max((scrollY - runwayEnd + 60) / 220, 0), 1);
+  cta.style.pointerEvents = over > 0.5 ? 'none' : '';
+
+  /* Skip the draw only when the canvas is off-screen. Skipping it while
+     merely unrevealed would be wrong: the renderer is
+     preserveDrawingBuffer:false, so a frame that is not drawn composites
+     a cleared buffer, not the previous image. The unrevealed state is
+     already almost free thanks to the early-out in main(). */
+  if(heroVisible) renderer.render(scene, cam);
+  requestAnimationFrame(frame);
+}
+frame();
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  uniforms.uRes.value.set(innerWidth*renderer.getPixelRatio(), innerHeight*renderer.getPixelRatio());
+  readScroll();
+});
+
+/* =============================================================
+   Section motion — scroll reveals
+   (cheap CSS/JS, matches the hero's easing language)
+============================================================= */
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(en => {
+    if(!en.isIntersecting) return;
+    en.target.classList.add('in');
+    io.unobserve(en.target);
+  });
+}, {threshold: 0.18, rootMargin: '0px 0px -8% 0px'});
+document.querySelectorAll('.rv').forEach(el => io.observe(el));
+
+/* inline glossary: click the term to open its definition, click away or hit
+   Escape to close. Click rather than hover so it works on touch too. */
+(function(){
+  const close = t => {
+    t.setAttribute('aria-expanded','false');
+    document.getElementById(t.getAttribute('aria-controls')).hidden = true;
+  };
+  const all = () => document.querySelectorAll('.define-t[aria-expanded="true"]');
+
+  /* the term can sit anywhere in a line, so nudge the box back inside the text
+     column once it is measurable rather than guessing an anchor side. Clamped to
+     .wrap rather than the viewport, since that is where all the text lives —
+     and to its content box, so the box keeps the same gutter as the prose
+     instead of running flush to the screen edge on narrow viewports. */
+  const fit = box => {
+    box.style.left = '0px';
+    const col = box.closest('.wrap');
+    if(!col) return;
+    const cs = getComputedStyle(col);
+    const c = col.getBoundingClientRect(), r = box.getBoundingClientRect();
+    const left = c.left + parseFloat(cs.paddingLeft);
+    const right = c.right - parseFloat(cs.paddingRight);
+    let dx = 0;
+    if(r.right > right) dx = right - r.right;
+    if(r.left + dx < left) dx = left - r.left;
+    box.style.left = dx + 'px';
+  };
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('.define-t');
+    all().forEach(o => { if(o !== t) close(o); });
+    if(!t) return;
+    const box = document.getElementById(t.getAttribute('aria-controls'));
+    const open = t.getAttribute('aria-expanded') === 'true';
+    t.setAttribute('aria-expanded', String(!open));
+    box.hidden = open;
+    if(!open) fit(box);
+  });
+
+  addEventListener('resize', () => all().forEach(t => fit(document.getElementById(t.getAttribute('aria-controls')))));
+
+  document.addEventListener('keydown', e => {
+    if(e.key !== 'Escape') return;
+    all().forEach(t => { close(t); t.focus(); });
+  });
+})();
+
+/* =============================================================
+   Case FX — the dithered illustrations, as particle fields.
+
+   The three SDFs below are the same ones this page used to draw
+   straight to the canvas. They now render into an offscreen target
+   every frame, and each particle samples that target in its vertex
+   shader, so the original motion — the eye's blink and gaze, the
+   jaw opening and closing, the room blocks rising — plays through
+   untouched while the field forms and disperses around it.
+
+   Every number in P was tuned in particles.html and pasted back.
+   Two deliberate departures from that export:
+     - `drive`/`manualForm` are dropped. 'manual' is the bench's
+       inspection mode; it pins the field at one fixed form, which
+       would leave all three cards frozen. The page runs the auto
+       cycle the four timings below were tuned for.
+     - `bakeZoom` is per-source (SRC.zoom), since the export can
+       only ever carry the one source it was captured on.
+============================================================= */
+(function(){
+  const canvases = document.querySelectorAll('canvas.fx');
+  if (!canvases.length || !window.THREE) return;
+
+  const SIZE = 512;        /* offscreen bake resolution, square      */
+  const SPAN = 2.4;        /* world units the baked frame maps onto  */
+  const FOV  = 45;
+  const LUMA_MAX = 0.985;  /* at or above this a sample is paper     */
+
+  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+  const P = {
+    formStart: 0.905, formEnd: 1,
+    formSec: 2.4, holdMode: 'one full loop', animLoops: 1,
+    holdSec: 2.4, dispSec: 1.9, restSec: 0.4,
+    timeSpeed: 0.94,
+    grid: 384,
+    pt: 0.0063, scatter: 1.9, spread: 0.21, drift: 0.74, looseBoost: 0.72,
+    alphaS: 0.55, alphaInk: 0.42, edge: 0.05,
+    idleMode: 'breathe', idleAmt: 0.009, idleSpeed: 2.43, idleZ: 0.89,
+    lifeMix: 0.85, lifeRate: 0.7, lifeVary: 0.46,
+    lifeSize: 0.5, lifeRise: 0.005,
+    /* baseC is 0 on purpose: at rest the illustrations are neutral ink like
+       the rest of the page. Colour arrives only under the pointer, via the
+       gradient stops below. baseH is inert while baseC is 0. */
+    baseL: 0.47, baseC: 0, baseH: 296,
+    monoMix: 1, inkShade: 0.45, toneLevels: 5, shadeClean: 1,
+    bg: '#ffffff',
+    gaL: 0.855, gaC: 0.31, gaH: 229,
+    gbL: 0.62,  gbC: 0.2,  gbH: 32,
+    huePath: 'spectrum +', gradSrc: 'by ink',
+    hoverColMix: 0.56, hoverColR: 0.53, hoverAlpha: 0.6,
+    hoverMode: 'attract', hoverR: 0.59, hoverS: 0.01,
+    parallax: 1, ease: 0.35,
+    blinkAmt: 1, blinkSpeed: 0.4, blinkPow: 15,
+    roomHeight: 1.9, camY: 2.3, camR: 2.9,
+    lightWrap: 0.58, lightGamma: 0.64,
+    lightEl: 1.1, lightAz: 0.89, lightAO: 1.07,
+    faceAmt: 1, faceX: 0.52, faceZ: 0.33
+  };
+
+  const IDLE  = ['drift','jitter','breathe','orbit','flow'];
+  const HOVER = ['none','repel','attract','swirl','lift'];
+  const GRAD  = ['from cursor','radial','angular','by ink'];
+  const HUEP  = ['short','long','spectrum +','spectrum -'];
+
+  const HEAD = `
+    precision highp float;
+    uniform float t; uniform vec2 r;
+    uniform float uLevels;
+    float Bayer2(vec2 a){a=floor(a);return fract(a.x/2.+a.y*a.y*.75);}
+    float Bayer4(vec2 a){return Bayer2(.5*a)*.25+Bayer2(a);}
+    float Bayer8(vec2 a){return Bayer4(.5*a)*.25+Bayer2(a);}
+    mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+    float hash(vec2 v){return fract(sin(dot(v,vec2(12.9898,78.233)))*43758.5453);}
+    float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
+    float sdBox(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
+    /* hero-matched ordered-dither quantisation: deep -> pale -> paper */
+    vec3 dith(float lum,float hit){
+      float grain=max(r.y/260.,1.6);
+      float bay=Bayer8(gl_FragCoord.xy/grain)-.5;
+      /* uLevels was a hard 5 (so /4.). Five steps, minus the top one that
+         smoothsteps to white and is then dropped as paper, left about four
+         usable ink levels for the whole illustration — which is why the
+         shading read flat no matter how the light was aimed. Raising this
+         is the actual lever on tonal range. */
+      float q=clamp(floor(lum*uLevels+bay)/(uLevels-1.),0.,1.);
+      vec3 col=mix(vec3(.545,.48,.93),vec3(.875,.855,.985),q);
+      col=mix(col,vec3(1.),smoothstep(.92,1.,q));
+      return mix(vec3(1.),col,clamp(hit,0.,1.));
+    }`;
+
+  const NORM = `
+    vec3 calcN(vec3 p){
+      vec2 e=vec2(.004,0.);
+      return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));
+    }`;
+
+  const EYE = `
+      uniform float uZoom;
+      uniform vec2  uOfs;
+      uniform float uBlinkSpeed,uBlinkPow,uBlinkAmt;
+      float map(vec3 p){
+        return length(p)-1.;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        /* framing only. uOfs pans the subject inside the square bake; it is
+           normalised (a fraction of the frame), so it survives zoom changes.
+           +y pans the view up, which moves the subject DOWN in frame. */
+        uv=(uv+uOfs)*uZoom;
+        float wob=.05*sin(t*.27);
+        vec3 ro=vec3(0.,.08,3.05); ro.xz*=rot(wob);
+        vec3 rd=normalize(vec3(uv,-3.)); rd.xz*=rot(wob);
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<64;i++){pos=ro+rd*dt;float d=map(pos);if(d<.003){hit=1.;break;}dt+=d;if(dt>9.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.55,.85,.7));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),2.6);
+          lum=pow(clamp(dif*.8+fres*.34,0.,1.),.62);
+          /* iris + pupil painted on the gaze axis */
+          vec3 g=normalize(vec3(.16*sin(t*.33),.08*sin(t*.55+1.7),1.));
+          vec3 pn=normalize(pos);
+          float ang=acos(clamp(dot(pn,g),-1.,1.));
+          if(ang<.62){
+            vec3 u=normalize(cross(g,vec3(0.,1.,0.))),v=cross(u,g);
+            vec2 q=vec2(dot(pn,u),dot(pn,v));
+            float rad=ang/.55, a=atan(q.y,q.x);
+            float irisL=.46+.16*sin(a*24.+rad*5.)+.09*sin(a*7.-2.)+.08*sin(rad*24.);
+            irisL*=.35+.75*dif;
+            irisL-=.3*smoothstep(.72,1.,rad);
+            if(rad<.34) irisL=.05;
+            lum=mix(lum,clamp(irisL,0.,1.),smoothstep(1.12,.98,rad));
+          }
+          vec3 hv=normalize(l-rd);
+          lum+=pow(max(dot(n,hv),0.),70.)*1.2;
+          lum=clamp(lum,0.,1.);
+          /* eyelid mask — lids sweep in and blank the covered eyeball */
+          float b=pow(abs(sin(t*uBlinkSpeed)),uBlinkPow)*uBlinkAmt;
+          float lidY=pos.y+.16*pos.x*pos.x;
+          float top=mix(1.08,-.05,b), bot=mix(-1.08,-.15,b);
+          float m=clamp(smoothstep(top,top+.03,lidY)+smoothstep(bot,bot-.03,lidY),0.,1.);
+          lum=mix(lum,1.,m); hit*=1.-m;
+        } else {
+          float tp=(-1.5-ro.y)/rd.y;
+          if(tp>0.){
+            vec3 sp=ro+rd*tp;
+            float s=exp(-1.4*dot(sp.xz,sp.xz));
+            lum=1.-.42*s; hit=smoothstep(.03,.25,s);
+          }
+        }
+        gl_FragColor=vec4(dith(lum,hit),hit>.5?lum:1.);  /* alpha = UNDITHERED lum, for particle shading */
+      }`;
+
+  /* Dentomate's dental cast — index.html:862-926, verbatim except uZoom.
+     Baked at t=0: the sway rot(.55*sin(0)) is identity so the arch faces
+     front, and `open` sits at its .3 midpoint, a clean open bite. */
+  const TOOTH = `
+      uniform float uZoom;
+      uniform vec2  uOfs;
+      float jaw(vec3 p){
+        float R=.78;
+        float a=atan(p.x,p.z);
+        float rr=length(p.xz)-R;
+        float gum=length(vec2(rr,p.y-.12))-.125;
+        gum+=.012*sin(a*22.)*sin(p.y*30.);
+        float da=.24;
+        float ai=clamp(floor(a/da+.5),-5.,5.)*da;
+        float s=(a-ai)*R;
+        float h=hash(vec2(ai*10.,3.7));
+        float w=.055+.03*smoothstep(.3,1.2,abs(ai));
+        float ht=.21+.05*h;
+        float mol=smoothstep(.5,1.2,abs(ai));
+        vec3 q=vec3(s,p.y+ht*.5,rr);
+        q.x*=1.+.9*q.y;
+        float th=sdBox(q,vec3(w,ht*.5,.048+.014*mol))-.03;
+        th+=.012*mol*cos(q.x/w*3.14159);
+        th-=.008*cos(q.y*16.);
+        th+=.006*smoothstep(.02,.09,q.y);
+        float d=smin(gum,th,.035);
+        float base=max(length(p.xz)-(R+.05),abs(p.y-.28)-.08);
+        d=smin(d,base,.07);
+        return max(d,-(p.z+.3));
+      }
+      float map(vec3 p){
+        p.xz*=rot(.55*sin(t*.25));
+        p.yz*=rot(.5236);
+        float open=.3+.05*sin(t*.6);
+        vec3 pu=p; pu.y-=open;
+        vec3 pl=p; pl.y=-(p.y+open);
+        pl.xz*=rot(.04);
+        return min(jaw(pu),jaw(pl))*.55;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        /* framing only. uOfs pans the subject inside the square bake; it is
+           normalised (a fraction of the frame), so it survives zoom changes.
+           +y pans the view up, which moves the subject DOWN in frame. */
+        uv=(uv+uOfs)*uZoom;
+        vec3 ro=vec3(0.,.5,3.); vec3 rd=normalize(vec3(uv.x,uv.y-.28,-3.6));
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<90;i++){pos=ro+rd*dt;float d=map(pos);if(d<.003){hit=1.;break;}dt+=d;if(dt>9.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.55,.9,.6));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),2.4);
+          lum=pow(clamp(dif*.85+fres*.32,0.,1.),.6);
+          float ao=clamp(map(pos+n*.22)/.22,0.,1.);
+          lum*=.55+.45*ao;
+          vec3 hv=normalize(l-rd);
+          lum+=pow(max(dot(n,hv),0.),40.)*.9;
+          lum=clamp(lum,0.,1.);
+        } else {
+          float tp=(-1.25-ro.y)/rd.y;
+          if(tp>0.){
+            vec3 sp=ro+rd*tp;
+            float s=exp(-1.7*dot(sp.xz,sp.xz));
+            lum=1.-.4*s; hit=smoothstep(.03,.25,s);
+          }
+        }
+        gl_FragColor=vec4(dith(lum,hit),hit>.5?lum:1.);  /* alpha = UNDITHERED lum, for particle shading */
+      }`;
+
+  /* IRBS' isometric room grid — index.html:928-970, verbatim except uZoom.
+     Baked at t=0, where the orbit angle is .55 and every block height
+     bH() is frozen mid-cycle, so the grid shows a mix of occupancies. */
+  const ROOMS = `
+      uniform float uZoom;
+      uniform vec2  uOfs;
+      uniform float uHeight;
+      uniform float uLightAz,uLightEl,uWrap,uGamma,uAO;
+      uniform float uCamY,uCamR;
+      uniform float uFaceAmt,uFaceX,uFaceZ;
+      float bH(vec2 id){
+        float h=hash(id);
+        float occ=smoothstep(-.25,.65,sin(t*.5+h*6.2831));
+        /* uHeight scales ONLY the raised term. The .06 pad is what an
+           unoccupied plot collapses to when occ hits 0, so scaling the
+           whole return would grow the empty plots into blocks too and
+           lose the occupancy read. Pads stay flat, towers get taller. */
+        return .06+.46*uHeight*occ*(.55+.45*hash(id+7.1));
+      }
+      float map(vec3 p){
+        vec2 id=clamp(floor(p.xz/.6+.5),vec2(-2.,-1.),vec2(3.,2.));
+        float h=bH(id);
+        float d=sdBox(p-vec3(id.x*.6,h*.5,id.y*.6),vec3(.2,h*.5,.2))-.03;
+        float fl=sdBox(p-vec3(.3,-.09,.3),vec3(2.05,.05,1.45))-.02;
+        return min(d,fl)*.6;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        /* framing only. uOfs pans the subject inside the square bake; it is
+           normalised (a fraction of the frame), so it survives zoom changes.
+           +y pans the view up, which moves the subject DOWN in frame. */
+        uv=(uv+uOfs)*uZoom;
+        vec3 ta=vec3(.3,0.,.3);
+        float orb=.55+t*.05;
+        /* The original (.8 out, 3.6 up) is a 77deg near-plan view, which
+           foreshortens the block height almost to nothing — taller towers
+           just grow sideways and merge instead of reading as height.
+           Pulling the camera down and out is what actually makes them
+           read as buildings. */
+        vec3 ro=ta+vec3(uCamR*cos(orb),uCamY,uCamR*sin(orb));
+        vec3 f=normalize(ta-ro),rt2=normalize(cross(f,vec3(0.,1.,0.))),up=cross(rt2,f);
+        vec3 rd=normalize(uv.x*rt2+uv.y*up+3.*f);
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<80;i++){pos=ro+rd*dt;float d=map(pos);if(d<.004){hit=1.;break;}dt+=d;if(dt>12.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          /* Light rebuilt from azimuth/elevation instead of the fixed
+             (.6,.9,.4). That vector is dominated by its y term, so the
+             tops lit and all four sides landed on nearly the same value
+             — which is most of why the block faces read flat. Dropping
+             the elevation separates the sides. */
+          float ce=cos(uLightEl);
+          vec3 l=normalize(vec3(ce*cos(uLightAz),sin(uLightEl),ce*sin(uLightAz)));
+          /* uWrap 0.5 is the original half-lambert, which maps a face
+             pointing straight AWAY from the light to 0.5 and throws away
+             half the tonal range. 1.0 is true lambert. */
+          float dif=clamp(dot(n,l)*uWrap+(1.-uWrap),0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),3.);
+          float ao=clamp(map(pos+n*.18)/.18,0.,1.);
+          if(pos.y>.03){
+            /* uGamma <1 lifts the darks (the original .7), >1 deepens
+               them. This is the second half of the flatness. */
+            lum=pow(clamp(dif*.85+.12,0.,1.),uGamma);
+            vec2 id=clamp(floor(pos.xz/.6+.5),vec2(-2.,-1.),vec2(3.,2.));
+            float pend=step(.93,hash(id));
+            lum=mix(lum,.22+.18*sin(t*3.),pend);
+          } else {
+            lum=pow(clamp(dif,0.,1.),.35)*.99;
+          }
+          /* Per-AXIS face shading. One directional light cannot reliably
+             separate three mutually perpendicular faces: the top's value
+             is sin(elevation) while a side's is cos(elevation)*sin(az),
+             and those collide at some azimuth no matter where the sun is
+             put — which is exactly why the tops and one wall were landing
+             on the same tone. Weighting by |n.x| / |n.z| / n.y instead
+             gives each face its own value independent of sun position,
+             the way isometric illustration shades a box. The weights sum
+             to ~1 on an axis-aligned box, so this picks rather than
+             darkens, and the floor (n=(0,1,0)) is left untouched. */
+          float face = max(n.y,0.) + abs(n.x)*uFaceX + abs(n.z)*uFaceZ;
+          lum = mix(lum, lum*face, uFaceAmt);
+          /* contact shading, scaled: 0 removes it, 1 is the original */
+          lum*=1.-uAO*(.5-.5*ao);
+          lum+=.14*fres;
+          lum=clamp(lum,0.,1.);
+        }
+        gl_FragColor=vec4(dith(lum,hit),hit>.5?lum:1.);  /* alpha = UNDITHERED lum, for particle shading */
+      }`;
+
+  /* Per-source framing. The originals render into wide case-card canvases,
+     where uv.x spans further than uv.y; a square bake would crop them, so
+     each gets its own zoom. `lid` marks the one source the eyelid blink
+     applies to — the other two have no lids to sweep.
+
+     `ofs` recentres the subject. Every one of these SDFs sits low in its
+     own frame (measured ink gaps were 22-28% above vs ~3% below, so the
+     illustration hung off the bottom of the card with a void over it).
+     A negative y pans the view down, which lifts the subject in frame.
+     The zooms are the originals scaled by 0.9, which magnifies the
+     subject ~11% so it fills the box rather than floating in it. */
+  const SRC = {
+    eye:   {frag:EYE,   zoom:1.35, ofs:[0, -0.230], period:Math.PI/0.4},
+    tooth: {frag:TOOTH, zoom:1.44, ofs:[0, -0.201], period:2*Math.PI/0.6},
+    rooms: {frag:ROOMS, zoom:1.98, ofs:[0, -0.269], period:2*Math.PI/0.5}
+  };
+
+  const OKLCH = `
+    vec3 oklab2lrgb(vec3 lab){
+      float l_ = lab.x + 0.3963377774*lab.y + 0.2158037573*lab.z;
+      float m_ = lab.x - 0.1055613458*lab.y - 0.0638541728*lab.z;
+      float s_ = lab.x - 0.0894841775*lab.y - 1.2914855480*lab.z;
+      float l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+      return vec3(
+        4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+       -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+       -0.0041960863*l - 0.7034186147*m + 1.7076147010*s);
+    }
+    vec3 lrgb2srgb(vec3 c){
+      c = max(c, vec3(0.));
+      vec3 lo = c*12.92;
+      vec3 hi = 1.055*pow(c, vec3(1./2.4)) - 0.055;
+      return mix(lo, hi, step(vec3(0.0031308), c));
+    }
+    vec3 oklch2rgb(vec3 lch){
+      float h = radians(lch.z);
+      vec3 lab = vec3(lch.x, lch.y*cos(h), lch.y*sin(h));
+      return clamp(lrgb2srgb(oklab2lrgb(lab)), 0., 1.);
+    }`;
+
+  function makeMat(){ return new THREE.ShaderMaterial({
+    /* Normal alpha blending, NOT additive. The Shopify reference is
+       additive because it sits on near-black; on white paper additive
+       blows every particle out to white. On a light ground the dots
+       have to darken, so alpha blending is the correct translation. */
+    transparent:true,
+    depthWrite:false,
+    blending:THREE.NormalBlending,
+    uniforms:{
+      uForm:{value:0}, uTime:{value:0}, uDrift:{value:1},
+      uBake:{value:null}, uLumaMax:{value:LUMA_MAX},
+      uIdleAmt:{value:0.014}, uIdleSpeed:{value:1}, uIdleZ:{value:0.5}, uIdleMode:{value:0},
+      uLifeMix:{value:0.5}, uLifeRate:{value:0.18}, uLifeVary:{value:0.6},
+      uLifeSize:{value:0.5}, uLifeRise:{value:0.05},
+      uSize:{value:0.0062}, uScale:{value:1},
+      uPointer:{value:new THREE.Vector2()}, uPointerW:{value:new THREE.Vector2()},
+      uSpread:{value:0.25}, uScatter:{value:1.7}, uLooseBoost:{value:0.9},
+      uAlphaS:{value:0.55}, uAlphaInk:{value:0.42}, uEdge:{value:0.05},
+      uParallax:{value:1},
+      uBlinkAmt:{value:1}, uBlinkSpeed:{value:0.4}, uBlinkPow:{value:20},
+      uHoverMode:{value:0}, uHoverR:{value:0.5}, uHoverS:{value:0.18},
+      uMonoMix:{value:1}, uInkShade:{value:0.55}, uShadeClean:{value:1},
+      uBase:{value:new THREE.Vector3(0.55,0.19,285)},
+      uHoverColMix:{value:1}, uHoverColR:{value:0.6}, uHoverAlpha:{value:0.6},
+      uGA:{value:new THREE.Vector3(0.62,0.20,20)},
+      uGB:{value:new THREE.Vector3(0.62,0.20,20)},
+      uHuePath:{value:2}, uGradSrc:{value:0}
+    },
+    vertexShader:`
+      attribute vec3 aTarget; attribute vec2 aUV; attribute float aSeed;
+      uniform sampler2D uBake; uniform float uLumaMax;
+      uniform float uForm,uTime,uDrift,uSize,uScale,uSpread,uScatter,uLooseBoost;
+      uniform float uIdleAmt,uIdleSpeed,uIdleZ;
+      uniform float uLifeMix,uLifeRate,uLifeVary,uLifeSize,uLifeRise;
+      uniform int uIdleMode;
+      uniform float uAlphaS,uAlphaInk,uParallax;
+      uniform float uHoverR,uHoverS;
+      uniform float uMonoMix,uInkShade,uHoverColMix,uHoverColR,uHoverAlpha;
+      uniform float uShadeClean;
+      uniform int uHoverMode,uHuePath,uGradSrc;
+      uniform vec3 uBase,uGA,uGB;
+      uniform vec2 uPointer,uPointerW;
+      varying vec3 vColor; varying float vAlpha;
+      `+OKLCH+`
+      void main(){
+        /* uBake is re-rendered from the source SDF every frame, so this is
+           the LIVE illustration, not a frozen still. Sampling it here is
+           what keeps the mouth opening and the room blocks rising — the
+           particles inherit the original animation instead of replacing
+           it. Declared as locals so the colour maths below is unchanged. */
+        vec4 tex = texture2D(uBake, aUV);
+        float luma = dot(tex.rgb, vec3(.2126, .7152, .0722));
+        vec3  aColor = tex.rgb;
+        /* Shade from the UNDITHERED luminance the bake carries in alpha,
+           not from the dithered rgb. Ordered dither scatters neighbouring
+           pixels across tone levels on purpose — it encodes tone as dot
+           DENSITY, to be averaged by the eye. One particle samples one
+           pixel, so reading rgb gives it dither noise rather than shading,
+           and the field averages out to a flat grey. tex.a is the smooth
+           value, so lightness now tracks the actual lighting. rgb still
+           drives the silhouette below, keeping the stippled edge. */
+        float aInk   = 1. - mix(luma, tex.a, uShadeClean);
+        /* paper carries no particle — park it off-clip. As the shape moves,
+           particles switch between parked and visible, which is how the
+           animation reads across a fixed lattice. */
+        if(luma >= uLumaMax){
+          gl_Position = vec4(2., 2., 2., 1.);
+          gl_PointSize = 0.;
+          return;
+        }
+
+        float e = uForm*uForm*(3.-2.*uForm);
+        /* per-particle stagger so the image assembles rather than snapping */
+        float s = clamp((e - aSeed*uSpread)/max(1.-uSpread, .001), 0., 1.);
+        s = s*s*(3.-2.*s);
+        vec3 p = mix(position*uScatter, aTarget, s);
+
+        float loose = (1.-s)*uDrift;
+        p.x += sin(uTime*.61 + aSeed*39.1)*.16*loose;
+        p.y += cos(uTime*.47 + aSeed*27.3)*.16*loose;
+        p.z += sin(uTime*.38 + aSeed*61.7)*.24*loose;
+        p.xy += uPointer*(.06 + .26*loose)*uParallax;
+
+        /* ---- idle motion -------------------------------------------
+           The wander above is scaled by (1-s), so it dies off exactly as
+           the image forms and a settled eye sits perfectly still. This
+           term is scaled by s instead, so it only exists once particles
+           are AT their places — it keeps the formed eye alive without
+           moving anything off target. Amplitude is in world units and
+           SPAN is 2.4, so useful values are small. */
+        float ph = aSeed*6.2831853;
+        float it = uTime*uIdleSpeed;
+        vec3 idle;
+        if(uIdleMode == 0){        /* drift — slow, uncorrelated wander */
+          idle = vec3(sin(it*.61 + ph*6.1), cos(it*.47 + ph*4.3), sin(it*.38 + ph*9.7));
+        } else if(uIdleMode == 1){ /* jitter — fast, grainy, per-particle */
+          idle = vec3(sin(it*3.7 + ph*11.), cos(it*4.3 + ph*7.), sin(it*3.1 + ph*13.));
+        } else if(uIdleMode == 2){ /* breathe — radial pulse from centre */
+          vec2 d = aTarget.xy/max(length(aTarget.xy), 1e-4);
+          idle = vec3(d*sin(it*.9 - length(aTarget.xy)*2.2), 0.);
+        } else if(uIdleMode == 3){ /* orbit — each particle circles its spot */
+          idle = vec3(cos(it*1.3 + ph), sin(it*1.3 + ph), 0.);
+        } else {                   /* flow — neighbours move together */
+          float a = sin(aTarget.x*3.1 + it*.5) + cos(aTarget.y*2.7 - it*.4);
+          idle = vec3(cos(a*3.1), sin(a*2.7), sin(a));
+        }
+        idle.z *= uIdleZ;
+        p += idle*uIdleAmt*s*uDrift;
+
+        /* ---- birth & death -----------------------------------------
+           Each particle runs its own loop: fade in, hold, fade out,
+           respawn. aSeed offsets the phase and a second derived random
+           varies the rate, so the field turns over continuously instead
+           of pulsing in unison. At uDrift 0 (reduced motion) the whole
+           envelope collapses to 1 so nothing flickers. */
+        float r2 = fract(aSeed*137.13);
+        float rate = uLifeRate*mix(1., .35 + 1.3*r2, uLifeVary);
+        float life = fract(uTime*rate + aSeed*7.13);
+        float env = smoothstep(0., .18, life)*smoothstep(1., .82, life);
+        float lifeE = mix(1., env, uLifeMix*uDrift);
+        /* born rising into place, dying drifting on out the other side */
+        p.y += (life < .5 ? -1. : 1.)*(1. - env)*uLifeRise*uLifeMix*uDrift;
+
+        /* hover — uPointerW is the cursor projected onto the z=0 plane in
+           world units, so uHoverR is a real radius rather than a screen
+           fraction and stays honest when the window is resized. */
+        if(uHoverMode > 0){
+          vec2 d = p.xy - uPointerW;
+          float dist = length(d);
+          vec2 dir = d/max(dist, 1e-4);
+          float infl = 1. - smoothstep(0., uHoverR, dist);
+          if(uHoverMode == 1)      p.xy += dir*infl*uHoverS;   /* repel  */
+          else if(uHoverMode == 2) p.xy -= dir*infl*uHoverS;   /* attract*/
+          else if(uHoverMode == 3) p.xy += vec2(-dir.y, dir.x)*infl*uHoverS; /* swirl */
+          else                     p.z  += infl*uHoverS;       /* lift   */
+        }
+
+        vec4 mv = modelViewMatrix*vec4(p,1.);
+        gl_Position = projectionMatrix*mv;
+        /* loose particles are drawn a touch larger so the cloud reads
+           as a cloud rather than dissolving into nothing */
+        gl_PointSize = uSize*(1. + uLooseBoost*(1.-s))*uScale/max(-mv.z, .001)
+                     * mix(1., .25 + .75*env, uLifeSize*uLifeMix*uDrift);
+
+        /* ---- colour ------------------------------------------------
+           Resting state is MONOCHROME: one picked OKLCH hue, with the
+           baked ink level moving only lightness (and a little chroma) so
+           the eye keeps its modelling instead of turning into a flat
+           silhouette. uMonoMix crossfades back to the original dither
+           ramp if you want the old look. */
+        float ink = clamp(aInk, 0., 1.);
+        float Le = clamp(uBase.x + uInkShade*(1.-uBase.x)*(1.-ink), 0., 1.);
+        float Ce = uBase.y*mix(1. - .55*uInkShade, 1., ink);
+        vec3 baseCol = mix(aColor, oklch2rgb(vec3(Le, Ce, uBase.z)), uMonoMix);
+
+        /* ---- hover gradient ----------------------------------------
+           Independent of uHoverMode, so colour can respond to the cursor
+           with no displacement at all. cInfl is 1 under the cursor and
+           falls to 0 at uHoverColR. */
+        vec2 dc = p.xy - uPointerW;
+        float dist2 = length(dc);
+        float cInfl = 1. - smoothstep(0., uHoverColR, dist2);
+        float g;
+        if(uGradSrc == 0)      g = clamp(dist2/max(uHoverColR, 1e-4), 0., 1.);
+        else if(uGradSrc == 1) g = clamp(length(aTarget.xy)/1.2, 0., 1.);
+        /* atan(0,0) is undefined, and the dead-centre pixel lands exactly
+           there, so nudge x off zero to keep that one particle out of NaN */
+        else if(uGradSrc == 2) g = atan(aTarget.y, aTarget.x + 1e-6)/6.2831853 + .5;
+        else                   g = ink;
+        /* Hue path. The shortest-path form alone can never sweep more than
+           180deg, which is why a 0 -> 359 pair used to travel 1deg instead
+           of the whole spectrum. Adding a full turn makes the sweep reach
+           360deg and beyond, so a real spectrum is now expressible. */
+        float dh = mod(uGB.z - uGA.z + 540., 360.) - 180.;
+        if(uHuePath == 1)      dh = dh > 0. ? dh - 360. : dh + 360.;
+        else if(uHuePath == 2) dh = dh + 360.;
+        else if(uHuePath == 3) dh = dh - 360.;
+        vec3 grad = oklch2rgb(vec3(
+          mix(uGA.x, uGB.x, g),
+          mix(uGA.y, uGB.y, g),
+          uGA.z + dh*g));
+        vColor = mix(baseCol, grad, cInfl*uHoverColMix);
+
+        /* ink drives opacity, so the pupil reads solid and the
+           highlights stay as faint as they are in the source */
+        vAlpha = mix(uAlphaS, 1., s)*mix(uAlphaInk, 1., sqrt(aInk));
+
+        /* blink — the lid mask from index.html:842-846. Particles the lids
+           sweep over fade out instead of being painted paper white, which
+           lands the same way on a white ground. aLid is the sentinel 999
+           for shadow/background particles, which the lids never touched in
+           the original either. Scaled by s so a scattered cloud does not
+           blink, and by uDrift so reduced-motion holds the eye open. */
+
+        /* Particles are 0.42-0.55 opaque over white paper, which dilutes
+           any colour toward the background. Lifting alpha under the cursor
+           is what actually lets the hover gradient read as saturated. */
+        vAlpha = mix(vAlpha, 1., cInfl*uHoverAlpha);
+
+        /* life last, so a dying particle still fades even under the
+           cursor's opacity lift */
+        vAlpha *= lifeE;
+      }`,
+    fragmentShader:`
+      precision highp float;
+      uniform float uEdge;
+      varying vec3 vColor; varying float vAlpha;
+      void main(){
+        vec2 c = gl_PointCoord - .5;
+        float d = dot(c,c);
+        if(d > .25) discard;
+        gl_FragColor = vec4(vColor, smoothstep(.25, uEdge, d)*vAlpha);
+      }`
+  }); }
+
+  /* ---- lattice -------------------------------------------------
+     Built once and shared by all three cards: the attribute data is
+     identical, only the bake each samples differs. A regular grid
+     would beat against the ordered dither into moire, so every
+     sample is jittered inside its own cell. */
+  const G = Math.max(16, P.grid|0), N = G*G;
+  const aPos  = new Float32Array(N*3), aTgt = new Float32Array(N*3);
+  const aUv   = new Float32Array(N*2), aSeed = new Float32Array(N);
+  for(let i=0, gy=0; gy<G; gy++){
+    for(let gx=0; gx<G; gx++, i++){
+      const u = (gx+Math.random())/G, v = (gy+Math.random())/G;
+      aUv[i*2] = u; aUv[i*2+1] = v;
+      aTgt[i*3] = (u-.5)*SPAN; aTgt[i*3+1] = (v-.5)*SPAN; aTgt[i*3+2] = 0;
+      aSeed[i] = Math.random();
+      /* scatter start stored as a unit ball, scaled by uScatter */
+      const a = Math.random()*2-1, th = Math.random()*Math.PI*2;
+      const rr = Math.cbrt(Math.random()), sq = Math.sqrt(1-a*a);
+      aPos[i*3] = rr*sq*Math.cos(th);
+      aPos[i*3+1] = rr*sq*Math.sin(th);
+      aPos[i*3+2] = rr*a*0.7;
+    }
+  }
+  function makeGeo(){
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.BufferAttribute(aPos, 3));
+    g.setAttribute('aTarget',  new THREE.BufferAttribute(aTgt, 3));
+    g.setAttribute('aUV',      new THREE.BufferAttribute(aUv, 2));
+    g.setAttribute('aSeed',    new THREE.BufferAttribute(aSeed, 1));
+    return g;
+  }
+
+  /* How long one loop of a source's OWN animation takes. Hold is
+     measured in whole loops of this, so the jaw finishes opening AND
+     closing before the field is allowed to break up. */
+  function animPeriod(key){
+    if(key === 'eye') return Math.PI/Math.max(P.blinkSpeed, 1e-3);
+    return SRC[key].period;
+  }
+
+  function cycle(o, tc){
+    const a = P.formSec;
+    const b = P.holdMode === 'one full loop'
+            ? animPeriod(o.key)*P.animLoops : P.holdSec;
+    const c = P.dispSec, d = P.restSec;
+    const period = a + b + c + d;
+    if(period <= 0){ o.phase = 'hold'; return 1; }
+    const u = tc % period;
+    if(u < a)     { o.phase = 'form';     return u/a; }
+    if(u < a+b)   { o.phase = 'hold';     return 1; }
+    if(u < a+b+c) { o.phase = 'disperse'; return 1 - (u-a-b)/c; }
+    o.phase = 'rest'; return 0;
+  }
+
+  const halfTan = Math.tan(FOV*Math.PI/360);
+  const inst = [];
+
+  canvases.forEach(cv => {
+    const key = cv.dataset.fx;
+    if(!SRC[key]) return;
+    /* same guard as the hero background: skip the canvas, keep the page */
+    let rd; try{ rd = new THREE.WebGLRenderer({canvas:cv, antialias:false}); }
+    catch(err){ cv.style.display = 'none'; return; }
+    rd.setPixelRatio(Math.min(window.devicePixelRatio, 1));
+    rd.setClearColor(new THREE.Color(P.bg), 1);
+
+    const rt = new THREE.WebGLRenderTarget(SIZE, SIZE);
+    /* nearest, and no mipmaps: the dither must stay crisp, and a
+       particle samples a single pixel rather than an average */
+    rt.texture.minFilter = rt.texture.magFilter = THREE.NearestFilter;
+    rt.texture.generateMipmaps = false;
+
+    /* Sources that lack a given uniform simply never bind it, so one
+       uniform block serves all three. */
+    const bakeMat = new THREE.ShaderMaterial({
+      uniforms:{
+        t:{value:0}, r:{value:new THREE.Vector2(SIZE,SIZE)},
+        uZoom:{value:SRC[key].zoom}, uLevels:{value:P.toneLevels},
+        uOfs:{value:new THREE.Vector2(SRC[key].ofs[0], SRC[key].ofs[1])},
+        uBlinkSpeed:{value:P.blinkSpeed}, uBlinkPow:{value:P.blinkPow},
+        uBlinkAmt:{value:P.blinkAmt},
+        uHeight:{value:P.roomHeight},
+        uLightAz:{value:P.lightAz}, uLightEl:{value:P.lightEl},
+        uWrap:{value:P.lightWrap}, uGamma:{value:P.lightGamma},
+        uAO:{value:P.lightAO},
+        uCamY:{value:P.camY}, uCamR:{value:P.camR},
+        uFaceAmt:{value:P.faceAmt}, uFaceX:{value:P.faceX},
+        uFaceZ:{value:P.faceZ}
+      },
+      vertexShader:'void main(){gl_Position=vec4(position,1.0);}',
+      fragmentShader:HEAD+SRC[key].frag
+    });
+    const bakeScene = new THREE.Scene();
+    bakeScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), bakeMat));
+    const bakeCam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+
+    const mat = makeMat();
+    const u = mat.uniforms;
+    u.uSize.value = P.pt;             u.uScatter.value = P.scatter;
+    u.uSpread.value = P.spread;       u.uLooseBoost.value = P.looseBoost;
+    /* uDrift gates the wander, the idle motion and the life cycle at
+       once, so reduced motion is a single switch */
+    u.uDrift.value = reduce ? 0 : P.drift;
+    u.uIdleAmt.value = P.idleAmt;     u.uIdleSpeed.value = P.idleSpeed;
+    u.uIdleZ.value = P.idleZ;         u.uIdleMode.value = IDLE.indexOf(P.idleMode);
+    u.uLifeMix.value = P.lifeMix;     u.uLifeRate.value = P.lifeRate;
+    u.uLifeVary.value = P.lifeVary;   u.uLifeSize.value = P.lifeSize;
+    u.uLifeRise.value = P.lifeRise;
+    u.uAlphaS.value = P.alphaS;       u.uAlphaInk.value = P.alphaInk;
+    u.uEdge.value = P.edge;
+    u.uBlinkAmt.value = P.blinkAmt;   u.uBlinkSpeed.value = P.blinkSpeed;
+    u.uBlinkPow.value = P.blinkPow;
+    u.uHoverMode.value = HOVER.indexOf(P.hoverMode);
+    u.uMonoMix.value = P.monoMix;     u.uInkShade.value = P.inkShade;
+    u.uShadeClean.value = P.shadeClean;
+    /* radii are fixed; the STRENGTH of every cursor effect starts at zero
+       and is driven from o.hov in the loop. They must not start at their P
+       values: uPointer rests at the centre of the field, so a non-zero
+       strength paints a gradient there with no cursor present — and under
+       reduced motion the loop never runs to correct it. */
+    u.uHoverR.value = P.hoverR;       u.uHoverColR.value = P.hoverColR;
+    u.uHoverS.value = 0;              u.uParallax.value = 0;
+    u.uHoverColMix.value = 0;         u.uHoverAlpha.value = 0;
+    u.uHuePath.value = HUEP.indexOf(P.huePath);
+    u.uGradSrc.value = GRAD.indexOf(P.gradSrc);
+    u.uBase.value.set(P.baseL, P.baseC, P.baseH);
+    u.uGA.value.set(P.gaL, P.gaC, P.gaH);
+    u.uGB.value.set(P.gbL, P.gbC, P.gbH);
+
+    const scene = new THREE.Scene();
+    const cam = new THREE.PerspectiveCamera(FOV, 4/3, .1, 100);
+    scene.add(new THREE.Points(makeGeo(), mat));
+
+    const o = {key, rd, rt, bakeMat, bakeScene, bakeCam, mat, scene, cam,
+               on:false, drawn:false, phase:'form', tAnim:0, tCycle:0,
+               halfW:1, halfH:1, ptr:new THREE.Vector2(),
+               /* `over` is the raw hover state, `hov` its eased 0..1 form */
+               over:false, hov:0};
+
+    function size(){
+      const w = cv.clientWidth||600, h = cv.clientHeight||450;
+      rd.setSize(w, h, false);
+      const aspect = w/h;
+      cam.aspect = aspect;
+      /* frame the baked square in whichever dimension is tighter */
+      const need = SPAN*0.54;
+      cam.position.z = Math.max(need/halfTan, need/(halfTan*aspect));
+      cam.updateProjectionMatrix();
+      const db = new THREE.Vector2(); rd.getDrawingBufferSize(db);
+      u.uScale.value = db.y/(2*halfTan);
+      /* world half-extents on z=0, so uHoverR is a real radius */
+      o.halfH = halfTan*cam.position.z;
+      o.halfW = o.halfH*aspect;
+    }
+    size();
+    window.addEventListener('resize', size);
+
+    /* Pointer is per-card and rect-relative, so hovering one case does
+       not tug at the other two, and it recentres on leave. */
+    if(!reduce){
+      const wrap = cv.parentElement;
+      wrap.addEventListener('pointermove', ev => {
+        const b = cv.getBoundingClientRect();
+        o.over = true;
+        o.ptr.set((ev.clientX-b.left)/b.width*2-1,
+                 -((ev.clientY-b.top)/b.height*2-1));
+      });
+      wrap.addEventListener('pointerleave', () => {
+        o.over = false;
+        o.ptr.set(0,0);
+      });
+    }
+
+    new IntersectionObserver(en => {
+      o.on = en[0].isIntersecting;
+      /* reduced motion never starts the loop, so draw the one settled
+         frame here instead, the first time the card is on screen */
+      if(reduce && o.on && !o.drawn){ o.drawn = true; draw(o, P.formEnd); }
+    }, {threshold:.05}).observe(cv);
+
+    inst.push(o);
+  });
+
+  function draw(o, form){
+    const u = o.mat.uniforms;
+    u.uForm.value = form;
+    u.uTime.value = o.tAnim;
+    u.uPointerW.value.set(u.uPointer.value.x*o.halfW,
+                          u.uPointer.value.y*o.halfH);
+    /* Bake first, then draw the points: the particles must sample the
+       current frame of the illustration, not the previous one. */
+    o.bakeMat.uniforms.t.value = o.tAnim;
+    o.rd.setRenderTarget(o.rt);
+    o.rd.render(o.bakeScene, o.bakeCam);
+    o.rd.setRenderTarget(null);
+    u.uBake.value = o.rt.texture;
+    o.rd.render(o.scene, o.cam);
+  }
+
+  if(!reduce){
+    let last = performance.now();
+    (function loop(){
+      const now = performance.now();
+      /* frame-rate independent easing — a flat per-frame factor stalls
+         badly on slow hardware, where the field barely moves */
+      const dt = Math.min((now-last)/1000, 0.1); last = now;
+      const k = 1 - Math.pow(1-P.ease, dt*60);
+      inst.forEach(o => {
+        if(!o.on) return;
+        o.tAnim  += dt*P.timeSpeed;
+        o.tCycle += dt*P.timeSpeed;
+        /* the drive is a normalised 0..1 sweep; start/end decide what it
+           spans. start above 0 means the field never fully scatters. */
+        const form = P.formStart + (P.formEnd-P.formStart)*cycle(o, o.tCycle);
+        const u = o.mat.uniforms;
+        u.uPointer.value.lerp(o.ptr, k);
+        /* Gate every cursor-driven effect on actually being over the card.
+           uPointer rests at (0,0), which is the CENTRE of the field, so an
+           ungated hover term sits at full strength there forever — that is
+           what painted a permanent rainbow blob in the middle of all three
+           illustrations. Resting state has to be the monochrome base. */
+        o.hov += ((o.over ? 1 : 0) - o.hov)*k;
+        u.uHoverColMix.value = P.hoverColMix*o.hov;
+        u.uHoverAlpha.value  = P.hoverAlpha*o.hov;
+        u.uHoverS.value      = P.hoverS*o.hov;
+        u.uParallax.value    = P.parallax*o.hov;
+        draw(o, form);
+      });
+      requestAnimationFrame(loop);
+    })();
+  }
+})();
+</script>
+</body>
+</html>

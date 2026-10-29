@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Ravindra — Designs that convert</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#16141f;
+    --lav:#8f7ff0;
+    --lav-deep:#6a58e0;
+    --mut:#8b87a0;
+    --line:#eceaf6;
+    --line-2:#e7e4f6;
+    --paper:#ffffff;
+
+    /* radius scale — every corner on the page resolves to one of these */
+    --r-sm:8px;
+    --r-md:14px;
+    --r-lg:20px;
+    --r-pill:99px;
+    --r-device:34px;
+
+    /* one elevation token, used only by floating UI */
+    --shadow-pop:0 18px 40px -22px rgba(64,52,150,.34);
+
+    /* five-step type scale, 18px body floor */
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-md:32px;
+    --t-sub-lg:40px;
+    --t-head:56px;
+    --t-head-lg:64px;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    background:var(--paper);
+    color:var(--ink);
+    font-family:"Inter",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    overflow-x:hidden;
+  }
+  /* total scroll runway */
+  #runway{height:340vh;position:relative;}
+
+  canvas#gl{
+    position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:0;
+  }
+
+  /* ---------- nav ---------- */
+  nav{
+    position:fixed;top:0;left:0;right:0;z-index:30;
+    display:flex;justify-content:space-between;align-items:center;
+    padding:12px 44px;
+    font-size:13px;letter-spacing:.02em;
+  }
+  nav .logo{font-weight:600;}
+  nav .links{display:flex;gap:28px;}
+  /* 44px minimum touch target — the padding is on the link, not the bar */
+  nav a{
+    color:var(--ink);text-decoration:none;opacity:.65;transition:opacity .2s;
+    display:inline-flex;align-items:center;min-height:44px;
+  }
+  nav a:hover{opacity:1;}
+
+  /* ---------- hero copy ---------- */
+  .hero{
+    position:fixed;inset:0;z-index:10;
+    display:flex;flex-direction:column;justify-content:center;
+    padding:0 44px;
+    pointer-events:none;
+  }
+  /* stepped at 1180/900/640 rather than clamp() — a clamp lands on off-scale sizes */
+  h1{
+    font-family:"Space Grotesk","Inter",sans-serif;
+    font-size:var(--t-head-lg);
+    line-height:1.05;
+    letter-spacing:-0.035em;
+    font-weight:600;
+    max-width:13ch;
+  }
+  h1 .convert{
+    font-family:"Instrument Serif",Georgia,serif;
+    color:var(--lav-deep);
+    font-style:italic;
+    font-weight:400;
+    letter-spacing:-.01em;
+  }
+  .sub{
+    margin-top:30px;
+    font-size:var(--t-body);line-height:1.6;color:var(--mut);max-width:42ch;
+  }
+  /* ---------- end CTA ---------- */
+  .cta{
+    position:fixed;inset:0;z-index:15;
+    display:flex;flex-direction:column;gap:22px;justify-content:center;align-items:center;
+    text-align:center;opacity:0;pointer-events:none;
+  }
+  .cta h2{font-family:"Space Grotesk","Inter",sans-serif;font-size:var(--t-head);letter-spacing:-0.03em;font-weight:600;max-width:18ch;line-height:1.06;}
+  /* no lift — the colour shift carries the affordance */
+  .cta a{
+    pointer-events:auto;
+    display:inline-flex;align-items:center;gap:10px;min-height:44px;
+    font-size:var(--t-body);text-decoration:none;color:var(--paper);background:var(--ink);
+    padding:12px 34px;border-radius:var(--r-pill);letter-spacing:.02em;
+    transition:background .25s ease;
+  }
+  .cta a:hover{background:var(--lav);}
+
+  .progress{
+    position:fixed;top:0;left:0;height:2px;background:var(--lav);z-index:40;width:0;
+  }
+  /* ================= page sections ================= */
+  #content{position:relative;z-index:25;background:var(--paper);border-top:1px solid var(--line);}
+  .wrap{max-width:1180px;margin:0 auto;padding:0 44px;}
+  section{padding:120px 0 40px;}
+  /* the mono counterweight is gone; the hairline is the one piece of chrome
+     still doing real work, so it runs on from the heading instead */
+  /* the rules flex equally on both sides, so the heading centres itself
+     without a text-align — it reads as a divider, not a page title */
+  .sec-head{display:flex;align-items:center;gap:20px;margin-bottom:24px;}
+  .sec-head::before,
+  .sec-head::after{content:"";flex:1;height:1px;background:var(--line);}
+  .sec-head h2{font-family:"Space Grotesk","Inter",sans-serif;font-size:var(--t-head);letter-spacing:-.03em;font-weight:600;line-height:1.12;}
+  h2 em{font-family:"Instrument Serif",Georgia,serif;font-style:italic;font-weight:400;color:var(--lav-deep);}
+
+  /* inline glossary: a term the reader may not know, defined in place on click
+     so the sentence stays short and nobody has to leave the page */
+  .define{position:relative;}
+  .define-t{
+    font:inherit;color:inherit;background:none;border:0;cursor:help;
+    padding:2px 4px;margin:-2px -4px;
+    text-decoration:underline dotted;text-underline-offset:3px;
+  }
+  /* Phosphor "Info" (regular), inlined — the ring, stem and dot are one glyph,
+     so nothing can sit off-centre the way a bordered span wrapped around a
+     monospace "i" did */
+  .define-i{
+    display:inline-block;width:16px;height:16px;margin-left:5px;
+    vertical-align:-.12em;color:var(--lav-deep);fill:currentColor;
+  }
+  /* Phosphor arrows, inlined and sized in em so each one tracks the type it
+     sits in rather than needing a size per context */
+  .icon{width:1em;height:1em;fill:currentColor;flex:none;vertical-align:-.125em;}
+  .define-t:hover,.define-t[aria-expanded="true"]{color:var(--lav-deep);}
+  .define-box{
+    position:absolute;z-index:20;left:0;top:calc(100% + 10px);
+    width:max-content;max-width:min(400px,78vw);
+    background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);
+    box-shadow:var(--shadow-pop);padding:16px 18px;
+    font-size:var(--t-body);line-height:1.55;color:var(--mut);text-align:left;
+  }
+  .define-box[hidden]{display:none;}
+
+  /* ---- case studies ---- */
+  .case{
+    display:grid;grid-template-columns:1fr 1.05fr;gap:64px;align-items:center;
+    padding:84px 0;
+  }
+  /* the rule separates one case from the next; on the first it would sit a few
+     px under the section divider and read as a doubled hairline */
+  .case + .case{border-top:1px solid var(--line);}
+  .case.flip .case-visual{order:-1;}
+  .case h3{font-family:"Space Grotesk","Inter",sans-serif;font-size:var(--t-sub-lg);letter-spacing:-.025em;font-weight:600;line-height:1.12;margin-bottom:14px;}
+  .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:22px;}
+  .chip{
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.06em;color:var(--mut);
+    border:1px solid var(--line-2);border-radius:var(--r-pill);padding:7px 14px;text-transform:uppercase;
+  }
+  .case p{color:var(--mut);font-size:var(--t-body);line-height:1.62;margin-bottom:20px;max-width:50ch;}
+  .case p strong{color:var(--ink);font-weight:600;}
+  .did{list-style:none;margin:0 0 26px;}
+  .did li{
+    position:relative;padding-left:22px;margin-bottom:10px;
+    color:var(--mut);font-size:var(--t-body);line-height:1.6;
+  }
+  .did li::before{content:"→";position:absolute;left:0;color:var(--lav);}
+  /* equal columns at one number size — no figure is scaled up to argue for itself */
+  .metrics{
+    display:grid;grid-template-columns:repeat(3,1fr);gap:34px;align-items:start;
+    border-top:1px solid var(--line);padding-top:24px;margin-top:4px;
+  }
+  .metrics > div + div{border-left:1px solid var(--line);padding-left:34px;}
+  .metric b{display:block;font-size:var(--t-sub-lg);letter-spacing:-.03em;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums;line-height:1;margin-bottom:12px;}
+  .metric.lead b{color:var(--lav-deep);}
+  /* the labels are read, not scanned, so they are body copy rather than chrome */
+  .metric span{font-size:var(--t-body);line-height:1.5;color:var(--mut);}
+
+  /* ---- scroll-reveal motion (hero-matched easing) ---- */
+  .rv{opacity:0;transform:translateY(38px);filter:blur(7px);
+      transition:opacity .95s cubic-bezier(.22,1,.36,1),transform .95s cubic-bezier(.22,1,.36,1),filter .95s ease;}
+  .rv.in{opacity:1;transform:translateY(0);filter:blur(0);}
+  .rv-vis{transform:translateY(46px) scale(.965);}
+  .rv-vis.in{transform:translateY(0) scale(1);}
+  .rv-d1{transition-delay:.1s}.rv-d2{transition-delay:.2s}.rv-d3{transition-delay:.3s}
+  @media (prefers-reduced-motion:reduce){
+    .rv,.rv-vis{opacity:1;transform:none;filter:none;transition:none;}
+    .case-link,.case-link .icon,.cta a,.contact-actions a,nav a,footer a,.define-t{transition:none;}
+    html{scroll-behavior:auto;}
+  }
+
+  /* case-study link */
+  /* 44px minimum touch target */
+  .case-link{
+    display:inline-flex;align-items:center;gap:10px;margin-top:26px;min-height:44px;
+    font-family:ui-monospace,"SF Mono",Menlo,monospace;font-size:12px;letter-spacing:.16em;
+    text-transform:uppercase;text-decoration:none;color:var(--ink);
+    border-bottom:1px solid var(--lav);padding-bottom:6px;
+    transition:color .3s ease,border-color .3s ease;
+  }
+  .case-link .icon{transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  .case-link:hover{color:var(--lav-deep);border-color:var(--lav-deep);}
+  .case-link:hover .icon{transform:translateX(6px);}
+
+  /* ---- mockup panels ---- */
+  /* flat panel fill and no lift — the mockup is read, not clicked */
+  .shot{
+    position:relative;border:1px solid var(--line-2);border-radius:var(--r-lg);overflow:hidden;
+    background:#faf9ff;
+    padding:34px;min-height:420px;display:flex;align-items:center;justify-content:center;
+  }
+  /* ---- case FX canvases (abstract dithered illustrations) ---- */
+  .fx-wrap{
+    position:relative;width:100%;aspect-ratio:4/3;border-radius:var(--r-md);overflow:hidden;
+    background:var(--paper);border:1px solid var(--line-2);
+  }
+  .fx-wrap canvas{display:block;width:100%;height:100%;}
+
+  /* ---- about ---- */
+  /* no border-top: the .sec-head rules already draw a hairline through the
+     heading, and a second one 24px below read as a doubled rule */
+  .about-grid{display:grid;grid-template-columns:1.2fr 1fr;gap:64px;padding-top:64px;}
+  .about-grid p{color:var(--mut);font-size:var(--t-body);line-height:1.72;margin-bottom:18px;}
+  .about-grid p strong{color:var(--ink);font-weight:600;}
+  .skills h4{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.18em;color:var(--lav);text-transform:uppercase;margin:26px 0 14px;}
+  .skills h4:first-child{margin-top:0;}
+  .taglist{display:flex;flex-wrap:wrap;gap:8px;}
+
+  /* ---- contact ---- */
+  #contact{padding-bottom:0;}
+  .contact-inner{border-top:1px solid var(--line);padding:110px 0 90px;text-align:center;}
+  .contact-inner h2{font-size:var(--t-head-lg);letter-spacing:-.035em;font-weight:600;line-height:1.05;max-width:16ch;margin:0 auto 30px;}
+  .contact-inner h2 em{color:var(--lav);font-style:italic;font-weight:500;}
+  .contact-actions{display:flex;gap:14px;justify-content:center;flex-wrap:wrap;}
+  /* no lift — the colour shift carries the affordance */
+  .contact-actions a{
+    display:inline-flex;align-items:center;gap:10px;min-height:44px;
+    text-decoration:none;font-size:var(--t-body);padding:12px 32px;border-radius:var(--r-pill);letter-spacing:.02em;
+    transition:background .25s ease, border-color .25s ease, color .25s ease;
+  }
+  .contact-actions .primary{background:var(--ink);color:var(--paper);}
+  .contact-actions .primary:hover{background:var(--lav);}
+  .contact-actions .ghost{border:1px solid #e0dcf4;color:var(--ink);}
+  .contact-actions .ghost:hover{border-color:var(--lav);color:var(--lav-deep);}
+  footer{
+    display:flex;justify-content:space-between;align-items:center;gap:14px;flex-wrap:wrap;
+    font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.12em;color:var(--mut);
+    border-top:1px solid var(--line);padding:26px 0 30px;text-transform:uppercase;
+  }
+
+  @media (max-width:1180px){
+    .contact-inner h2{font-size:var(--t-head);}
+  }
+  @media (max-width:900px){
+    h1{font-size:var(--t-head);}
+    .cta h2{font-size:var(--t-sub-lg);}
+    .sec-head h2{font-size:var(--t-sub-lg);}
+    .contact-inner h2{font-size:var(--t-sub-lg);}
+    .case h3{font-size:var(--t-sub-md);}
+    .case{grid-template-columns:1fr;gap:36px;padding:64px 0;}
+    .case.flip .case-visual{order:0;}
+    .about-grid{grid-template-columns:1fr;gap:40px;}
+    .metrics{grid-template-columns:1fr;gap:28px;}
+    .metrics > div + div{border-left:0;padding-left:0;border-top:1px solid var(--line);padding-top:28px;}
+  }
+  @media (max-width:640px){
+    h1{font-size:var(--t-sub-lg);}
+    .cta h2{font-size:var(--t-sub-md);}
+    .sec-head h2{font-size:var(--t-sub-md);}
+    .contact-inner h2{font-size:var(--t-sub-md);}
+    .case h3{font-size:var(--t-sub);}
+    nav{padding:4px 22px}
+    .hero{padding:0 22px}
+    .wrap{padding:0 22px}
+    section{padding:80px 0 20px}
+    .shot{padding:20px;min-height:340px}
+  }
+  @media (max-width:560px){
+  }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+
+<nav>
+  <div class="logo">Ravindra&nbsp;Pratap<span style="color:var(--lav)">.</span></div>
+  <div class="links">
+    <a href="#work">Work</a><a href="#about">About</a><a href="#contact">Contact</a>
+  </div>
+</nav>
+
+<div class="hero" id="hero">
+  <h1>Hi, I’m Ravindra.<br/>I make designs that <span class="convert">convert.</span></h1>
+  <div class="sub">Design engineer crafting interfaces, motion and landing pages that turn attention into action.</div>
+</div>
+
+<div class="cta" id="cta">
+  <h2>Attention is earned in pixels, converted in flows.</h2>
+  <a href="#work">View case studies <svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M205.66,149.66l-72,72a8,8,0,0,1-11.32,0l-72-72a8,8,0,0,1,11.32-11.32L120,196.69V40a8,8,0,0,1,16,0V196.69l58.34-58.35a8,8,0,0,1,11.32,11.32Z"/></svg></a>
+</div>
+
+<div id="runway"></div>
+
+<main id="content">
+
+  <!-- ================= SELECTED WORK ================= -->
+  <section id="work">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <h2>Selected work</h2>
+      </div>
+      <!-- ViewRyt -->
+      <article class="case" id="viewryt">
+        <div class="case-info rv">
+          <h3>ViewRyt — a redesign that made design's ROI undeniable</h3>
+          <div class="chips">
+            <span class="chip">CRO</span><span class="chip">Landing Page</span><span class="chip">Solo Designer</span><span class="chip">D2C · US Market</span>
+          </div>
+          <p>A <span class="define"><button type="button" class="define-t" aria-expanded="false" aria-controls="def-d2c">D2C<svg class="define-i" viewBox="0 0 256 256" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"/></svg></button><span class="define-box" id="def-d2c" role="tooltip" hidden>Direct-to-consumer — a brand that sells straight to the buyer through its own site and ads, with no retailer or marketplace in between, so the landing page is the entire storefront.</span></span> supplement landing page for the US market was losing money on ads. I rebuilt it with <strong>identical copy</strong>, so design was the only variable — and turned it profitable.</p>
+          <div class="metrics">
+            <div class="metric lead"><b data-count="3.2" data-dec="1" data-suf="×">0.0×</b><span>Conversion rate</span></div>
+            <div class="metric"><b data-count="4.2" data-dec="1" data-suf="×">0.0×</b><span>Earnings per visitor</span></div>
+            <div class="metric"><b data-count="31" data-suf="×">0×</b><span>Ad spend earned from Meta</span></div>
+          </div>
+          <a class="case-link" href="https://heyrav.in/case-viewryt.html">Read the case study <svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="shot">
+            <div class="fx-wrap">
+              <canvas class="fx" data-fx="eye"></canvas>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- Dentomate -->
+      <article class="case flip" id="dentomate">
+        <div class="case-info rv">
+          <h3>Dentomate — killing the "WhatsApp tax" for Indian dental clinics</h3>
+          <div class="chips">
+            <span class="chip">SaaS Platform</span><span class="chip">Design + Build</span><span class="chip">Patient Retention</span>
+          </div>
+          <p>A SaaS platform I <strong>founded, designed and built</strong> to end the ₹6–15k/month "WhatsApp tax" Indian dental clinics pay to message patients — and bring them back automatically.</p>
+          <div class="metrics">
+            <div class="metric lead"><b data-count="200" data-suf="+">0</b><span>Clinics onboard</span></div>
+            <div class="metric"><b data-count="30" data-pre="+" data-suf="%">+0%</b><span>Returning patients</span></div>
+            <div class="metric"><b data-count="8" data-pre="₹" data-suf="k">₹0</b><span>Saved / clinic / mo</span></div>
+          </div>
+          <a class="case-link" href="https://heyrav.in/case-dentomate.html">Read the case study <svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="shot">
+            <div class="fx-wrap">
+              <canvas class="fx" data-fx="tooth"></canvas>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <!-- IRBS -->
+      <article class="case" id="irbs">
+        <div class="case-info rv">
+          <h3>IRBS — room booking for a 7,000-student campus</h3>
+          <div class="chips">
+            <span class="chip">Design Lead</span><span class="chip">Mobile UX</span><span class="chip">User Research</span><span class="chip">Shipped Live</span>
+          </div>
+          <p>A <strong>three-step room-booking flow</strong> I researched and designed for IIT Guwahati's <span class="define"><button type="button" class="define-t" aria-expanded="false" aria-controls="def-onestop">OneStop<svg class="define-i" viewBox="0 0 256 256" aria-hidden="true"><path d="M128,24A104,104,0,1,0,232,128,104.11,104.11,0,0,0,128,24Zm0,192a88,88,0,1,1,88-88A88.1,88.1,0,0,1,128,216Zm16-40a8,8,0,0,1-8,8,16,16,0,0,1-16-16V128a8,8,0,0,1,0-16,16,16,0,0,1,16,16v40A8,8,0,0,1,144,176ZM112,84a12,12,0,1,1,12,12A12,12,0,0,1,112,84Z"/></svg></button><span class="define-box" id="def-onestop" role="tooltip" hidden>OneStop IITG is a centralized mobile application developed by the Students' Web Committee to assist the IIT Guwahati community with daily campus life. It consolidates essential services into a single platform, offering features like academic timetables, bus and ferry schedules, room bookings and a lost-and-found portal.</span></span> app, replacing a broken legacy portal. Live for the campus since September 2023.</p>
+          <div class="metrics">
+            <div class="metric lead"><b data-count="15" data-suf="+">0</b><span>Clubs onboarded</span></div>
+            <div class="metric"><b data-count="200" data-suf="+">0</b><span>Students daily</span></div>
+            <div class="metric"><b data-count="3" data-suf=" steps">0</b><span>To book a room</span></div>
+          </div>
+          <a class="case-link" href="https://heyrav.in/case-irbs.html">Read the case study <svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg></a>
+        </div>
+        <div class="case-visual rv rv-vis rv-d1">
+          <div class="shot">
+            <div class="fx-wrap">
+              <canvas class="fx" data-fx="rooms"></canvas>
+            </div>
+          </div>
+        </div>
+      </article>
+    </div>
+  </section>
+
+  <!-- ================= ABOUT ================= -->
+  <section id="about">
+    <div class="wrap">
+      <div class="sec-head rv">
+        <h2>About</h2>
+      </div>
+      <div class="about-grid">
+        <div class="rv">
+          <p><strong>I sit where design meets code meets revenue.</strong> Two years in, I've shipped work across the full stack of persuasion — pixel-level interface craft, motion that guides attention, and the funnel math that tells you whether any of it worked.</p>
+          <p>Most designers stop at the mockup. I prototype in code, ship the real thing, then instrument it — because a design isn't finished when it looks right, it's finished when the number moves.</p>
+          <p>Currently open to <strong>product design and design-engineering roles</strong> with teams that care about craft and outcomes in equal measure.</p>
+        </div>
+        <div class="skills rv rv-d1">
+          <h4>Design</h4>
+          <div class="taglist"><span class="chip">Figma</span><span class="chip">UX / UI</span><span class="chip">Interaction</span><span class="chip">Design systems</span></div>
+          <h4>Engineering</h4>
+          <div class="taglist"><span class="chip">React</span><span class="chip">Three.js / GLSL</span><span class="chip">Tailwind</span><span class="chip">Framer Motion</span></div>
+          <h4>Growth</h4>
+          <div class="taglist"><span class="chip">CRO</span><span class="chip">A/B testing</span><span class="chip">Landing pages</span><span class="chip">Analytics</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CONTACT ================= -->
+  <section id="contact">
+    <div class="wrap">
+      <div class="contact-inner rv">
+        <h2>Have a number that needs <em>moving?</em></h2>
+        <div class="contact-actions">
+          <a class="primary" href="mailto:singhravindrapratap812@gmail.com">Email me <svg class="icon" viewBox="0 0 256 256" aria-hidden="true"><path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/></svg></a>
+          <a class="ghost" href="https://x.com/RavindraPatap" target="_blank" rel="noopener">X / @RavindraPatap</a>
+        </div>
+      </div>
+      <footer>
+        <span>© 2026 Ravindra Pratap</span>
+        <span>Design Engineer — India · Remote</span>
+      </footer>
+    </div>
+  </section>
+
+</main>
+
+<canvas id="gl"></canvas>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* =============================================================
+   Dither + ASCII + Motion hero — scroll-driven raymarched blob
+   Aesthetic ref: soft lavender organic forms, ordered-dither
+   grain, subtle ASCII glyphs, clean white canvas.
+============================================================= */
+const canvas = document.getElementById('gl');
+/* The shader background is an enhancement, not the page. WebGLRenderer throws
+   when no context can be created (blocked, no GPU, driver blacklist) — and this
+   is one script, so an uncaught throw here would take the scroll reveals,
+   count-ups, case studies and glossary with it and leave every .rv at opacity:0,
+   i.e. a blank page. Stub the renderer instead: everything downstream builds
+   plain objects and only render() touches the GPU, so the rest still runs. */
+let renderer, hasGL = true;
+try{
+  renderer = new THREE.WebGLRenderer({canvas, antialias:false});
+}catch(err){
+  hasGL = false;
+  canvas.style.display = 'none';
+  const noop = () => {};
+  renderer = {setPixelRatio:noop, setSize:noop, getPixelRatio:() => 1, render:noop};
+}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 0.55));
+renderer.setSize(innerWidth, innerHeight);
+
+/* ---- ASCII glyph atlas (drawn at runtime) ---- */
+const CHARS = " .·:-~=+*x%@";
+const cell = 64;
+const atlasCanvas = document.createElement('canvas');
+atlasCanvas.width = cell * CHARS.length;
+atlasCanvas.height = cell;
+const actx = atlasCanvas.getContext('2d');
+actx.fillStyle = '#ffffff';
+actx.fillRect(0,0,atlasCanvas.width,atlasCanvas.height);
+actx.fillStyle = '#000000';
+actx.font = '700 46px ui-monospace, Menlo, monospace';
+actx.textAlign = 'center';
+actx.textBaseline = 'middle';
+for(let i=0;i<CHARS.length;i++){
+  actx.fillText(CHARS[i], i*cell + cell/2, cell/2 + 2);
+}
+const atlasTex = new THREE.CanvasTexture(atlasCanvas);
+atlasTex.minFilter = THREE.LinearFilter;
+atlasTex.magFilter = THREE.LinearFilter;
+atlasTex.wrapS = atlasTex.wrapT = THREE.ClampToEdgeWrapping;
+
+/* ---- fullscreen shader ---- */
+const uniforms = {
+  uTime:   {value:0},
+  uScroll: {value:0},
+  uRes:    {value:new THREE.Vector2(innerWidth*renderer.getPixelRatio(), innerHeight*renderer.getPixelRatio())},
+  uAtlas:  {value:atlasTex},
+  uNChars: {value:CHARS.length}
+};
+
+const frag = /* glsl */`
+precision highp float;
+uniform float uTime;
+uniform float uScroll;
+uniform vec2  uRes;
+uniform sampler2D uAtlas;
+uniform float uNChars;
+
+/* ---- ordered dithering (recursive Bayer) ---- */
+float Bayer2(vec2 a){ a = floor(a); return fract(a.x/2.0 + a.y*a.y*0.75); }
+float Bayer4(vec2 a){ return Bayer2(0.5*a)*0.25 + Bayer2(a); }
+float Bayer8(vec2 a){ return Bayer4(0.5*a)*0.25 + Bayer2(a); }
+
+/* ---- sdf helpers ---- */
+float smin(float a, float b, float k){
+  float h = clamp(0.5 + 0.5*(b-a)/k, 0.0, 1.0);
+  return mix(b, a, h) - k*h*(1.0-h);
+}
+mat2 rot(float a){ float c=cos(a), s=sin(a); return mat2(c,-s,s,c); }
+
+float map(vec3 p){
+  /* scroll drives the choreography; tiny idle drift keeps it alive */
+  float t = uScroll*7.0 + uTime*0.08;
+
+  p.xz *= rot(uScroll*3.6 + uTime*0.05);
+  p.xy *= rot(uScroll*1.4);
+
+  /* gentle breathing stretch as you scroll */
+  p.y *= 1.0 - 0.25*sin(uScroll*3.14159);
+
+  float d = length(p - vec3(0.0, 0.18*sin(t), 0.0)) - 0.82;
+
+  vec3 q1 = p - vec3(0.95*sin(t*0.7+1.0), 0.55*cos(t*0.5), 0.35*sin(t*0.4));
+  d = smin(d, length(q1) - 0.55, 0.52);
+
+  vec3 q2 = p - vec3(-0.85*cos(t*0.6), 0.62*sin(t*0.8+2.0), -0.25*cos(t*0.3));
+  d = smin(d, length(q2) - 0.48, 0.52);
+
+  vec3 q3 = p - vec3(0.25*sin(t*0.9+4.0), -0.72 + 0.2*sin(t*1.1), 0.55*cos(t*0.7));
+  d = smin(d, length(q3) - (0.42 + 0.12*uScroll), 0.46);
+
+  /* petal that unfurls with scroll */
+  vec3 q4 = p - vec3(0.0, 0.9*uScroll, -0.4*uScroll);
+  q4.x *= 1.0/(1.0 + 1.4*uScroll);
+  d = smin(d, length(q4) - 0.38, 0.5);
+
+  /* surface ripple detail */
+  d += 0.015*sin(9.0*p.x + t*2.0)*sin(8.0*p.y - t)*sin(7.0*p.z);
+  return d;
+}
+
+vec3 calcNormal(vec3 p){
+  vec2 e = vec2(0.0015, 0.0);
+  return normalize(vec3(
+    map(p+e.xyy)-map(p-e.xyy),
+    map(p+e.yxy)-map(p-e.yxy),
+    map(p+e.yyx)-map(p-e.yyx)
+  ));
+}
+
+void main(){
+  vec2 frag = gl_FragCoord.xy;
+  vec2 uv = (frag - 0.5*uRes)/uRes.y;
+
+  /* camera pushes in mid-scroll, then recedes for the closing act */
+  float zoom = 3.55 - 1.0*sin(uScroll*3.14159) + 0.9*smoothstep(0.72, 1.0, uScroll);
+  vec3 ro = vec3(0.0, 0.0, zoom);
+  vec3 rd = normalize(vec3(uv, -1.65));
+
+  float lum = 1.0;           /* white background */
+  float hit = 0.0;
+  float dTravel = 0.0;
+  vec3 pos;
+  for(int i=0;i<48;i++){
+    pos = ro + rd*dTravel;
+    float d = map(pos);
+    if(d < 0.002){ hit = 1.0; break; }
+    dTravel += d;
+    if(dTravel > 9.0) break;
+  }
+
+  if(hit > 0.5){
+    vec3 n = calcNormal(pos);
+    vec3 l = normalize(vec3(0.5, 0.9, 0.65));
+    float dif  = clamp(dot(n,l)*0.5 + 0.5, 0.0, 1.0);
+    float fres = pow(1.0 - max(dot(n, -rd), 0.0), 2.2);
+    lum = clamp(dif*0.82 + fres*0.42, 0.0, 1.0);
+    /* lift overall so the form stays airy/pale like the ref */
+    lum = pow(lum, 0.75);
+  }
+
+  /* ---- ordered dither quantisation ---- */
+  float grain = 2.0 * (uRes.y/1000.0);          /* dither pixel size */
+  float bay = Bayer8(frag/grain) - 0.5;
+  float steps = 5.0;
+  float q = clamp(floor(lum*steps + bay)/(steps-1.0), 0.0, 1.0);
+
+  /* lavender palette: deep -> pale -> paper */
+  vec3 deep  = vec3(0.545, 0.480, 0.930);
+  vec3 pale  = vec3(0.875, 0.855, 0.985);
+  vec3 paper = vec3(1.0);
+  vec3 col;
+  if(hit > 0.5){
+    col = mix(deep, pale, q);
+    col = mix(col, paper, smoothstep(0.92, 1.0, q));
+  } else {
+    col = paper;
+  }
+
+  /* ---- subtle ASCII glyph layer in the mid-tones ---- */
+  if(hit > 0.5){
+    float cellPx = 11.0 * (uRes.y/1000.0);
+    vec2 cuv = fract(frag/cellPx);
+    float idx = floor((1.0-lum) * (uNChars-1.0) + 0.5);
+    vec2 auv = vec2((idx + cuv.x)/uNChars, cuv.y);
+    float glyph = 1.0 - texture2D(uAtlas, auv).r;   /* 1 where character ink */
+    float band = smoothstep(0.15, 0.35, lum) * (1.0 - smoothstep(0.75, 0.95, lum));
+    col = mix(col, deep*0.75, glyph * band * 0.38);
+  }
+
+  gl_FragColor = vec4(col, 1.0);
+}
+`;
+
+const scene = new THREE.Scene();
+const cam = new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+const mat = new THREE.ShaderMaterial({
+  fragmentShader: frag,
+  vertexShader: `void main(){ gl_Position = vec4(position,1.0); }`,
+  uniforms
+});
+scene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), mat));
+
+/* ---- scroll choreography ---- */
+let targetScroll = 0, smoothScroll = 0, lastT = 0;
+/* debug: force a scroll phase with ?s=0.75 */
+const forcedScroll = parseFloat(new URLSearchParams(location.search).get('s'));
+function readScroll(){
+  /* the morph lives inside the runway only; sections scroll over it after */
+  const max = document.getElementById('runway').offsetHeight - innerHeight;
+  targetScroll = max > 0 ? Math.min(scrollY / max, 1) : 0;
+}
+addEventListener('scroll', readScroll, {passive:true});
+readScroll();
+
+const hero = document.getElementById('hero');
+const cta = document.getElementById('cta');
+const progress = document.getElementById('progress');
+
+const clock = new THREE.Clock();
+function frame(){
+  const now = clock.getElapsedTime();
+  const dt = Math.min(now - lastT, 0.5);
+  lastT = now;
+  smoothScroll += (targetScroll - smoothScroll) * (1 - Math.exp(-dt * 6.0));
+  if (!isNaN(forcedScroll)) smoothScroll = forcedScroll;
+  uniforms.uScroll.value = smoothScroll;
+  uniforms.uTime.value = now;
+
+  /* headline: parallax up + fade in the second act */
+  const p = smoothScroll;
+  const fadeOut = Math.min(Math.max((p - 0.38) / 0.3, 0), 1);
+  hero.style.transform = `translateY(${ -p * 220 }px)`;
+  hero.style.opacity = 1 - fadeOut;
+
+  /* CTA: final act */
+  const ctaIn = Math.min(Math.max((p - 0.72) / 0.22, 0), 1);
+  cta.style.opacity = ctaIn;
+  cta.style.transform = `translateY(${ (1 - ctaIn) * 60 }px)`;
+
+  progress.style.width = (p * 100) + '%';
+
+  /* fade the fixed hero chrome once the sections take over */
+  const runwayEnd = document.getElementById('runway').offsetHeight - innerHeight;
+  const over = Math.min(Math.max((scrollY - runwayEnd + 60) / 220, 0), 1);
+  cta.style.pointerEvents = over > 0.5 ? 'none' : '';
+
+  renderer.render(scene, cam);
+  requestAnimationFrame(frame);
+}
+frame();
+
+addEventListener('resize', () => {
+  renderer.setSize(innerWidth, innerHeight);
+  uniforms.uRes.value.set(innerWidth*renderer.getPixelRatio(), innerHeight*renderer.getPixelRatio());
+  readScroll();
+});
+
+/* =============================================================
+   Section motion — scroll reveals + metric count-ups
+   (cheap CSS/JS, matches the hero's easing language)
+============================================================= */
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)');
+function countUp(el){
+  const target = parseFloat(el.dataset.count);
+  const dec = parseInt(el.dataset.dec || 0, 10);
+  const pre = el.dataset.pre || '';
+  const suf = el.dataset.suf || '';
+  /* the number is the content, the tally is the flourish — skip straight to the value */
+  if(REDUCED.matches){ el.textContent = pre + target.toFixed(dec) + suf; return; }
+  const dur = 1500;
+  const t0 = performance.now();
+  function tick(now){
+    const k = Math.min((now - t0) / dur, 1);
+    const e = 1 - Math.pow(1 - k, 3);           /* easeOutCubic */
+    el.textContent = pre + (target * e).toFixed(dec) + suf;
+    if(k < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+const io = new IntersectionObserver((entries) => {
+  entries.forEach(en => {
+    if(!en.isIntersecting) return;
+    en.target.classList.add('in');
+    en.target.querySelectorAll('b[data-count]').forEach(countUp);
+    io.unobserve(en.target);
+  });
+}, {threshold: 0.18, rootMargin: '0px 0px -8% 0px'});
+document.querySelectorAll('.rv').forEach(el => io.observe(el));
+
+/* inline glossary: click the term to open its definition, click away or hit
+   Escape to close. Click rather than hover so it works on touch too. */
+(function(){
+  const close = t => {
+    t.setAttribute('aria-expanded','false');
+    document.getElementById(t.getAttribute('aria-controls')).hidden = true;
+  };
+  const all = () => document.querySelectorAll('.define-t[aria-expanded="true"]');
+
+  /* the term can sit anywhere in a line, so nudge the box back inside the text
+     column once it is measurable rather than guessing an anchor side. Clamped to
+     .wrap rather than the viewport, since that is where all the text lives —
+     and to its content box, so the box keeps the same gutter as the prose
+     instead of running flush to the screen edge on narrow viewports. */
+  const fit = box => {
+    box.style.left = '0px';
+    const col = box.closest('.wrap');
+    if(!col) return;
+    const cs = getComputedStyle(col);
+    const c = col.getBoundingClientRect(), r = box.getBoundingClientRect();
+    const left = c.left + parseFloat(cs.paddingLeft);
+    const right = c.right - parseFloat(cs.paddingRight);
+    let dx = 0;
+    if(r.right > right) dx = right - r.right;
+    if(r.left + dx < left) dx = left - r.left;
+    box.style.left = dx + 'px';
+  };
+
+  document.addEventListener('click', e => {
+    const t = e.target.closest('.define-t');
+    all().forEach(o => { if(o !== t) close(o); });
+    if(!t) return;
+    const box = document.getElementById(t.getAttribute('aria-controls'));
+    const open = t.getAttribute('aria-expanded') === 'true';
+    t.setAttribute('aria-expanded', String(!open));
+    box.hidden = open;
+    if(!open) fit(box);
+  });
+
+  addEventListener('resize', () => all().forEach(t => fit(document.getElementById(t.getAttribute('aria-controls')))));
+
+  document.addEventListener('keydown', e => {
+    if(e.key !== 'Escape') return;
+    all().forEach(t => { close(t); t.focus(); });
+  });
+})();
+
+/* =============================================================
+   Case FX — abstract dithered GLSL illustrations
+   (eye · tooth · room grid, same Bayer palette as the hero)
+============================================================= */
+(function(){
+  const canvases = document.querySelectorAll('canvas.fx');
+  if (!canvases.length || !window.THREE) return;
+
+  const HEAD = `
+    precision highp float;
+    uniform float t; uniform vec2 r;
+    float Bayer2(vec2 a){a=floor(a);return fract(a.x/2.+a.y*a.y*.75);}
+    float Bayer4(vec2 a){return Bayer2(.5*a)*.25+Bayer2(a);}
+    float Bayer8(vec2 a){return Bayer4(.5*a)*.25+Bayer2(a);}
+    mat2 rot(float a){float c=cos(a),s=sin(a);return mat2(c,-s,s,c);}
+    float smin(float a,float b,float k){float h=clamp(.5+.5*(b-a)/k,0.,1.);return mix(b,a,h)-k*h*(1.-h);}
+    float sdCap(vec3 p,vec3 a,vec3 b,float rr){vec3 pa=p-a,ba=b-a;float h=clamp(dot(pa,ba)/dot(ba,ba),0.,1.);return length(pa-ba*h)-rr;}
+    float sdBox(vec3 p,vec3 b){vec3 q=abs(p)-b;return length(max(q,0.))+min(max(q.x,max(q.y,q.z)),0.);}
+    float hash(vec2 v){return fract(sin(dot(v,vec2(12.9898,78.233)))*43758.5453);}
+    /* hero-matched ordered-dither quantisation: deep -> pale -> paper */
+    vec3 dith(float lum,float hit){
+      float grain=max(r.y/260.,1.6);
+      float bay=Bayer8(gl_FragCoord.xy/grain)-.5;
+      float q=clamp(floor(lum*5.+bay)/4.,0.,1.);
+      vec3 col=mix(vec3(.545,.48,.93),vec3(.875,.855,.985),q);
+      col=mix(col,vec3(1.),smoothstep(.92,1.,q));
+      return mix(vec3(1.),col,clamp(hit,0.,1.));
+    }`;
+
+  /* central-difference normals — appended after each fx's map() */
+  const NORM = `
+    vec3 calcN(vec3 p){
+      vec2 e=vec2(.004,0.);
+      return normalize(vec3(map(p+e.xyy)-map(p-e.xyy),map(p+e.yxy)-map(p-e.yxy),map(p+e.yyx)-map(p-e.yyx)));
+    }`;
+
+  const FX = {
+    /* raymarched eyeball — drifting gaze, eyelid-mask blink, wet specular, soft ground shadow */
+    eye: `
+      float map(vec3 p){
+        return length(p)-1.;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        float wob=.05*sin(t*.27);
+        vec3 ro=vec3(0.,.08,3.05); ro.xz*=rot(wob);
+        vec3 rd=normalize(vec3(uv,-3.)); rd.xz*=rot(wob);
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<64;i++){pos=ro+rd*dt;float d=map(pos);if(d<.003){hit=1.;break;}dt+=d;if(dt>9.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.55,.85,.7));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),2.6);
+          lum=pow(clamp(dif*.8+fres*.34,0.,1.),.62);
+          /* iris + pupil painted on the gaze axis */
+          vec3 g=normalize(vec3(.16*sin(t*.33),.08*sin(t*.55+1.7),1.));
+          vec3 pn=normalize(pos);
+          float ang=acos(clamp(dot(pn,g),-1.,1.));
+          if(ang<.62){
+            vec3 u=normalize(cross(g,vec3(0.,1.,0.))),v=cross(u,g);
+            vec2 q=vec2(dot(pn,u),dot(pn,v));
+            float rad=ang/.55, a=atan(q.y,q.x);
+            float irisL=.46+.16*sin(a*24.+rad*5.)+.09*sin(a*7.-2.)+.08*sin(rad*24.);
+            irisL*=.35+.75*dif;
+            irisL-=.3*smoothstep(.72,1.,rad);
+            if(rad<.34) irisL=.05;
+            lum=mix(lum,clamp(irisL,0.,1.),smoothstep(1.12,.98,rad));
+          }
+          vec3 hv=normalize(l-rd);
+          lum+=pow(max(dot(n,hv),0.),70.)*1.2;
+          lum=clamp(lum,0.,1.);
+          /* eyelid mask — lids sweep in and blank the covered eyeball, structure untouched */
+          float b=pow(abs(sin(t*.4)),20.);
+          float lidY=pos.y+.16*pos.x*pos.x;
+          float top=mix(1.08,-.05,b), bot=mix(-1.08,-.15,b);
+          float m=clamp(smoothstep(top,top+.03,lidY)+smoothstep(bot,bot-.03,lidY),0.,1.);
+          lum=mix(lum,1.,m); hit*=1.-m;
+        } else {
+          float tp=(-1.5-ro.y)/rd.y;
+          if(tp>0.){
+            vec3 sp=ro+rd*tp;
+            float s=exp(-1.4*dot(sp.xz,sp.xz));
+            lum=1.-.42*s; hit=smoothstep(.03,.25,s);
+          }
+        }
+        gl_FragColor=vec4(dith(lum,hit),1.);
+      }`,
+    /* raymarched dental cast — upper + lower jaw arches with individual teeth,
+       mouth slightly open, slow turntable (ref: plaster study model photo) */
+    tooth: `
+      float jaw(vec3 p){
+        float R=.78;
+        float a=atan(p.x,p.z);
+        float rr=length(p.xz)-R;
+        /* gum ridge — torus segment */
+        float gum=length(vec2(rr,p.y-.12))-.125;
+        gum+=.012*sin(a*22.)*sin(p.y*30.);           /* plaster texture */
+        /* one tooth per angular cell along the arch */
+        float da=.24;
+        float ai=clamp(floor(a/da+.5),-5.,5.)*da;
+        float s=(a-ai)*R;
+        float h=hash(vec2(ai*10.,3.7));
+        float w=.055+.03*smoothstep(.3,1.2,abs(ai)); /* incisors narrow, molars wide */
+        float ht=.21+.05*h;
+        float mol=smoothstep(.5,1.2,abs(ai));        /* 0 front teeth, 1 molars */
+        vec3 q=vec3(s,p.y+ht*.5,rr);
+        q.x*=1.+.9*q.y;                              /* taper toward the tip */
+        float th=sdBox(q,vec3(w,ht*.5,.048+.014*mol))-.03;
+        th+=.012*mol*cos(q.x/w*3.14159);             /* molar cusp groove */
+        th-=.008*cos(q.y*16.);                       /* rounded crown belly */
+        th+=.006*smoothstep(.02,.09,q.y);            /* neck narrows into the gum */
+        float d=smin(gum,th,.035);
+        /* plaster base plate above the ridge */
+        float base=max(length(p.xz)-(R+.05),abs(p.y-.28)-.08);
+        d=smin(d,base,.07);
+        return max(d,-(p.z+.3));                     /* open the horseshoe at the back */
+      }
+      float map(vec3 p){
+        p.xz*=rot(.55*sin(t*.25));                   /* front-facing sway, no full spin */
+        p.yz*=rot(.5236);                            /* 30° macro tilt toward the lens */
+        float open=.3+.05*sin(t*.6);                 /* clearly open bite */
+        vec3 pu=p; pu.y-=open;                       /* upper arch, teeth down */
+        vec3 pl=p; pl.y=-(p.y+open);                 /* lower arch, mirrored up */
+        pl.xz*=rot(.04);                             /* slight natural offset */
+        return min(jaw(pu),jaw(pl))*.55;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        vec3 ro=vec3(0.,.5,3.); vec3 rd=normalize(vec3(uv.x,uv.y-.28,-3.6));
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<90;i++){pos=ro+rd*dt;float d=map(pos);if(d<.003){hit=1.;break;}dt+=d;if(dt>9.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.55,.9,.6));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),2.4);
+          lum=pow(clamp(dif*.85+fres*.32,0.,1.),.6);
+          float ao=clamp(map(pos+n*.22)/.22,0.,1.);
+          lum*=.55+.45*ao;
+          vec3 hv=normalize(l-rd);
+          lum+=pow(max(dot(n,hv),0.),40.)*.9;
+          lum=clamp(lum,0.,1.);
+        } else {
+          float tp=(-1.25-ro.y)/rd.y;
+          if(tp>0.){
+            vec3 sp=ro+rd*tp;
+            float s=exp(-1.7*dot(sp.xz,sp.xz));
+            lum=1.-.4*s; hit=smoothstep(.03,.25,s);
+          }
+        }
+        gl_FragColor=vec4(dith(lum,hit),1.);
+      }`,
+    /* raymarched isometric room grid — 6x4 blocks rise/fall with occupancy, one pending pulses */
+    rooms: `
+      float bH(vec2 id){
+        float h=hash(id);
+        float occ=smoothstep(-.25,.65,sin(t*.5+h*6.2831));
+        return .06+.46*occ*(.55+.45*hash(id+7.1));
+      }
+      float map(vec3 p){
+        vec2 id=clamp(floor(p.xz/.6+.5),vec2(-2.,-1.),vec2(3.,2.));
+        float h=bH(id);
+        float d=sdBox(p-vec3(id.x*.6,h*.5,id.y*.6),vec3(.2,h*.5,.2))-.03;
+        float fl=sdBox(p-vec3(.3,-.09,.3),vec3(2.05,.05,1.45))-.02;
+        return min(d,fl)*.6;
+      }`+NORM+`
+      void main(){
+        vec2 uv=(gl_FragCoord.xy*2.-r)/min(r.x,r.y);
+        vec3 ta=vec3(.3,0.,.3);
+        float orb=.55+t*.05;
+        vec3 ro=ta+vec3(.8*cos(orb),3.6,.8*sin(orb));
+        vec3 f=normalize(ta-ro),rt=normalize(cross(f,vec3(0.,1.,0.))),up=cross(rt,f);
+        vec3 rd=normalize(uv.x*rt+uv.y*up+3.*f);
+        float dt=0.,hit=0.; vec3 pos=ro;
+        for(int i=0;i<80;i++){pos=ro+rd*dt;float d=map(pos);if(d<.004){hit=1.;break;}dt+=d;if(dt>12.)break;}
+        float lum=1.;
+        if(hit>.5){
+          vec3 n=calcN(pos);
+          vec3 l=normalize(vec3(.6,.9,.4));
+          float dif=clamp(dot(n,l)*.5+.5,0.,1.);
+          float fres=pow(1.-max(dot(n,-rd),0.),3.);
+          float ao=clamp(map(pos+n*.18)/.18,0.,1.);
+          if(pos.y>.03){
+            lum=pow(clamp(dif*.85+.12,0.,1.),.7);
+            vec2 id=clamp(floor(pos.xz/.6+.5),vec2(-2.,-1.),vec2(3.,2.));
+            float pend=step(.93,hash(id));
+            lum=mix(lum,.22+.18*sin(t*3.),pend);
+          } else {
+            lum=pow(clamp(dif,0.,1.),.35)*.99;
+          }
+          lum*=.5+.5*ao;
+          lum+=.14*fres;
+          lum=clamp(lum,0.,1.);
+        }
+        gl_FragColor=vec4(dith(lum,hit),1.);
+      }`
+  };
+
+  const scenes=[];
+  canvases.forEach(cv=>{
+    const fx=FX[cv.dataset.fx]; if(!fx) return;
+    /* same guard as the hero background: skip the canvas, keep the page */
+    let rd; try{ rd=new THREE.WebGLRenderer({canvas:cv,antialias:false}); }
+    catch(err){ cv.style.display='none'; return; }
+    rd.setPixelRatio(Math.min(window.devicePixelRatio,0.75));
+    const sc=new THREE.Scene();
+    const cam=new THREE.OrthographicCamera(-1,1,1,-1,0,1);
+    const mat=new THREE.ShaderMaterial({
+      uniforms:{t:{value:0},r:{value:new THREE.Vector2(1,1)}},
+      vertexShader:'void main(){gl_Position=vec4(position,1.0);}',
+      fragmentShader:HEAD+fx
+    });
+    sc.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2),mat));
+    const o={rd,sc,cam,mat,on:false};
+    const size=()=>{
+      rd.setSize(cv.clientWidth||600,cv.clientHeight||450,false);
+      const db=new THREE.Vector2();rd.getDrawingBufferSize(db);
+      mat.uniforms.r.value.copy(db);
+    };
+    size();window.addEventListener('resize',size);
+    new IntersectionObserver(en=>{o.on=en[0].isIntersecting;},{threshold:.05}).observe(cv);
+    scenes.push(o);
+  });
+
+  const still=matchMedia('(prefers-reduced-motion:reduce)').matches;
+  const t0=performance.now();
+  (function loop(){
+    scenes.forEach(o=>{
+      if(o.on||still){o.mat.uniforms.t.value=(performance.now()-t0)/1000;o.rd.render(o.sc,o.cam);}
+    });
+    if(!still)requestAnimationFrame(loop);
+  })();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Case-link button options</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  /* ============================================================
+     Bench for the "View" link under each case on index.html.
+     Tokens copied verbatim out of index.html's :root so nothing here
+     is a fresh value — whatever is picked ports back unchanged.
+     ============================================================ */
+  :root{
+    --ink:#161616; --ink-2:#4a4a4a; --ink-3:#6e6e6e; --mut:#767676;
+    --line:#ececec; --line-2:#e7e7e7; --paper:#ffffff;
+    --r-sm:8px; --r-md:14px; --r-lg:20px; --r-pill:99px;
+    --shadow-pop:0 18px 40px -22px rgba(22,22,22,.28);
+    --t-body:18px; --t-sub:24px; --t-sub-md:32px; --t-label:12px;
+    --w-head:450;
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  .page{max-width:1180px;margin:0 auto;padding:56px 44px 120px;}
+
+  h1{font-size:var(--t-sub-md);font-weight:var(--w-head);letter-spacing:-0.02em;}
+  .lede{color:var(--mut);font-size:var(--t-body);line-height:1.6;max-width:62ch;margin-top:12px;}
+
+  /* ---------- hover-shade ladder for option C ---------- */
+  .shades{border:1px solid var(--line-2);border-radius:var(--r-md);overflow:hidden;margin-bottom:46px;}
+  .shade-row{
+    display:grid;grid-template-columns:44px 200px 1fr;align-items:center;gap:22px;
+    padding:0 24px;min-height:78px;border-bottom:1px solid var(--line);
+  }
+  .shade-row:last-child{border-bottom:0;}
+  .shades .key{font-size:13px;color:var(--ink-3);}
+  .shades .sh-head{grid-template-columns:44px 200px 1fr;}
+  /* the swatch rows paint the candidate directly, no :hover needed */
+  .c.hv{background:var(--hv);}
+  .shade-row .sh-note code{font-size:13px;}
+
+  /* ---------- contact sheet ---------- */
+  .sheet{border:1px solid var(--line-2);border-radius:var(--r-md);overflow:hidden;}
+  .sh-head,.sh-row{
+    display:grid;grid-template-columns:34px 240px 240px 1fr;
+    align-items:center;gap:20px;padding:0 24px;
+  }
+  .sh-head{height:44px;border-bottom:1px solid var(--line-2);background:#fcfcfc;}
+  .sh-row{min-height:92px;border-bottom:1px solid var(--line);}
+  .sh-row:last-child{border-bottom:0;}
+  .sh-cell{display:flex;align-items:center;}
+  .sh-note{color:var(--mut);font-size:14px;}
+  .sheet .key{font-size:13px;color:var(--ink);}
+  .sh-head .state{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-3);
+  }
+  /* E's hover lives on the card, which the sheet strips away — this is the same
+     end state, applied directly, so the row is not misleadingly identical */
+  .e.is-hover-solo{color:var(--ink);}
+  .e.is-hover-solo .icon{transform:translateX(4px);}
+
+  .opt{border-top:1px solid var(--line);margin-top:56px;padding-top:28px;}
+  .opt-head{display:flex;align-items:baseline;gap:14px;margin-bottom:6px;}
+  .key{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-3);
+  }
+  .opt h2{font-size:var(--t-sub);font-weight:var(--w-head);letter-spacing:-0.015em;}
+  .note{color:var(--mut);font-size:15px;line-height:1.6;max-width:70ch;margin-bottom:26px;}
+
+  /* Two columns: resting on the left, the hover state forced on the right, so
+     both are visible in one still. `.is-hover` mirrors every :hover rule. */
+  .pair{display:grid;grid-template-columns:1fr 1fr;gap:20px;}
+  .cell{border:1px solid var(--line-2);border-radius:var(--r-md);padding:26px 28px;}
+  .cell > .state{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.08em;
+    text-transform:uppercase;color:var(--ink-3);display:block;margin-bottom:18px;
+  }
+  /* the real card context, so each option is judged against the copy it sits
+     under rather than floating on its own */
+  .card h3{
+    font-size:var(--t-sub);line-height:1.25;font-weight:var(--w-head);
+    letter-spacing:-0.015em;margin-bottom:10px;
+  }
+  .card p{
+    font-size:16px;line-height:1.6;color:var(--mut);margin-bottom:18px;max-width:34ch;
+  }
+  .icon{width:1em;height:1em;fill:currentColor;display:block;}
+
+  /* ===================== A — current (the control) ===================== */
+  .a{display:inline-flex;align-items:center;gap:14px;margin-top:6px;
+     text-decoration:none;color:var(--ink);}
+  .a .ring{
+    flex:none;width:44px;height:44px;border-radius:var(--r-pill);font-size:18px;
+    display:flex;align-items:center;justify-content:center;
+    border:1px solid var(--line-2);
+    transition:background .3s ease,border-color .3s ease,color .3s ease;
+  }
+  .a .icon{transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  .a .label{
+    font-size:var(--t-body);line-height:1.5;
+    border-bottom:1px solid var(--ink-3);padding-bottom:4px;
+    transition:color .3s ease,border-color .3s ease;
+  }
+  .a:hover .ring,.a.is-hover .ring{background:var(--ink-2);border-color:var(--ink-2);color:var(--paper);}
+  .a:hover .icon,.a.is-hover .icon{transform:translateX(3px);}
+  .a:hover .label,.a.is-hover .label{color:var(--ink-2);border-color:var(--ink-2);}
+
+  /* ===================== B — text + sweeping rule ===================== */
+  .b{
+    display:inline-flex;align-items:center;gap:10px;min-height:44px;
+    text-decoration:none;color:var(--ink);font-size:var(--t-body);
+    position:relative;
+  }
+  .b .icon{font-size:17px;transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  .b .label{position:relative;padding-bottom:4px;}
+  /* the rule is drawn, not inherited: it grows from the left on hover */
+  .b .label::after{
+    content:"";position:absolute;left:0;bottom:0;height:1px;width:100%;
+    background:var(--ink);transform:scaleX(0);transform-origin:left;
+    transition:transform .42s cubic-bezier(.22,1,.36,1);
+  }
+  .b .label::before{
+    content:"";position:absolute;left:0;bottom:0;height:1px;width:100%;
+    background:var(--line-2);
+  }
+  .b:hover .label::after,.b.is-hover .label::after{transform:scaleX(1);}
+  .b:hover .icon,.b.is-hover .icon{transform:translateX(4px);}
+
+  /* ===================== C — solid pill (the CTA idiom) ===================== */
+  .c{
+    display:inline-flex;align-items:center;gap:10px;min-height:44px;
+    font-size:var(--t-body);text-decoration:none;
+    color:var(--paper);background:var(--ink);
+    padding:12px 28px;border-radius:var(--r-pill);letter-spacing:.02em;
+    transition:background .25s ease;
+  }
+  .c .icon{font-size:17px;transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  .c:hover,.c.is-hover{background:var(--ink-2);}
+  .c:hover .icon,.c.is-hover .icon{transform:translateX(3px);}
+
+  /* ===================== D — outlined pill that fills ===================== */
+  .d{
+    display:inline-flex;align-items:center;gap:10px;min-height:44px;
+    font-size:var(--t-body);text-decoration:none;color:var(--ink);
+    background:transparent;border:1px solid var(--line-2);
+    padding:11px 27px;border-radius:var(--r-pill);letter-spacing:.02em;
+    transition:background .28s ease,border-color .28s ease,color .28s ease;
+  }
+  .d .icon{font-size:17px;transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  .d:hover,.d.is-hover{background:var(--ink);border-color:var(--ink);color:var(--paper);}
+  .d:hover .icon,.d.is-hover .icon{transform:translateX(3px);}
+
+  /* ===================== E — whole card is the target ===================== */
+  /* The link stops being a button and becomes a caption; the card carries the
+     affordance. Shown with the card outline so the hit area is legible. */
+  .e-card{
+    border:1px solid transparent;border-radius:var(--r-lg);
+    margin:-18px -20px;padding:18px 20px;cursor:pointer;
+    transition:border-color .3s ease,box-shadow .35s ease;
+  }
+  .e-card:hover,.e-card.is-hover{border-color:var(--line-2);box-shadow:var(--shadow-pop);}
+  .e{
+    display:inline-flex;align-items:center;gap:9px;min-height:44px;
+    text-decoration:none;color:var(--ink-3);
+    font-family:var(--mono);font-size:var(--t-label);
+    letter-spacing:.08em;text-transform:uppercase;
+    transition:color .3s ease;
+  }
+  .e .icon{font-size:14px;transition:transform .45s cubic-bezier(.22,1,.36,1);}
+  .e-card:hover .e,.e-card.is-hover .e{color:var(--ink);}
+  .e-card:hover .e .icon,.e-card.is-hover .e .icon{transform:translateX(4px);}
+
+  /* ===================== F — rule across the card ===================== */
+  /* Full-width rule with the label riding it; the rule darkens and the arrow
+     runs to the end on hover. Reads as "continue", not as a button. */
+  .f{
+    display:flex;align-items:center;gap:14px;min-height:44px;
+    text-decoration:none;color:var(--ink);font-size:var(--t-body);
+    border-top:1px solid var(--line-2);padding-top:14px;max-width:34ch;
+    transition:border-color .3s ease;
+  }
+  .f .label{flex:none;}
+  .f .rule{flex:1;height:1px;background:var(--line-2);transition:background .3s ease;}
+  .f .icon{flex:none;font-size:17px;transition:transform .5s cubic-bezier(.22,1,.36,1);}
+  .f:hover,.f.is-hover{border-color:var(--ink);}
+  .f:hover .rule,.f.is-hover .rule{background:var(--ink);}
+  .f:hover .icon,.f.is-hover .icon{transform:translateX(5px);}
+
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <!-- the arrow every option shares, defined once and defined first so the
+       contact sheet's <use> refs resolve without relying on forward lookup -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="arr" viewBox="0 0 256 256">
+      <path d="M221.66,133.66l-72,72a8,8,0,0,1-11.32-11.32L196.69,136H40a8,8,0,0,1,0-16H196.69L138.34,61.66a8,8,0,0,1,11.32-11.32l72,72A8,8,0,0,1,221.66,133.66Z"/>
+    </symbol>
+  </svg>
+
+  <h1>Case-link options</h1>
+  <p class="lede" style="margin-bottom:34px">Contact sheet first — all six at a
+  glance, rest beside hover. The full-size cards in context follow below.</p>
+
+  <!-- one-glance comparison: the button alone, stripped of card copy, so the
+       six shapes are judged against each other rather than against the prose -->
+  <!-- C is picked; the open question is how far the fill lightens on hover.
+       Each swatch is the same pill with only the hover background changed.
+       L* is CIE lightness, so the "grade" is a measured step, not a guess. -->
+  <div class="shades" id="shades">
+    <div class="sh-head"><span></span><span class="state">pill</span><span class="state">value &amp; step</span></div>
+    <div class="shade-row"><span class="key">rest</span>
+      <span class="sh-cell"><a class="c" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note"><code>--ink</code> #161616 &mdash; L* 7.2</span>
+    </div>
+    <div class="shade-row"><span class="key">1</span>
+      <span class="sh-cell"><a class="c hv" style="--hv:#212121" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note">#212121 &mdash; L* 12.7, <strong>+5.5</strong> &middot; barely there</span>
+    </div>
+    <div class="shade-row"><span class="key">2</span>
+      <span class="sh-cell"><a class="c hv" style="--hv:#262626" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note">#262626 &mdash; L* 15.2, <strong>+7.9</strong> &middot; one clear grade</span>
+    </div>
+    <div class="shade-row"><span class="key">3</span>
+      <span class="sh-cell"><a class="c hv" style="--hv:#2e2e2e" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note">#2e2e2e &mdash; L* 18.9, <strong>+11.7</strong> &middot; a touch more</span>
+    </div>
+    <div class="shade-row"><span class="key">4</span>
+      <span class="sh-cell"><a class="c hv" style="--hv:#4a4a4a" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note"><code>--ink-2</code> #4a4a4a &mdash; L* 31.5, <strong>+24.2</strong> &middot; the bench default</span>
+    </div>
+    <div class="shade-row"><span class="key">5</span>
+      <span class="sh-cell"><a class="c hv" style="--hv:#6e6e6e" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note"><code>--ink-3</code> #6e6e6e &mdash; L* 46.4, <strong>+39.2</strong> &middot; <strong>what the live CTA does today</strong></span>
+    </div>
+  </div>
+
+  <div class="sheet" id="sheet">
+    <div class="sh-head"><span></span><span class="state">rest</span><span class="state">hover</span></div>
+
+    <div class="sh-row"><span class="key">A</span>
+      <span class="sh-cell"><a class="a" href="#"><span class="ring"><svg class="icon"><use href="#arr"/></svg></span><span class="label">View</span></a></span>
+      <span class="sh-cell"><a class="a is-hover" href="#"><span class="ring"><svg class="icon"><use href="#arr"/></svg></span><span class="label">View</span></a></span>
+      <span class="sh-note">ring + label &mdash; current</span>
+    </div>
+
+    <div class="sh-row"><span class="key">B</span>
+      <span class="sh-cell"><a class="b" href="#"><span class="label">View case</span><svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-cell"><a class="b is-hover" href="#"><span class="label">View case</span><svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note">text, rule sweeps in</span>
+    </div>
+
+    <div class="sh-row"><span class="key">C</span>
+      <span class="sh-cell"><a class="c" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-cell"><a class="c is-hover" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note">solid pill</span>
+    </div>
+
+    <div class="sh-row"><span class="key">D</span>
+      <span class="sh-cell"><a class="d" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-cell"><a class="d is-hover" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note">outlined pill, fills</span>
+    </div>
+
+    <div class="sh-row"><span class="key">E</span>
+      <span class="sh-cell"><a class="e" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-cell"><a class="e is-hover-solo" href="#">View case<svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note">mono caption; the card is the target</span>
+    </div>
+
+    <div class="sh-row"><span class="key">F</span>
+      <span class="sh-cell"><a class="f" href="#"><span class="label">View case</span><span class="rule"></span><svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-cell"><a class="f is-hover" href="#"><span class="label">View case</span><span class="rule"></span><svg class="icon"><use href="#arr"/></svg></a></span>
+      <span class="sh-note">rule across the card</span>
+    </div>
+  </div>
+  <p class="lede">Each option in its real card context. Left column is at rest,
+  right column has the hover state forced on with <code>.is-hover</code>, which
+  mirrors every <code>:hover</code> rule — so one screenshot shows both. Tokens
+  are copied from <code>index.html</code>, so nothing here invents a value.</p>
+
+  <section class="opt">
+    <div class="opt-head"><span class="key">A</span><h2>Current — arrow in a ring</h2></div>
+    <p class="note">The control. Ring fills to <code>--ink-2</code>, arrow nudges 3px,
+    label and its underline darken. The 44px ring carries the touch target alone.</p>
+    <div class="pair">
+      <div class="cell"><span class="state">rest</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="a" href="#"><span class="ring"><svg class="icon"><use href="#arr"/></svg></span><span class="label">View</span></a>
+        </div>
+      </div>
+      <div class="cell"><span class="state">hover</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="a is-hover" href="#"><span class="ring"><svg class="icon"><use href="#arr"/></svg></span><span class="label">View</span></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="opt">
+    <div class="opt-head"><span class="key">B</span><h2>Text, with a rule that sweeps in</h2></div>
+    <p class="note">Ring dropped. The underline is a drawn line that grows from the
+    left on hover instead of a static border, so the motion is the affordance.
+    Quietest option; keeps the eye on the headline.</p>
+    <div class="pair">
+      <div class="cell"><span class="state">rest</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="b" href="#"><span class="label">View case</span><svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+      <div class="cell"><span class="state">hover</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="b is-hover" href="#"><span class="label">View case</span><svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="opt">
+    <div class="opt-head"><span class="key">C</span><h2>Solid pill — the existing CTA idiom</h2></div>
+    <p class="note">Reuses <code>.cta a</code> verbatim, so the site would have exactly
+    one button shape. Loudest: three filled pills stacked down the work section
+    start competing with the closing CTA, which is meant to be the only one.</p>
+    <div class="pair">
+      <div class="cell"><span class="state">rest</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="c" href="#">View case<svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+      <div class="cell"><span class="state">hover</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="c is-hover" href="#">View case<svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="opt">
+    <div class="opt-head"><span class="key">D</span><h2>Outlined pill that fills on hover</h2></div>
+    <p class="note">Same pill geometry as C but hollow at rest, so it stays
+    secondary to the closing CTA and still fills to ink under the cursor.</p>
+    <div class="pair">
+      <div class="cell"><span class="state">rest</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="d" href="#">View case<svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+      <div class="cell"><span class="state">hover</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="d is-hover" href="#">View case<svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="opt">
+    <div class="opt-head"><span class="key">E</span><h2>Whole card is the target</h2></div>
+    <p class="note">The link demotes to a mono caption and the card takes the
+    affordance — it lifts on hover. Biggest hit area by far, and it matches the
+    tile behaviour in the closing grid. Costs the explicit button.</p>
+    <div class="pair">
+      <div class="cell"><span class="state">rest</span>
+        <div class="card e-card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="e" href="#">View case<svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+      <div class="cell"><span class="state">hover</span>
+        <div class="card e-card is-hover">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="e" href="#">View case<svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="opt">
+    <div class="opt-head"><span class="key">F</span><h2>Rule across the card</h2></div>
+    <p class="note">The link spans the measure as a rule with the arrow parked at
+    the far end; on hover the rule goes to ink and the arrow runs. Reads as
+    "continue" rather than as a button, and it gives the card a baseline.</p>
+    <div class="pair">
+      <div class="cell"><span class="state">rest</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="f" href="#"><span class="label">View case</span><span class="rule"></span><svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+      <div class="cell"><span class="state">hover</span>
+        <div class="card">
+          <h3>ViewRyt — a redesign for 3&times; conversion</h3>
+          <p>A D2C supplement landing page was losing money on ads. I rebuilt it with identical copy.</p>
+          <a class="f is-hover" href="#"><span class="label">View case</span><span class="rule"></span><svg class="icon"><use href="#arr"/></svg></a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+</div>
+</body>
+</html>

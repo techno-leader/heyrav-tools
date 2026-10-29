@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Glitch - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+<style>
+  @font-face{font-family:"Redaction 35";font-style:italic;font-weight:400;font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2");}
+</style>
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script>
+/* Glitch - the hero's hint (D-GLITCH) taken apart: the RGB-fringe tear on a
+   word, the code rain behind it, the pixel hand that presses it. The canvas
+   tears into any number of slices; the CSS export keeps the hero's own
+   two-half construction (clip-path ::before / ::after + text-shadow fringe),
+   with whatever offsets, colours and timing were tuned here. */
+
+const SIZES = [['fill','fill'],[[1440,500],'1440 × 500 hero band'],[[1440,900],'1440 × 900 desktop'],[[1200,675],'1200 × 675 post'],[[1080,1080],'1080 × 1080 square']];
+const BG = [['#ffffff','paper'],['#161616','ink'],['#f5f5f5','wash']];
+const HUES = [['oklch(.62 .171 150)','glitch green'],['oklch(.62 .106 205)','glitch cyan'],['oklch(.62 .301 318)','glitch magenta'],['#bbfff0','mint'],['#161616','ink'],['#ffffff','paper']];
+// the glyph sets from codebg.html (D-CODE): same ingredients, differing only in case
+const SYM = '{}[]()<>/\\*;:=+-_#$%&|!?^~.,', NUM = '0123456789';
+const SETS = { lower: 'abcdefghijklmnopqrstuvwxyz' + NUM + SYM, mixed: 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' + NUM + SYM, upper: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + NUM + SYM, binary: '01', blocks: ' ░▒▓█' };
+// the pixel cursor, byte-identical to index.html's (12 x 16)
+const CUR = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 16" shape-rendering="crispEdges"><g fill="#fff"><rect x="4" y="1" width="1" height="14"/><rect x="6" y="3" width="1" height="12"/><rect x="8" y="4" width="1" height="11"/><rect x="10" y="5" width="1" height="10"/><rect x="1" y="6" width="2" height="2"/><rect x="3" y="7" width="1" height="5"/><rect x="5" y="7" width="1" height="8"/><rect x="7" y="7" width="1" height="8"/><rect x="9" y="7" width="1" height="8"/><rect x="2" y="8" width="1" height="2"/><rect x="0" y="9" width="1" height="7"/><rect x="1" y="11" width="1" height="5"/><rect x="2" y="13" width="1" height="3"/></g><g fill="#161616"><rect x="3" y="0" width="3" height="1"/><rect x="3" y="1" width="1" height="6"/><rect x="5" y="1" width="1" height="6"/><rect x="6" y="2" width="2" height="1"/><rect x="7" y="3" width="3" height="1"/><rect x="7" y="4" width="1" height="3"/><rect x="9" y="4" width="3" height="1"/><rect x="0" y="5" width="3" height="1"/><rect x="9" y="5" width="1" height="2"/><rect x="11" y="5" width="1" height="11"/><rect x="0" y="6" width="1" height="3"/><rect x="1" y="8" width="1" height="3"/><rect x="2" y="10" width="1" height="3"/><rect x="3" y="12" width="1" height="4"/><rect x="4" y="15" width="7" height="1"/></g></svg>';
+const curImg = new Image(); curImg.src = 'data:image/svg+xml,' + encodeURIComponent(CUR);
+
+const FONTS = { serif: '400 italic {s}px "Redaction 35", Georgia, serif', sans: '450 {s}px Onest, sans-serif', mono: '500 {s}px ui-monospace, "SF Mono", Menlo, monospace' };
+const font = (S, s) => FONTS[S.font].replace('{s}', s).replace('400 italic', 'italic 400');
+
+/* ---- word layers: one plain, one per hue, rebuilt on change ---- */
+let layers = null, layerKey = '', box = null;
+const Q = 2;
+// draw a horizontal band of a layer: source in layer pixels, destination in artboard units
+const band = (ctx, L, y0, hh, dx, dy, W) => ctx.drawImage(L, 0, y0*Q, W*Q, hh*Q, dx, y0 + dy, W, hh);
+function buildLayers(S, W, H) {
+  const key = [S.word, S.font, S.tsize, S.ink, S.h1, S.h2, S.h3, W, H].join('|');
+  if (key === layerKey) return; layerKey = key;
+  // layers are rasterised at 2x so the scaled-up canvas and the PNG export stay sharp
+  const make = colr => { const c = document.createElement('canvas'); c.width = W*Q; c.height = H*Q; const x = c.getContext('2d'); x.scale(Q, Q);
+    x.font = font(S, S.tsize); x.textAlign = 'center'; x.textBaseline = 'middle'; x.fillStyle = colr; x.fillText(S.word, W/2, H/2); return c; };
+  const m = document.createElement('canvas').getContext('2d'); m.font = font(S, S.tsize);
+  const tw = m.measureText(S.word).width;
+  box = { x: W/2 - tw/2, y: H/2 - S.tsize*.62, w: tw, h: S.tsize*1.24 };
+  layers = { ink: make(S.ink), a: make(S.h1), b: make(S.h2), c: make(S.h3) };
+}
+
+/* ---- rain ---- */
+let cols = [], rainKey = '';
+function buildRain(S, W, H) {
+  const key = [S.rainSize, S.rainSet, W, H].join('|'); if (key === rainKey) return; rainKey = key;
+  const cw = S.rainSize*.72, n = Math.ceil(W/cw), rows = Math.ceil(H/(S.rainSize*1.05)) + 1, set = SETS[S.rainSet];
+  cols = [];
+  for (let i = 0; i < n; i++) {
+    const g = []; for (let r = 0; r < rows; r++) g.push(pickGlyph(set, g[r-1]));
+    cols.push({ g, head: Math.random()*rows*2 - rows, v: .6 + Math.random()*.8 });
+  }
+}
+// never the glyph above, never that glyph's neighbour in the set - so no pair reads as a run
+function pickGlyph(set, prev) {
+  for (let k = 0; k < 12; k++) { const c = set[Math.floor(Math.random()*set.length)]; if (!prev) return c;
+    const i = set.indexOf(prev); if (c !== prev && c !== set[i-1] && c !== set[i+1]) return c; }
+  return set[0];
+}
+
+/* ---- burst clock ---- */
+let clickT = -99, hoverOn = false, lastBeat = -1;
+function burstState(S, t) {
+  // returns { on, beat, k } - k is progress through the burst
+  let start = -1;
+  if (S.trigger === 'always') start = Math.floor(t/(S.dur/1000))*(S.dur/1000);
+  else if (S.trigger === 'loop') { const per = S.every; const ph = (t + per - S.lead) % per; if (t >= S.lead && ph < S.dur/1000) start = t - ph; }
+  else if (S.trigger === 'click') { if (t - clickT < S.dur/1000) start = clickT; }
+  else if (S.trigger === 'hover') { if (hoverOn && T.ptr.in) start = Math.floor(t/(S.dur/1000))*(S.dur/1000); }
+  if (start < 0) return { on: false };
+  const k = (t - start)/(S.dur/1000);
+  return { on: true, beat: Math.floor(k*S.beats) + Math.round(start*97), k };
+}
+
+function frame(ctx, W, H, t, S, ptr, exporting) {
+  ctx.fillStyle = S.bg; ctx.fillRect(0, 0, W, H);
+  buildLayers(S, W, H);
+  const st = exporting && S.trigger !== 'always' ? { on: true, beat: 3, k: .3 } : burstState(S, t);
+  const dark = S.bg === '#161616';
+  // rain: plays with the burst, or always
+  if (S.rain !== 'off' && (S.rain === 'always' || st.on)) {
+    buildRain(S, W, H);
+    const lh = S.rainSize*1.05, cw = S.rainSize*.72, rows = cols[0]?.g.length || 0, trail = rows*S.trail/100;
+    ctx.font = `500 ${S.rainSize}px ui-monospace, "SF Mono", Menlo, monospace`; ctx.textBaseline = 'top'; ctx.fillStyle = S.rainInk;
+    const fadeIn = S.rain === 'always' ? 1 : Math.min(1, st.k*6, (1 - st.k)*4);
+    if (st.on && st.beat !== lastBeat) { lastBeat = st.beat; const set = SETS[S.rainSet];
+      for (const c of cols) for (let r = 0; r < c.g.length; r++) if (Math.random() < S.churn/100) c.g[r] = pickGlyph(set, c.g[r-1]); }
+    for (let i = 0; i < cols.length; i++) {
+      const c = cols[i], head = (c.head + t*S.rainSpeed*c.v*12) % (rows + trail) ;
+      for (let r = Math.max(0, Math.floor(head - trail)); r <= Math.min(rows - 1, head); r++) {
+        const o = (1 - (head - r)/trail)*S.rainOp/100*fadeIn; if (o < .02) continue;
+        ctx.globalAlpha = r === Math.floor(head) ? Math.min(1, o*1.8) : o;
+        ctx.fillText(c.g[r], i*cw, r*lh);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+  // word
+  if (!st.on) { ctx.drawImage(layers.ink, 0, 0, W, H); }
+  else {
+    const r = Kit.rng(st.beat*7919 + S.seed), n = S.slices, sh = box.h/n, em = S.tsize;
+    const hues = [layers.a, layers.b, layers.c];
+    ctx.globalCompositeOperation = dark ? 'lighter' : 'multiply';
+    for (let i = 0; i < n; i++) {
+      const y0 = box.y + i*sh - (i === 0 ? em*.3 : 0), hh = sh + (i === 0 ? em*.3 : 0) + (i === n - 1 ? em*.3 : 0);
+      const torn = r() < S.tearP/100, dx = torn ? (r()*2 - 1)*S.shift*em : 0, dy = torn ? (r()*2 - 1)*S.vjit*em : 0, f = S.fringe*em*(torn ? 1 : .35);
+      // fringe copies behind, offset either side
+      if (f > .2) {
+        const A = hues[Math.floor(r()*3)], B = hues[Math.floor(r()*3)];
+        ctx.globalAlpha = .9;
+        band(ctx, A, y0, hh, dx + f, dy, W);
+        band(ctx, B, y0, hh, dx - f*.6, dy, W);
+      }
+      ctx.globalAlpha = 1;
+      if (torn && r() < S.hueP/100) { band(ctx, hues[Math.floor(r()*3)], y0, hh, dx, dy, W); }
+      else { ctx.globalCompositeOperation = 'source-over'; band(ctx, layers.ink, y0, hh, dx, dy, W); ctx.globalCompositeOperation = dark ? 'lighter' : 'multiply'; }
+    }
+    ctx.globalCompositeOperation = 'source-over';
+  }
+  // pixel hand: arrives, presses on the first beat, leaves
+  if (S.hand && curImg.complete) {
+    const px = S.handScale, cw = 12*px, ch = 16*px;
+    const tx = box.x + box.w*.72, ty = box.y + box.h*.62;
+    let a = st.on ? Math.min(1, st.k*5, (1 - st.k)*5) : (S.trigger === 'hover' && ptr.in ? 1 : 0);
+    if (exporting) a = 1;
+    if (a > 0) {
+      const press = st.on && st.k > .18 && st.k < .3 ? .88 : 1;
+      ctx.imageSmoothingEnabled = false; ctx.globalAlpha = a;
+      ctx.drawImage(curImg, tx + (1 - a)*40, ty + (1 - a)*30, cw*press, ch*press);
+      ctx.globalAlpha = 1; ctx.imageSmoothingEnabled = true;
+    }
+  }
+}
+
+/* ---- css export: the hero's construction, with these values ---- */
+function cssOut(S) {
+  const f = +S.fringe.toFixed(3), s = +S.shift.toFixed(3), half = 46;
+  const iters = Math.max(1, Math.round(S.beats/4));
+  return `/* heyrav glitch - generated. Markup: <span class="glitch" data-word="${S.word}">${S.word}</span> - add .playing to fire it, remove it after ${S.dur}ms */
+.glitch{position:relative;display:inline-block;
+  --g-a:${S.h1};--g-b:${S.h3};--g-c:${S.h2};
+  --fr-t:${f}em 0 var(--g-b), -${+(f*.6).toFixed(3)}em 0 var(--g-a);
+  --fr-b:-${f}em 0 var(--g-a), ${+(f*.55).toFixed(3)}em 0 var(--g-c);}
+.glitch::before,.glitch::after{content:attr(data-word);position:absolute;inset:0;pointer-events:none;opacity:0;}
+.glitch::before{clip-path:inset(-.3em 0 ${half}% 0);}
+.glitch::after{clip-path:inset(${100 - half}% 0 -.4em 0);}
+.glitch.playing{color:transparent;}
+.glitch.playing::before{opacity:1;animation:tear-t ${Math.round(S.dur/iters)}ms steps(1,end) ${iters};}
+.glitch.playing::after{opacity:1;animation:tear-b ${Math.round(S.dur/iters)}ms steps(1,end) ${iters};}
+@keyframes tear-t{
+  0%,100%{transform:none;color:${S.ink};text-shadow:none;}
+  20%{transform:translate(-${s}em,-.012em);color:var(--g-a);text-shadow:var(--fr-t);}
+  45%{transform:translate(${+(s*.5).toFixed(3)}em,0);text-shadow:var(--fr-t);}
+  70%{transform:translate(-${+(s*.3).toFixed(3)}em,.012em);color:var(--g-a);text-shadow:var(--fr-t);}}
+@keyframes tear-b{
+  0%,100%{transform:none;color:${S.ink};text-shadow:none;}
+  20%{transform:translate(${+(s*.8).toFixed(3)}em,.012em);color:var(--g-b);text-shadow:var(--fr-b);}
+  45%{transform:translate(-${+(s*.43).toFixed(3)}em,0);text-shadow:var(--fr-b);}
+  70%{transform:translate(${+(s*.25).toFixed(3)}em,-.01em);color:var(--g-b);text-shadow:var(--fr-b);}}
+@media (prefers-reduced-motion:reduce){.glitch.playing{color:inherit}.glitch.playing::before,.glitch.playing::after{animation:none;opacity:0}}`;
+}
+
+const T = Kit.tool({
+  title: 'Glitch', slug: 'heyrav-glitch',
+  lede: 'The hero\'s hint, taken apart: the fringe tear, the code rain and the pixel hand. Tune it, record it, or copy the tear as CSS.',
+  size: S => S.size,
+  presets: {
+    Hero: {},
+    Loud: { slices:14, shift:.2, fringe:.09, tearP:80, hueP:45, vjit:.03, beats:10, dur:900, every:2.4 },
+    Night: { bg:'#161616', ink:'#ffffff', rainInk:'#bbfff0', rainOp:40, rain:'always', rainSet:'upper' },
+    Terminal: { font:'mono', word:'heyrav', tsize:150, rainSet:'binary', rain:'always', rainOp:22, slices:6, shift:.12 },
+    Quiet: { slices:2, shift:.08, fringe:.03, hueP:0, rain:'off', hand:false, beats:3 },
+  },
+  groups: [
+    { name: 'canvas', controls: [
+      { k:'size', type:'select', label:'size', value:[1440,500], options:SIZES, rand:false },
+      { k:'bg', type:'color', label:'background', value:'#ffffff', options:BG, rand:false },
+    ]},
+    { name: 'word', controls: [
+      { k:'word', type:'text', label:'word', value:'convert.', rand:false },
+      { k:'font', type:'seg', label:'face', value:'serif', options:[['serif','Redaction'],['sans','Onest'],['mono','mono']], help:'The hero sets it in Redaction 35 italic.' },
+      { k:'tsize', type:'range', label:'type size', min:40, max:320, value:180, unit:'px', rand:false },
+      { k:'ink', type:'color', label:'ink', value:'#4a4a4a', options:[['#4a4a4a','ink 2'],['#161616','ink'],['#ffffff','paper']], rand:false },
+    ]},
+    { name: 'tear', controls: [
+      { k:'slices', type:'range', label:'slices', min:2, max:24, value:2, rand:[2,16], help:'The hero tears in two halves; the canvas can go further.' },
+      { k:'shift', type:'range', label:'shift', min:0, max:.5, step:.005, value:.14, fmt:v=>v.toFixed(3)+'em', rand:[.04,.3] },
+      { k:'vjit', type:'range', label:'vertical jitter', min:0, max:.08, step:.002, value:.012, fmt:v=>v.toFixed(3)+'em', adv:true, rand:[0,.04] },
+      { k:'fringe', type:'range', label:'fringe', min:0, max:.15, step:.001, value:.055, fmt:v=>v.toFixed(3)+'em', rand:[.02,.1], help:'How far the colour copies sit either side of the slice.' },
+      { k:'tearP', type:'range', label:'torn slices', min:0, max:100, value:100, unit:'%', rand:[40,100] },
+      { k:'hueP', type:'range', label:'slices that take a hue', min:0, max:100, value:100, unit:'%', rand:[0,80] },
+      { k:'seed', type:'range', label:'seed', min:1, max:99, value:13, adv:true },
+      { k:'h1', type:'color', label:'hue a', value:'oklch(.62 .171 150)', options:HUES, rand:false },
+      { k:'h2', type:'color', label:'hue b', value:'oklch(.62 .106 205)', options:HUES, rand:false },
+      { k:'h3', type:'color', label:'hue c', value:'oklch(.62 .301 318)', options:HUES, rand:false },
+    ]},
+    { name: 'timing', controls: [
+      { k:'trigger', type:'seg', label:'plays', value:'loop', options:['loop','click','hover','always'], rand:false, help:'Loop is the hero: once at the lead, then every interval.' },
+      { k:'lead', type:'range', label:'lead', min:0, max:4, step:.1, value:1.2, unit:' s', when:S=>S.trigger==='loop', rand:false },
+      { k:'every', type:'range', label:'every', min:1, max:10, step:.1, value:5, unit:' s', when:S=>S.trigger==='loop', rand:[2,6] },
+      { k:'dur', type:'range', label:'burst', min:120, max:3000, step:20, value:1360, unit:'ms', rand:[400,1600] },
+      { k:'beats', type:'range', label:'beats', min:1, max:24, value:8, rand:[3,14], help:'How many times the tear jumps to a new state within one burst.' },
+    ]},
+    { name: 'rain', controls: [
+      { k:'rain', type:'seg', label:'code rain', value:'burst', options:[['off','off'],['burst','with the tear'],['always','always']] },
+      { k:'rainSet', type:'seg', label:'glyphs', value:'upper', options:['lower','mixed','upper','binary','blocks'], when:S=>S.rain!=='off' },
+      { k:'rainSize', type:'range', label:'glyph size', min:8, max:28, value:13, unit:'px', when:S=>S.rain!=='off', rand:[10,18] },
+      { k:'rainOp', type:'range', label:'opacity', min:4, max:80, value:30, unit:'%', when:S=>S.rain!=='off', rand:[12,45] },
+      { k:'rainSpeed', type:'range', label:'speed', min:.2, max:4, step:.05, value:1.4, when:S=>S.rain!=='off', rand:[.6,2.4] },
+      { k:'trail', type:'range', label:'trail', min:10, max:120, value:75, unit:'%', when:S=>S.rain!=='off', rand:[30,100] },
+      { k:'churn', type:'range', label:'churn', min:0, max:60, value:20, unit:'%', when:S=>S.rain!=='off', help:'Share of glyphs re-rolled on each beat, so a column scrambles instead of sliding.' },
+      { k:'rainInk', type:'color', label:'rain ink', value:'#6e6e6e', options:[['#6e6e6e','ink 3'],['#161616','ink'],['#bbfff0','mint'],['oklch(.62 .171 150)','glitch green']], when:S=>S.rain!=='off' },
+    ]},
+    { name: 'hand', controls: [
+      { k:'hand', type:'toggle', label:'pixel hand', value:true, help:'The hero\'s 12 × 16 cursor, arriving and pressing on the burst.' },
+      { k:'handScale', type:'range', label:'pixel size', min:2, max:10, value:4, unit:'px', when:S=>S.hand, rand:false },
+    ]},
+    { name: 'export', controls: [
+      { type:'buttons', buttons:[
+        { label:'Copy CSS', run: api => api.copy(cssOut(api.S), 'css copied - the hero\'s two-half tear') },
+        { label:'PNG @2x', run: api => api.png(2) },
+      ]},
+      { type:'button', label:'Record 6s WebM', run: api => api.record(6) },
+      { type:'button', label:'Copy link to this state', run: api => api.link() },
+      { type:'note', text:'The CSS keeps the hero\'s two halves whatever the slice count, so it drops straight into index.html\'s pattern.' },
+    ]},
+  ],
+  draw: frame,
+  onPointer: (p, kind, S) => {
+    const inside = box && p.x > box.x - 20 && p.x < box.x + box.w + 20 && p.y > box.y && p.y < box.y + box.h;
+    hoverOn = inside;
+    if (kind === 'down' && S.trigger === 'click') clickT = T.clock.t;
+  },
+});
+T.on(() => { layerKey = ''; if (!T.clock.on) T.draw(); });
+document.fonts.load('italic 400 100px "Redaction 35"').then(() => { layerKey = ''; T.draw(); }).catch(() => {});
+</script>
+</body>
+</html>

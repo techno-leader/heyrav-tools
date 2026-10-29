@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Grid Pens - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script src="brand.js"></script>
+<script>
+/* Grid Pens - the closing grid's tiles as a stage, and pens that draw the
+   mark's own primitives inside them: the D's bowl, the swash, a quarter arc,
+   a circle. Each pen draws one shape in a single stroke, holds, leaves by the
+   chosen exit, then moves to the next tile. Tiles live in state as "col,row"
+   strings, so undo, random and the link all cover hand-placed tiles too. */
+
+const SIZES = [['fill','fill'],[[1440,500],'1440 × 500 hero band'],[[1440,900],'1440 × 900 desktop'],[[1200,675],'1200 × 675 post'],[[1080,1080],'1080 × 1080 square']];
+const INK = [['#161616','ink'],['#6e6e6e','ink 3'],['#c9c9c9','line'],['oklch(.62 .171 150)','glitch green'],['oklch(.62 .106 205)','glitch cyan'],['oklch(.62 .301 318)','glitch magenta']];
+const BG = [['#ffffff','paper'],['#161616','ink'],['#f5f5f5','wash'],['transparent','none (see the backdrop)']];
+
+/* ---- shapes in unit space (0..1), as dense polylines ---- */
+function sample(pathFn, n = 160) { const pts = []; for (let i = 0; i <= n; i++) pts.push(pathFn(i/n)); return pts; }
+const arcPts = (cx, cy, r, a0, a1) => t => [cx + Math.cos(a0 + (a1 - a0)*t)*r, cy + Math.sin(a0 + (a1 - a0)*t)*r];
+function polyline(segs, n = 160) {
+  // segs: array of [fn, weight]; concatenated by weight
+  const tot = segs.reduce((a, s) => a + s[1], 0), pts = [];
+  segs.forEach(([f, w]) => { const m = Math.max(4, Math.round(n*w/tot)); for (let i = pts.length ? 1 : 0; i <= m; i++) pts.push(f(i/m)); });
+  return pts;
+}
+function samplePath(d, x, y, w, h, n) {
+  const el = document.createElementNS('http://www.w3.org/2000/svg', 'path'); el.setAttribute('d', d);
+  const L = el.getTotalLength(), k = 1/Math.max(w, h), ox = (1 - w*k)/2, oy = (1 - h*k)/2, pts = [];
+  for (let i = 0; i <= n; i++) { const q = el.getPointAtLength(L*i/n); pts.push([ox + (q.x - x)*k, oy + (q.y - y)*k]); }
+  return pts;
+}
+const lerp2 = (a, b) => t => [a[0] + (b[0] - a[0])*t, a[1] + (b[1] - a[1])*t];
+const SHAPES = {
+  // the D, at the master's proportions: a 119.1 run and a semicircle of R = H/2 (102.3)
+  D: () => { const w = BRAND.Dbox.w, h = BRAND.Dbox.h, run = w - h/2, s = 1/w, y0 = (1 - h/w)/2;
+    const p = (x, y) => [x*s, y0 + y*s];
+    return polyline([[lerp2(p(0,0), p(run,0)), run], [t => { const a = -Math.PI/2 + Math.PI*t; return p(run + Math.cos(a)*h/2, h/2 + Math.sin(a)*h/2); }, Math.PI*h/2], [lerp2(p(run,h), p(0,h)), run], [lerp2(p(0,h), p(0,0)), h]]); },
+  // the swash, traced off the supplied path itself rather than re-drawn
+  swash: () => samplePath(BRAND.swash, 0, 0, 90.15, 58, 220),
+  arc: () => sample(arcPts(0, 1, 1, -Math.PI/2, 0)),
+  circle: () => sample(arcPts(.5, .5, .5, -Math.PI/2, Math.PI*1.5)),
+  bowl: () => polyline([[lerp2([0,0],[.5,0]), .5], [arcPts(.5, .5, .5, -Math.PI/2, Math.PI/2), 1.57], [lerp2([.5,1],[0,1]), .5]]),
+  corner: () => polyline([[lerp2([0,0],[0,1]), 1], [lerp2([0,1],[1,1]), 1]]),
+};
+const SHAPE_KEYS = Object.keys(SHAPES);
+const UNIT = Object.fromEntries(SHAPE_KEYS.map(k => [k, SHAPES[k]()]));
+
+/* ---- grid ---- */
+function grid(S, W, H) {
+  const sz = S.cell, cols = Math.floor(W/sz), rows = Math.floor(H/sz);
+  return { sz, cols, rows, ox: (W - cols*sz)/2, oy: (H - rows*sz)/2 };
+}
+function layTiles(S, G) {
+  const set = new Set(), n = Math.min(S.count, G.cols*G.rows);
+  const seeds = Math.max(1, Math.round(n/5));
+  const key = (c, r) => c + ',' + r;
+  for (let i = 0; i < seeds && set.size < n; i++) set.add(key(Math.floor(Math.random()*G.cols), Math.floor(Math.random()*G.rows)));
+  let guard = 0;
+  while (set.size < n && guard++ < 5000) {
+    const [c, r] = [...set][Math.floor(Math.random()*set.size)].split(',').map(Number);
+    const d = [[1,0],[-1,0],[0,1],[0,-1]][Math.floor(Math.random()*4)];
+    const nc = c + d[0], nr = r + d[1];
+    if (nc >= 0 && nr >= 0 && nc < G.cols && nr < G.rows) set.add(key(nc, nr));
+  }
+  return [...set];
+}
+
+/* ---- pens ---- */
+let pens = [], traces = [], lastT = 0, G = null;
+function shapeFor(S) { return S.shape === 'mix' ? SHAPE_KEYS[Math.floor(Math.random()*SHAPE_KEYS.length)] : S.shape; }
+function place(S, tile, kind) {
+  const [c, r] = tile.split(',').map(Number), sz = G.sz, m = sz*S.inset/100;
+  const x0 = G.ox + c*sz + m, y0 = G.oy + r*sz + m, w = sz - 2*m;
+  // rotate / mirror in quarter turns so one shape covers every orientation
+  const rot = S.rotate ? Math.floor(Math.random()*4) : 0, mir = S.rotate && Math.random() < .5;
+  const pts = UNIT[kind].map(([x, y]) => {
+    if (mir) x = 1 - x;
+    for (let i = 0; i < rot; i++) [x, y] = [1 - y, x];
+    return [x0 + x*w, y0 + y*w];
+  });
+  const L = [0]; for (let i = 1; i < pts.length; i++) L.push(L[i-1] + Math.hypot(pts[i][0] - pts[i-1][0], pts[i][1] - pts[i-1][1]));
+  return { tile, pts, L, len: L[L.length - 1] };
+}
+function nextTile(S, from) {
+  const tiles = S.tiles; if (!tiles.length) return null;
+  const busy = new Set(pens.map(p => p.shape && p.shape.tile));
+  let pool = tiles.filter(t => !busy.has(t));
+  if (S.next === 'nearby' && from) {
+    const [c, r] = from.split(',').map(Number);
+    const near = pool.filter(t => { const [a, b] = t.split(',').map(Number); return Math.abs(a - c) + Math.abs(b - r) === 1; });
+    if (near.length) pool = near;
+  }
+  if (!pool.length) pool = tiles;
+  return pool[Math.floor(Math.random()*pool.length)];
+}
+function resetPens(S) {
+  pens = []; traces = [];
+  for (let i = 0; i < S.pens; i++) pens.push({ phase: 'pause', t: -i*0.35, shape: null, col: i % S.colours });
+}
+function stepPens(S, dt) {
+  for (const p of pens) {
+    p.t += dt;
+    if (p.phase === 'pause' && p.t >= S.pause/1000) {
+      const tile = nextTile(S, p.shape && p.shape.tile); if (!tile) continue;
+      p.shape = place(S, tile, shapeFor(S)); p.phase = 'draw'; p.t = 0;
+    } else if (p.phase === 'draw' && p.t*S.speed >= p.shape.len) { p.phase = 'hold'; p.t = 0; }
+    else if (p.phase === 'hold' && p.t >= S.hold/1000) {
+      p.phase = 'exit'; p.t = 0;
+      if (S.grow) { traces.push({ pts: p.shape.pts, col: p.col }); if (traces.length > 400) traces.shift(); }
+    }
+    else if (p.phase === 'exit' && p.t >= S.exitDur/1000) {
+      p.phase = 'pause'; p.t = 0;
+      if (!S.loop && pens.every(q => q.phase === 'pause')) T.clock.stop();
+    }
+  }
+}
+// slice of a polyline between arc lengths a..b
+function slice(sh, a, b) {
+  const out = [], { pts, L } = sh;
+  for (let i = 0; i < pts.length; i++) {
+    if (L[i] < a) { if (L[i+1] > a) { const k = (a - L[i])/(L[i+1] - L[i]); out.push([pts[i][0] + (pts[i+1][0] - pts[i][0])*k, pts[i][1] + (pts[i+1][1] - pts[i][1])*k]); } continue; }
+    if (L[i] > b) { const k = (b - L[i-1])/(L[i] - L[i-1]); out.push([pts[i-1][0] + (pts[i][0] - pts[i-1][0])*k, pts[i-1][1] + (pts[i][1] - pts[i-1][1])*k]); break; }
+    out.push(pts[i]);
+  }
+  return out;
+}
+function strokeStyle(ctx, S, w) {
+  ctx.lineWidth = w; ctx.lineCap = S.style === 'dots' ? 'round' : 'butt'; ctx.lineJoin = 'round';
+  ctx.setLineDash(S.style === 'dashed' ? [w*3, w*2.5] : S.style === 'dots' ? [0.01, w*2.6] : []);
+}
+function drawPoly(ctx, P) { if (P.length < 2) return; ctx.beginPath(); ctx.moveTo(P[0][0], P[0][1]); for (let i = 1; i < P.length; i++) ctx.lineTo(P[i][0], P[i][1]); ctx.stroke(); }
+// taper / fade: the older end of a live stroke thins and fades
+function drawLive(ctx, S, P, colr, alpha) {
+  if (!S.taper && !S.fade) { ctx.globalAlpha = alpha; ctx.strokeStyle = colr; drawPoly(ctx, P); ctx.globalAlpha = 1; return; }
+  const n = 12;
+  for (let k = 0; k < n; k++) {
+    const a = Math.floor(k*(P.length - 1)/n), b = Math.floor((k + 1)*(P.length - 1)/n) + 1, f = (k + 1)/n;
+    ctx.globalAlpha = alpha*(1 - S.fade/100*(1 - f));
+    strokeStyle(ctx, S, S.stroke*(1 - S.taper/100*(1 - f)));
+    ctx.strokeStyle = colr; drawPoly(ctx, P.slice(a, b));
+  }
+  ctx.globalAlpha = 1;
+}
+
+function frame(ctx, W, H, t, S, ptr, exporting) {
+  if (S.bg !== 'transparent') { ctx.fillStyle = S.bg; ctx.fillRect(0, 0, W, H); }
+  G = grid(S, W, H);
+  const dt = Math.max(0, Math.min(.1, t - lastT)); lastT = t;
+  if (!exporting) stepPens(S, dt);
+  const dark = S.bg === '#161616';
+  // grid lines
+  if (S.lines !== 'none') {
+    ctx.strokeStyle = dark ? 'rgba(255,255,255,.08)' : '#ececec'; ctx.lineWidth = 1; ctx.setLineDash(S.lines === 'dashed' ? [4, 4] : []);
+    ctx.beginPath();
+    for (let c = 0; c <= G.cols; c++) { const x = Math.round(G.ox + c*G.sz) + .5; ctx.moveTo(x, G.oy); ctx.lineTo(x, G.oy + G.rows*G.sz); }
+    for (let r = 0; r <= G.rows; r++) { const y = Math.round(G.oy + r*G.sz) + .5; ctx.moveTo(G.ox, y); ctx.lineTo(G.ox + G.cols*G.sz, y); }
+    ctx.stroke();
+  }
+  // tiles
+  ctx.setLineDash(S.tileEdge === 'dashed' ? [3, 3] : []); ctx.lineWidth = 1;
+  ctx.strokeStyle = dark ? 'rgba(255,255,255,.35)' : '#9a9a9a';
+  for (const tl of S.tiles) {
+    const [c, r] = tl.split(',').map(Number); if (c >= G.cols || r >= G.rows) continue;
+    const x = Math.round(G.ox + c*G.sz) + .5, y = Math.round(G.oy + r*G.sz) + .5;
+    if (S.tileFill) { ctx.fillStyle = dark ? 'rgba(255,255,255,.04)' : '#f5f5f5'; ctx.fillRect(x, y, G.sz, G.sz); }
+    if (S.tileEdge !== 'none') ctx.strokeRect(x, y, G.sz, G.sz);
+  }
+  // hover slot
+  if (ptr && ptr.in && !exporting) {
+    const c = Math.floor((ptr.x - G.ox)/G.sz), r = Math.floor((ptr.y - G.oy)/G.sz);
+    if (c >= 0 && r >= 0 && c < G.cols && r < G.rows) { ctx.setLineDash([]); ctx.strokeStyle = dark ? '#fff' : '#161616'; ctx.globalAlpha = .5; ctx.strokeRect(G.ox + c*G.sz + .5, G.oy + r*G.sz + .5, G.sz, G.sz); ctx.globalAlpha = 1; }
+  }
+  const cols = [S.c1, S.c2, S.c3];
+  // grown traces
+  for (const tr of traces) { strokeStyle(ctx, S, S.stroke); ctx.strokeStyle = cols[tr.col % S.colours]; ctx.globalAlpha = .18; drawPoly(ctx, tr.pts); }
+  ctx.globalAlpha = 1;
+  // pens
+  for (const p of pens) {
+    if (!p.shape || p.phase === 'pause') continue;
+    const sh = p.shape, colr = cols[p.col % S.colours];
+    let a = 0, b = sh.len, alpha = 1, blur = 0, tip = null;
+    if (p.phase === 'draw') { b = Math.min(sh.len, p.t*S.speed); tip = b; }
+    else if (p.phase === 'exit') {
+      const k = Kit.ease.inOut(Math.min(1, p.t/(S.exitDur/1000)));
+      if (S.exit === 'blur fade') { alpha = 1 - k; blur = k*6; }
+      else if (S.exit === 'reverse') { b = sh.len*(1 - k); tip = b; }
+      else if (S.exit === 'wipe') { a = sh.len*k; tip = sh.len; }
+      else alpha = k < 1 ? 1 : 0;
+    } else tip = sh.len;
+    if (blur) ctx.filter = `blur(${blur}px)`;
+    strokeStyle(ctx, S, S.stroke);
+    drawLive(ctx, S, slice(sh, a, b), colr, alpha);
+    ctx.filter = 'none';
+    if (S.dots && tip != null && alpha > 0) {
+      const q = slice(sh, Math.max(0, tip - .01), tip).pop() || sh.pts[0];
+      ctx.setLineDash([]); ctx.fillStyle = colr; ctx.globalAlpha = alpha;
+      ctx.beginPath(); ctx.arc(q[0], q[1], Math.max(2.5, S.stroke*1.6), 0, Math.PI*2); ctx.fill(); ctx.globalAlpha = 1;
+    }
+  }
+  ctx.setLineDash([]);
+}
+
+/* ---- exports ---- */
+function d(P) { return 'M' + P.map(p => p[0].toFixed(1) + ' ' + p[1].toFixed(1)).join('L'); }
+function svgOut(W, H, t, S, animated) {
+  const g = grid(S, W, H), cols = [S.c1, S.c2, S.c3], out = [];
+  out.push(`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${W} ${H}" width="${W}" height="${H}" fill="none">`);
+  if (S.bg !== 'transparent') out.push(`<rect width="${W}" height="${H}" fill="${S.bg}"/>`);
+  const tiles = S.tiles.filter(tl => { const [c, r] = tl.split(',').map(Number); return c < g.cols && r < g.rows; });
+  const dash = S.style === 'dashed' ? ` stroke-dasharray="${S.stroke*3} ${S.stroke*2.5}"` : S.style === 'dots' ? ` stroke-dasharray="0.01 ${S.stroke*2.6}" stroke-linecap="round"` : '';
+  if (animated) out.push(`<style>.p{stroke-dasharray:var(--l);stroke-dashoffset:var(--l);animation:draw var(--d) cubic-bezier(.65,0,.35,1) var(--w) infinite}@keyframes draw{0%{stroke-dashoffset:var(--l)}45%,75%{stroke-dashoffset:0;opacity:1}100%{stroke-dashoffset:0;opacity:0}}@media (prefers-reduced-motion:reduce){.p{animation:none;stroke-dashoffset:0}}</style>`);
+  tiles.forEach((tl, i) => {
+    const [c, r] = tl.split(',').map(Number), x = g.ox + c*g.sz, y = g.oy + r*g.sz;
+    if (S.tileEdge !== 'none') out.push(`<rect x="${x + .5}" y="${y + .5}" width="${g.sz}" height="${g.sz}" stroke="#9a9a9a"${S.tileEdge === 'dashed' ? ' stroke-dasharray="3 3"' : ''}/>`);
+    G = g; const sh = place(S, tl, shapeFor(S));
+    const dur = (sh.len/S.speed + S.hold/1000 + S.exitDur/1000)*1.6;
+    out.push(animated
+      ? `<path class="p" style="--l:${sh.len.toFixed(0)};--d:${dur.toFixed(2)}s;--w:${(i*0.37 % 4).toFixed(2)}s" d="${d(sh.pts)}" stroke="${cols[i % S.colours]}" stroke-width="${S.stroke}" stroke-linejoin="round"/>`
+      : `<path d="${d(sh.pts)}" stroke="${cols[i % S.colours]}" stroke-width="${S.stroke}" stroke-linejoin="round"${dash}/>`);
+  });
+  out.push('</svg>');
+  return out.join('\n');
+}
+
+let backdropURL = null;
+const T = Kit.tool({
+  title: 'Grid Pens', slug: 'heyrav-grid-pens',
+  lede: 'Pens trace the mark\'s own shapes inside the grid\'s tiles. Click a slot to add or remove a tile.',
+  size: S => S.size,
+  presets: {
+    Default: {},
+    Construction: { shape:'D', style:'dashed', pens:2, speed:120, hold:1400, exit:'reverse', dots:true, lines:'dashed', tileEdge:'dashed' },
+    Swash: { shape:'swash', pens:4, speed:260, stroke:2, exit:'wipe', colours:1, c1:'#161616', inset:6 },
+    Night: { bg:'#161616', c1:'#ffffff', c2:'oklch(.62 .106 205)', c3:'oklch(.62 .301 318)', colours:3, pens:5, shape:'mix', tileFill:true, lines:'none' },
+    Growth: { grow:true, pens:6, speed:340, hold:200, exit:'blur fade', exitDur:400, pause:100, shape:'mix', stroke:1 },
+  },
+  groups: [
+    { name: 'canvas', controls: [
+      { k:'size', type:'select', label:'size', value:[1440,500], options:SIZES, rand:false, help:'Defaults to the hero band, so motion is judged at the size it will ship.' },
+      { k:'bg', type:'color', label:'background', value:'#ffffff', options:BG, rand:false },
+      { type:'file', label:'backdrop', prompt:'drop a design here', sub:'a screenshot or export - shown under the pens', onFile: f => {
+          backdropURL && URL.revokeObjectURL(backdropURL); backdropURL = URL.createObjectURL(f);
+          T.backdrop.src = backdropURL; T.backdrop.hidden = false; T.set('bg', 'transparent'); T.commit('bg'); } },
+      { k:'backOp', type:'range', label:'backdrop opacity', min:0, max:100, value:100, unit:'%', rand:false, adv:true },
+    ]},
+    { name: 'grid', controls: [
+      { k:'cell', type:'range', label:'square size', min:40, max:200, step:4, value:80, unit:'px', rand:[56,140] },
+      { k:'lines', type:'seg', label:'grid lines', value:'dashed', options:['dashed','solid','none'] },
+      { k:'tileEdge', type:'seg', label:'tile edge', value:'dashed', options:['dashed','solid','none'] },
+      { k:'tileFill', type:'toggle', label:'fill tiles', value:false, adv:true },
+      { k:'count', type:'range', label:'tiles', min:1, max:60, value:13, rand:[6,24] },
+      { type:'buttons', buttons:[
+        { label:'Randomise tiles', run: api => { api.S.tiles = layTiles(api.S, G); resetPens(api.S); api.commit('tiles'); } },
+        { label:'Clear', run: api => { api.S.tiles = []; resetPens(api.S); api.commit('tiles'); } },
+      ], help:'Lays this many tiles as a few connected clusters, so there is always room for shapes. Click any slot to add or remove one by hand.' },
+      { k:'tiles', type:'hidden', value:[], rand: S => layTiles(S, grid(S, T.view.W, T.view.H)) },
+    ]},
+    { name: 'strokes', controls: [
+      { k:'style', type:'seg', label:'style', value:'solid', options:['solid','dashed','dots'] },
+      { k:'stroke', type:'seg', label:'stroke width', value:1.5, options:[[1,'1px'],[1.5,'1.5px'],[2,'2px'],[3,'3px']] },
+      { k:'colours', type:'seg', label:'colours', value:1, options:[[1,'one'],[2,'two'],[3,'three']] },
+      { k:'c1', type:'color', label:'colour 1', value:'#161616', options:INK },
+      { k:'c2', type:'color', label:'colour 2', value:'oklch(.62 .106 205)', options:INK, when:S=>S.colours>1 },
+      { k:'c3', type:'color', label:'colour 3', value:'oklch(.62 .301 318)', options:INK, when:S=>S.colours>2 },
+      { k:'taper', type:'range', label:'taper', min:0, max:100, value:0, unit:'%', rand:[0,70], help:'Thins the older end of a live stroke.' },
+      { k:'fade', type:'range', label:'fade', min:0, max:100, value:0, unit:'%', rand:[0,70], help:'Fades the older end of a live stroke.' },
+    ]},
+    { name: 'animation', controls: [
+      { k:'loop', type:'toggle', label:'loop', value:true, rand:false },
+      { k:'dots', type:'toggle', label:'show the pen', value:true },
+      { k:'shape', type:'select', label:'shape', value:'mix', options:[['mix','mix - any of them'],['D','the D - from the master'],['swash','the swash - traced off its path'],['bowl','half bowl'],['arc','quarter arc'],['circle','circle'],['corner','corner']] },
+      { k:'rotate', type:'toggle', label:'turn and mirror', value:true, help:'Each shape lands in a random quarter turn.' },
+      { k:'inset', type:'range', label:'inset', min:0, max:30, value:14, unit:'%', rand:[0,22] },
+      { k:'pens', type:'range', label:'pens', min:1, max:12, value:3, rand:[1,6] },
+      { k:'speed', type:'range', label:'draw speed', min:20, max:900, value:180, unit:'px/s', rand:[60,420] },
+      { k:'hold', type:'range', label:'hold when drawn', min:0, max:3000, step:50, value:800, unit:'ms', rand:[200,1600] },
+      { k:'exit', type:'select', label:'exit', value:'blur fade', options:[['blur fade','blur fade'],['reverse','reverse - the pen runs back'],['wipe','wipe - erase from the start'],['cut','cut']],
+        help:'Reverse runs the pen back along its route; wipe erases from the start while the pen waits at the end.' },
+      { k:'exitDur', type:'range', label:'exit duration', min:100, max:3000, step:50, value:900, unit:'ms', rand:[300,1400] },
+      { k:'pause', type:'range', label:'pause before next', min:0, max:2000, step:50, value:400, unit:'ms', rand:[0,900] },
+      { k:'next', type:'seg', label:'next shape', value:'anywhere', options:['anywhere','nearby'], help:'Nearby starts the next shape from a tile touching the one the pen is in.' },
+    ]},
+    { name: 'growth', closed:true, controls: [
+      { k:'grow', type:'toggle', label:'grow the pattern', value:false, help:'Every finished shape leaves a faint trace, so the grid fills in over time.' },
+      { type:'button', label:'Clear traces', run: () => { traces = []; T.draw(); } },
+    ]},
+    { name: 'export', controls: [
+      { type:'buttons', buttons:[
+        { label:'Copy SVG', run: api => api.copy(svgOut(api.view.W, api.view.H, 0, api.S, false), 'svg copied - paste into Figma') },
+        { label:'PNG @2x', run: api => api.png(2) },
+      ]},
+      { type:'button', label:'Download animated SVG', run: api => { api.download(new Blob([svgOut(api.view.W, api.view.H, 0, api.S, true)], { type:'image/svg+xml' }), 'heyrav-grid-pens.svg'); api.toast('animated svg saved'); },
+        help:'Self-contained: one CSS draw-on per tile, staggered, and still under reduced motion.' },
+      { type:'button', label:'Record 6s WebM', run: api => api.record(6) },
+      { type:'button', label:'Copy link to this state', run: api => api.link() },
+    ]},
+  ],
+  draw: frame,
+  onResize: (W, H, S) => { G = grid(S, W, H); if (!S.tiles.length) { S.tiles = layTiles(S, G); T && T.commit && T.commit('tiles'); } resetPens(S); },
+  onPointer: (p, kind, S) => {
+    if (kind !== 'down' || !G) return;
+    const c = Math.floor((p.x - G.ox)/G.sz), r = Math.floor((p.y - G.oy)/G.sz);
+    if (c < 0 || r < 0 || c >= G.cols || r >= G.rows) return;
+    const k = c + ',' + r, i = S.tiles.indexOf(k);
+    S.tiles = i < 0 ? [...S.tiles, k] : S.tiles.filter(x => x !== k);
+    pens.forEach(pn => { if (pn.shape && pn.shape.tile === k) { pn.phase = 'pause'; pn.t = 0; } });
+    T.commit('tiles');
+  },
+});
+T.on((k, S) => {
+  T.backdrop.style.opacity = S.backOp/100;
+  if (['cell','size','pens','colours','*','preset','tiles','shape','inset','rotate'].includes(k)) {
+    if (k === 'cell' || k === 'size') { G = grid(S, T.view.W, T.view.H); S.tiles = S.tiles.filter(t => { const [c, r] = t.split(',').map(Number); return c < G.cols && r < G.rows; }); }
+    if (!S.tiles.length && k !== 'tiles') { G = grid(S, T.view.W, T.view.H); S.tiles = layTiles(S, G); }
+    if (k !== 'tiles') resetPens(S);
+  }
+  if (!T.clock.on) T.draw();
+});
+</script>
+</body>
+</html>

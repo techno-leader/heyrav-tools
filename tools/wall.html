@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Creative Wall - heyrav tools</title>
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script>
+/* Creative Wall - a wall of real ad creatives, the way Access Grid builds its wall of
+   employee cards (dark-cards.js), in heyrav's own subject: variants, and the one that wins.
+
+   - the creatives come in from the centre outward: each fades up, sharpening from a blur
+     and settling to full size, a little later the further it is from the middle;
+   - every creative but the centre one sits dimmed, its label a flicker of shade blocks;
+   - the middle column is a reel. Every few seconds it snaps down one creative - slow to go,
+     quick through, long settle. The one that lands in the centre lights: full colour, an
+     outline drawing itself once round it, a soft glow, its label decoding out of the
+     jumble as an ascii sweep and a second line rising under it.
+   Drawn on one canvas, every creative pre-rendered once (lit and dimmed) so a frame is only
+   image copies. Labels are the creative's own file id - no invented results. */
+
+const SETS = {
+  herbius: ['a-004-002','a-007-008','a-007-009','a-010-014','a-013-021','a-014-022','a-017-028','a-026-046','a-030-055','a-032-058','a-033-060','a-035-064','a-036-066','a-064-120','a-072-147','a-077-169'].map(n => ({ src: `../herbius/assets/ads/${n}.jpg`, id: n.replace('a-', 'V-').replace('-', '.').toUpperCase(), sub: 'Herbius · Meta' })),
+  work: ['ad-generated-from-tae-ad-studio-for-balaayah-body-oil','ashwaresin-community-p1-2','i-like-to-observe','logo-of-sahyog-project-with-guidelines','one-of-many-fancy-shots-we-edit-everyday','shilajit-photoshoot-my-hand','snapshot-from-shayog-project-dashboard-for-ambulance-tracking','torq-app-logo','torq-onbaording-screen-ui','use-a-template-workflow-from-ad-studio']
+    .map(n => ({ src: `../assets/grid/${n}.webp`, id: n.split('-').slice(0, 3).join(' '), sub: 'heyrav · work' })),
+};
+const THEMES = {
+  dark:  { panel:'#161616', line:'rgba(255,255,255,.14)', ink:'#ffffff', sub:'rgba(255,255,255,.6)', dimInk:'#9a9aa2', glow:'rgba(150,150,160,.35)', pick:'rgba(255,255,255,.65)' },
+  paper: { panel:'#f5f5f5', line:'rgba(22,22,22,.12)', ink:'#161616', sub:'#6e6e6e', dimInk:'#9a9a9a', glow:'rgba(22,22,22,.16)', pick:'rgba(22,22,22,.55)' },
+};
+const clamp = Kit.clamp;
+function bezier([x1, y1, x2, y2]) {
+  const cx = 3*x1, bx = 3*(x2 - x1) - cx, ax = 1 - cx - bx, cy = 3*y1, by = 3*(y2 - y1) - cy, ay = 1 - cy - by;
+  const X = t => ((ax*t + bx)*t + cx)*t, Y = t => ((ay*t + by)*t + cy)*t, dX = t => (3*ax*t + 2*bx)*t + cx;
+  return p => { if (p <= 0) return 0; if (p >= 1) return 1; let t = p; for (let i = 0; i < 6; i++) { const d = dX(t); if (Math.abs(d) < 1e-6) break; t -= (X(t) - p)/d; } return Y(Math.min(1, Math.max(0, t))); };
+}
+const QUINT = bezier([.23, 1, .32, 1]);
+
+/* ---------- creatives, pre-rendered ---------- */
+let items = [], itemKey = '';
+async function load(S) {
+  const key = [S.set, S.cardW, S.ratio, S.radius, S.dim].join('|'); if (key === itemKey) return; itemKey = key;
+  const list = SETS[S.set], w = S.cardW, h = Math.round(w*S.ratio), q = 2, r = S.radius;
+  items = await Promise.all(list.map(async it => {
+    let img; try { img = await Kit.loadImage(it.src); } catch { return null; }
+    const mk = dim => { const c = document.createElement('canvas'); c.width = w*q; c.height = h*q; const x = c.getContext('2d'); x.scale(q, q);
+      x.beginPath(); x.roundRect(0, 0, w, h, r); x.clip();
+      const s = Math.max(w/img.width, h/img.height); x.filter = dim ? `grayscale(1) brightness(${S.dim/100})` : 'none';
+      x.drawImage(img, (w - img.width*s)/2, (h - img.height*s)/2, img.width*s, img.height*s); x.filter = 'none';
+      // a scrim under the label, so type always reads on the photograph
+      const g = x.createLinearGradient(0, h*.55, 0, h); g.addColorStop(0, 'rgba(0,0,0,0)'); g.addColorStop(1, 'rgba(0,0,0,.62)'); x.fillStyle = g; x.fillRect(0, 0, w, h);
+      return c; };
+    return { ...it, lit: mk(false), dimC: mk(true) };
+  }));
+  items = items.filter(Boolean);
+  T.draw();
+}
+
+/* ---------- labels ---------- */
+const SHADES = '░▒▓', ASCII = '#%&*+=-:/<>?$@';
+function shades(n, seed, flick, jumble) { let s = ''; for (let i = 0; i < n; i++) { const h = Kit.rng(seed*131 + i*7 + (Kit.rng(i*97 + seed)() < jumble ? flick*31 : 0))(); s += SHADES[Math.floor(h*3)]; } return s; }
+function decode(S, text, tt) {
+  const p = clamp(tt/S.sweep)*(1 + S.band) - S.band, flick = Math.floor(tt/S.flicker); let out = [];
+  for (let i = 0; i < text.length; i++) { const at = i/Math.max(1, text.length - 1), ch = text[i];
+    if (ch === ' ') { out.push([' ', 0]); continue; }
+    if (at < p) out.push([ch, 0]); else if (at < p + S.band) out.push([ASCII[Math.floor(Kit.rng(i*7919 + flick*13)()*ASCII.length)], 1]); else out.push([SHADES[Math.floor(Kit.rng(i*31 + flick)()*3)], 2]); }
+  return out;
+}
+
+/* ---------- the clock: entrance, then snaps ---------- */
+let t0 = 0;
+function snapState(S, ms) {
+  // returns { n: snaps completed (fractional during a snap), landedAt }
+  const first = S.firstSnap, every = S.every, E = bezier(S.snapEase === 'reel' ? [.8, 0, .15, 1] : S.snapEase === 'quint' ? [.23, 1, .32, 1] : [.65, 0, .35, 1]);
+  if (ms < first) return { n: 0, landed: -1e9, moving: false };
+  const k = Math.floor((ms - first)/every), into = ms - first - k*every;
+  const f = into < S.snap ? E(into/S.snap) : 1;
+  return { n: k + f, landed: into >= S.snap ? first + k*every + S.snap : first + (k - 1)*every + S.snap, moving: into < S.snap, idx: k + (into >= S.snap ? 1 : 0) };
+}
+
+function frame(ctx, W, H, t, S, ptr, exporting) {
+  const P = THEMES[S.theme];
+  ctx.fillStyle = P.panel; ctx.fillRect(0, 0, W, H);
+  if (!items.length) return;
+  const ms = exporting ? 60000 : Math.max(0, (t - t0)*1000*S.speed);
+  const cw = S.cardW, ch = Math.round(cw*S.ratio), g = S.gap, cols = S.cols, mid = Math.floor(cols/2);
+  const cx = W/2, cy = H/2, sc = S.scale/100;
+  const snap = S.reel ? snapState(S, ms) : { n: 0, landed: -1e9, moving: false, idx: 0 };
+  ctx.save(); ctx.translate(cx, cy); ctx.scale(sc, sc);
+  const rows = Math.ceil(H/sc/(ch + g)) + 3;
+  let centre = null;
+  for (let c = 0; c < cols; c++) {
+    const col = c - mid, x = col*(cw + g) - cw/2;
+    // neighbouring columns sit half a card out of step, so the wall reads as a weave
+    const off = (Math.abs(col) % 2 ? (ch + g)/2 : 0) + (col === 0 ? snap.n*(ch + g) : 0);
+    for (let r = -rows; r <= rows; r++) {
+      const y = r*(ch + g) - ch/2 + off;
+      if (y > H/sc/2 + ch || y < -H/sc/2 - ch*2) continue;
+      // which creative: columns read through the set at different strides, the reel downward
+      const n = items.length, k = col === 0 ? r - Math.floor(snap.n) : r;
+      const it = items[(((k*3 + c*7) % n) + n) % n];
+      const dist = Math.hypot(col*(cw + g), y + ch/2)/(cw + g);
+      // entrance: from the centre outward
+      const e = QUINT(clamp((ms - S.enterAt - dist*S.stagger)/S.enter));
+      if (e <= 0) continue;
+      const isCentre = col === 0 && Math.abs(y + ch/2) < (ch + g)/2 && !snap.moving && snap.idx > 0;
+      const s = S.startScale + (1 - S.startScale)*e;
+      ctx.save(); ctx.translate(x + cw/2, y + ch/2); ctx.scale(s, s); ctx.translate(-cw/2, -ch/2);
+      ctx.globalAlpha = e;
+      if (e < .98 && S.blur > 0) ctx.filter = `blur(${((1 - e)*S.blur).toFixed(2)}px)`;
+      if (isCentre) centre = { x, y, it };
+      ctx.drawImage(it.dimC, 0, 0, cw, ch);
+      ctx.filter = 'none';
+      ctx.strokeStyle = P.line; ctx.lineWidth = .75; ctx.beginPath(); ctx.roundRect(.375, .375, cw - .75, ch - .75, S.radius); ctx.stroke();
+      // the dim label: shade blocks, flickering
+      if (!isCentre) { ctx.font = `500 ${13}px ui-monospace, "SF Mono", Menlo, monospace`; ctx.fillStyle = P.dimInk; ctx.globalAlpha = e*.7;
+        ctx.fillText(shades(Math.min(12, it.id.length), (k*7 + c*13) & 1023, Math.floor(ms/S.flicker), S.jumble), 14, ch - 16); }
+      ctx.restore();
+    }
+  }
+  // the lit centre
+  if (centre) {
+    const since = ms - snap.landed, { x, y, it } = centre;
+    const lit = QUINT(clamp(since/S.light));
+    ctx.save();
+    if (S.glow) { ctx.save(); ctx.globalAlpha = lit*S.glow/100; ctx.shadowColor = P.glow; ctx.shadowBlur = 68; ctx.fillStyle = P.panel; ctx.beginPath(); ctx.roundRect(x, y, cw, ch, S.radius); ctx.fill(); ctx.restore(); }
+    ctx.globalAlpha = lit; ctx.drawImage(it.lit, x, y, cw, ch); ctx.globalAlpha = 1;
+    // the outline, drawing itself once round the card - a hair outside its edge
+    const tr = QUINT(clamp((since - 60)/S.trace)), pad = 4, pw = cw + pad*2, ph = ch + pad*2, per = 2*(pw + ph);
+    if (tr > 0) { ctx.strokeStyle = P.pick; ctx.lineWidth = 1; ctx.shadowColor = P.pick; ctx.shadowBlur = 3; ctx.setLineDash([per*tr, per]);
+      ctx.beginPath(); ctx.roundRect(x - pad + .5, y - pad + .5, pw - 1, ph - 1, S.radius + pad); ctx.stroke(); ctx.setLineDash([]); ctx.shadowBlur = 0; }
+    // label: decoded out of the jumble, then white; a second line rising under it
+    const lt = since - S.sweepAfter;
+    ctx.font = `500 15px Onest, sans-serif`; let lx = x + 14; const ly = y + ch - 16;
+    if (lt > 0) {
+      for (const [chr, kind] of decode(S, it.id, lt)) {
+        if (kind) { ctx.font = `500 13px ui-monospace, "SF Mono", Menlo, monospace`; ctx.fillStyle = kind === 1 ? '#fff' : P.dimInk; ctx.shadowColor = 'rgba(255,255,255,.35)'; ctx.shadowBlur = kind === 1 ? 4 : 0; ctx.fillText(chr, lx, ly); ctx.font = `500 15px Onest, sans-serif`; lx += ctx.measureText('n').width; }
+        else { ctx.shadowBlur = 0; ctx.fillStyle = lt > S.sweep ? '#fff' : 'rgba(255,255,255,.85)'; ctx.fillText(chr, lx, ly); lx += ctx.measureText(chr).width; }
+      }
+      ctx.shadowBlur = 0;
+      const rk = QUINT(clamp((lt - S.sweep*.8)/S.rise));
+      if (rk > 0) { ctx.globalAlpha = rk; ctx.font = `400 12px Onest, sans-serif`; ctx.fillStyle = 'rgba(255,255,255,.7)'; if (rk < 1) ctx.filter = `blur(${(1 - rk)*4}px)`;
+        ctx.fillText(it.sub, x + 14, ly - 20 + (1 - rk)*14); ctx.filter = 'none'; ctx.globalAlpha = 1; }
+    } else { ctx.font = `500 13px ui-monospace, "SF Mono", Menlo, monospace`; ctx.fillStyle = P.dimInk; ctx.fillText(shades(Math.min(12, it.id.length), 7, Math.floor(ms/S.flicker), S.jumble), lx, ly); }
+    ctx.restore();
+  }
+  ctx.restore();
+  // the wall fades out toward the panel's edges
+  ctx.save(); ctx.globalCompositeOperation = 'destination-in';
+  // an ellipse the shape of the panel, solid to 45% of its reach and gone by its edge
+  ctx.translate(cx, cy); ctx.scale(1, H/W);
+  const R = W/2*S.mask/100*1.6, rg = ctx.createRadialGradient(0, 0, R*.45, 0, 0, R);
+  rg.addColorStop(0, '#000'); rg.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = rg; ctx.fillRect(-W, -W, W*2, W*2); ctx.restore();
+  ctx.save(); ctx.globalCompositeOperation = 'destination-over'; ctx.fillStyle = P.panel; ctx.fillRect(0, 0, W, H); ctx.restore();
+}
+
+const T = Kit.tool({
+  title: 'Creative Wall', slug: 'heyrav-creative-wall',
+  lede: 'A wall of real ad variants. The middle column is a reel; whichever creative lands in the centre lights up and its label decodes.',
+  size: S => S.size,
+  presets: {
+    Herbius: {},
+    Work: { set:'work', ratio:1, cardW:240 },
+    Paper: { theme:'paper', dim:115 },
+    Dense: { cols:7, cardW:170, gap:22, scale:100 },
+    Slow: { speed:.5 },
+  },
+  groups: [
+    { name: 'wall', controls: [
+      { k:'size', type:'select', label:'artboard', value:[1440,900], rand:false, options:[['fill','fill'],[[1440,900],'1440 × 900 desktop'],[[1440,600],'1440 × 600 section'],[[1200,675],'1200 × 675 post'],[[1080,1080],'1080 × 1080 square']] },
+      { k:'set', type:'seg', label:'creatives', value:'herbius', rand:false, options:[['herbius','Herbius ads'],['work','closing-grid work']], help:'Herbius is sixteen of the published Meta creatives from the case study.' },
+      { k:'theme', type:'seg', label:'panel', value:'dark', options:['dark','paper'] },
+      { k:'cols', type:'range', label:'columns', min:3, max:9, step:2, value:5, rand:[3,7] },
+      { k:'cardW', type:'range', label:'creative width', min:120, max:360, step:2, value:220, unit:'px', rand:[170,260] },
+      { k:'ratio', type:'seg', label:'shape', value:1.25, options:[[1.25,'4:5'],[1,'1:1'],[1.777,'9:16']] },
+      { k:'gap', type:'range', label:'gap', min:8, max:80, value:34, unit:'px', rand:[20,50] },
+      { k:'radius', type:'range', label:'radius', min:0, max:28, value:16, unit:'px', rand:[8,20] },
+      { k:'scale', type:'range', label:'wall scale', min:40, max:140, value:100, unit:'%', rand:false },
+      { k:'mask', type:'range', label:'edge fade', min:30, max:120, value:62, unit:'%', rand:[48,80], help:'How far from the centre the wall fades into the panel.' },
+      { k:'dim', type:'range', label:'dimmed brightness', min:10, max:140, value:45, unit:'%', rand:[30,70] },
+    ]},
+    { name: 'entrance', controls: [
+      { type:'button', label:'Replay', run: api => { t0 = api.clock.t; if (!api.clock.on) api.clock.start(); } },
+      { k:'enterAt', type:'range', label:'starts after', min:0, max:1500, step:10, value:200, unit:'ms', rand:false },
+      { k:'enter', type:'range', label:'each creative takes', min:100, max:1500, step:10, value:450, unit:'ms', rand:[300,700] },
+      { k:'stagger', type:'range', label:'later per step out', min:0, max:200, step:5, value:55, unit:'ms', rand:[30,110], help:'Per creative-width of distance from the centre.' },
+      { k:'blur', type:'range', label:'starts blurred', min:0, max:20, step:.5, value:6, unit:'px', rand:[2,10] },
+      { k:'startScale', type:'range', label:'starts at', min:.8, max:1.05, step:.01, value:.96, fmt:v=>Math.round(v*100)+'%' },
+    ]},
+    { name: 'reel', controls: [
+      { k:'reel', type:'toggle', label:'the middle column snaps', value:true },
+      { k:'firstSnap', type:'range', label:'first snap', min:0, max:4000, step:10, value:1100, unit:'ms', when:S=>S.reel },
+      { k:'every', type:'range', label:'every', min:900, max:8000, step:50, value:2900, unit:'ms', when:S=>S.reel, rand:[2000,4000] },
+      { k:'snap', type:'range', label:'snap takes', min:150, max:2000, step:10, value:480, unit:'ms', when:S=>S.reel, rand:[350,800] },
+      { k:'snapEase', type:'seg', label:'snap easing', value:'reel', when:S=>S.reel, options:[['reel','slow-quick-settle'],['quint','quint'],['inOut','in-out']], help:'cubic-bezier(.8,0,.15,1): slow to go, quick through, long settle.' },
+    ]},
+    { name: 'the winner', controls: [
+      { k:'light', type:'range', label:'lights up over', min:50, max:1200, step:10, value:400, unit:'ms' },
+      { k:'trace', type:'range', label:'outline draws over', min:100, max:1500, step:10, value:550, unit:'ms' },
+      { k:'glow', type:'range', label:'glow', min:0, max:100, value:80, unit:'%', rand:[40,100] },
+      { k:'sweepAfter', type:'range', label:'label after', min:0, max:1000, step:10, value:120, unit:'ms' },
+      { k:'sweep', type:'range', label:'label sweep', min:200, max:2000, step:10, value:760, unit:'ms', rand:[500,1100] },
+      { k:'band', type:'range', label:'ascii band', min:.1, max:.8, step:.05, value:.4, adv:true },
+      { k:'jumble', type:'range', label:'jumble', min:0, max:1, step:.05, value:.35, adv:true },
+      { k:'flicker', type:'range', label:'flicker', min:30, max:300, step:5, value:70, unit:'ms', adv:true },
+      { k:'rise', type:'range', label:'second line rises', min:100, max:1200, step:10, value:450, unit:'ms' },
+    ]},
+    { name: 'preview', controls: [
+      { k:'speed', type:'seg', label:'speed', value:1, rand:false, options:[[1,'1x'],[.5,'0.5x'],[.25,'0.25x']] },
+    ]},
+    { name: 'export', controls: [
+      { type:'buttons', buttons:[
+        { label:'PNG @2x', run: api => api.png(2) },
+        { label:'Record 8s WebM', run: api => { t0 = api.clock.t; api.record(8); } },
+      ]},
+      { type:'button', label:'Copy link to this state', run: api => api.link() },
+    ]},
+  ],
+  draw: frame,
+  onResize: (W, H, S) => load(S),
+});
+T.on((k, S) => { load(S); if (k === 'preset' || k === '*') t0 = T.clock.t; if (!T.clock.on) T.draw(); });
+</script>
+</body>
+</html>

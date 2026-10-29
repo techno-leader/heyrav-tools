@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Redaction 35 — every usage on the site [D-RED]</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  /* Identical @font-face to the four site pages — the specimens below are the
+     real cut, not a Georgia fallback pretending to be one. */
+  @font-face{
+    font-family:"Redaction 35";
+    font-style:italic;
+    font-weight:400;
+    font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2"),
+        url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff) format("woff");
+  }
+  :root{
+    --ink:#161616;
+    --ink-2:#4a4a4a;
+    --ink-body:#5c5c5c;
+    --ink-3:#6e6e6e;
+    --mut:#767676;
+    --line:#ececec;
+    --line-2:#e7e7e7;
+    --paper:#ffffff;
+    --surface:#fafafa;
+    --tint:#939393;
+
+    --r-sm:8px;
+    --r-md:14px;
+    --r-lg:20px;
+    --r-pill:99px;
+
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-md:32px;
+    --t-sub-lg:40px;
+    --t-head:56px;
+    --t-head-lg:64px;
+    --t-label:12px;
+    --w-head:450;
+
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --serif:"Redaction 35",Georgia,serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+  }
+  /* A/B: point --serif at the sans stack. font-style:italic stays, so what you
+     get is Onest obliqued — which is exactly the alternative on the table if
+     Redaction goes. Comparing against upright sans would be comparing against
+     a third design nobody proposed. */
+  body.sans{--serif:var(--sans);}
+
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  ::selection{background:#bbfff0;}
+  .mono{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 32px;}
+
+  header{padding:72px 0 40px;border-bottom:1px solid var(--line);}
+  h1{font-size:var(--t-sub-lg);font-weight:var(--w-head);letter-spacing:-.03em;line-height:1.1;margin:14px 0 18px;}
+  h1 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);}
+  header p{color:var(--ink-body);font-size:var(--t-body);line-height:1.65;max-width:66ch;margin-bottom:14px;}
+  code{font-family:var(--mono);font-size:.86em;color:var(--ink-2);letter-spacing:0;}
+
+  /* ---- global controls ---- */
+  .bar{
+    position:sticky;top:0;z-index:30;background:var(--paper);
+    border-bottom:1px solid var(--line);padding:14px 0;
+  }
+  .bar .wrap{display:flex;gap:10px;flex-wrap:wrap;align-items:center;}
+  .tgl{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.1em;text-transform:uppercase;
+    min-height:44px;padding:0 20px;border-radius:var(--r-pill);cursor:pointer;
+    border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);
+    transition:border-color .2s,color .2s;
+  }
+  .tgl[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);}
+  .tgl:focus-visible{outline:2px solid var(--ink-2);outline-offset:2px;}
+  .bar .status{margin-left:auto;color:var(--mut);font-size:14px;}
+
+  /* ---- role group ---- */
+  .role{padding:64px 0;border-bottom:1px solid var(--line);}
+  .role-head{margin-bottom:8px;}
+  .role-head .lbl{
+    display:flex;align-items:center;gap:14px;margin-bottom:14px;
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.24em;
+    color:var(--ink-3);text-transform:uppercase;
+  }
+  .role-head .lbl::after{content:"";flex:1;height:1px;background:var(--line);}
+  .role-head h2{font-size:var(--t-sub-md);font-weight:var(--w-head);letter-spacing:-.025em;margin-bottom:12px;}
+  .role-head p{color:var(--ink-body);font-size:16px;line-height:1.65;max-width:70ch;margin-bottom:14px;}
+  .decl{
+    background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+    padding:14px 16px;font-family:var(--mono);font-size:13px;line-height:1.7;
+    color:var(--ink-2);letter-spacing:0;overflow-x:auto;white-space:pre;margin-bottom:10px;
+  }
+  .where{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.1em;color:var(--mut);margin-bottom:30px;}
+
+  /* ---- one instance ---- */
+  .inst{border-top:1px solid var(--line);padding:30px 0;}
+  .inst .src{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.14em;
+    color:var(--ink-3);text-transform:uppercase;margin-bottom:18px;
+  }
+  .spec{margin-bottom:22px;}
+
+  /* Specimens carry the same declarations as the site, copied by line, so that
+     what is on screen here is what is on screen there. */
+  .spec.k-h1{
+    font-family:var(--sans);font-size:var(--t-head-lg);line-height:1.05;
+    letter-spacing:-0.035em;font-weight:var(--w-head);max-width:15ch;
+  }
+  .spec.k-h1 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);letter-spacing:-.01em;}
+  .spec.k-h2{
+    font-family:var(--sans);font-size:var(--t-head);letter-spacing:-.03em;
+    font-weight:var(--w-head);line-height:1.12;max-width:22ch;
+  }
+  .spec.k-h2 em{font-family:var(--serif);font-style:italic;font-weight:400;color:var(--ink-2);}
+  /* index.html only: 13ch measure, centred, and the accent is a real <button> */
+  .spec.k-hero{
+    font-family:var(--sans);font-size:var(--t-head-lg);line-height:1.05;
+    letter-spacing:-0.035em;font-weight:var(--w-head);max-width:13ch;
+    margin-inline:auto;text-align:center;
+  }
+  .spec.k-hero .convert{
+    font-family:var(--serif);color:var(--ink-2);font-style:italic;font-weight:400;
+    letter-spacing:-.01em;font-size:inherit;line-height:inherit;
+    background:none;border:0;padding:0;margin:0;cursor:pointer;
+  }
+  .spec.k-hero .convert:focus-visible{outline:2px solid var(--ink-2);outline-offset:4px;border-radius:var(--r-sm);}
+  .spec.k-contact{
+    font-size:var(--t-head-lg);letter-spacing:-.035em;font-weight:var(--w-head);
+    line-height:1.05;max-width:16ch;margin:0 auto;text-align:center;
+  }
+  .spec.k-contact em{font-family:var(--serif);color:var(--ink-3);font-style:italic;font-weight:400;}
+  .spec.k-pull{
+    font-family:var(--serif);font-style:italic;font-weight:400;
+    font-size:var(--t-sub-lg);line-height:1.3;color:var(--ink);letter-spacing:-.01em;
+    border-left:2px solid var(--ink-3);padding:6px 0 6px 30px;margin:0;max-width:26ch;
+  }
+  .spec.k-pull .mono{font-style:normal;display:block;font-size:12px;letter-spacing:.18em;color:var(--mut);margin-top:14px;text-transform:uppercase;}
+
+  /* Mark mode. Redaction's italic is close enough to an obliqued sans at a
+     glance that on a long heading you can lose track of where the switch
+     happens; the tint makes the run explicit. Pull quotes are excluded — they
+     are serif end to end, so there is no boundary to find. */
+  body.mark .spec em,
+  body.mark .spec .convert{background:color-mix(in srgb, var(--tint) 16%, transparent);}
+
+  /* ---- note field ---- */
+  .note{display:block;}
+  .note span{
+    display:block;font-family:var(--mono);font-size:var(--t-label);letter-spacing:.14em;
+    color:var(--mut);text-transform:uppercase;margin-bottom:8px;
+  }
+  .note textarea{
+    width:100%;max-width:62ch;min-height:44px;resize:vertical;
+    font-family:var(--sans);font-size:16px;line-height:1.5;color:var(--ink);
+    background:var(--paper);border:1px solid var(--line-2);border-radius:var(--r-sm);
+    padding:11px 13px;transition:border-color .2s;
+  }
+  .note textarea::placeholder{color:var(--mut);}
+  .note textarea:focus{outline:none;border-color:var(--ink-2);}
+  .inst.has-note{border-left:2px solid var(--ink);padding-left:20px;margin-left:-22px;}
+
+  /* ---- dead rule callout ---- */
+  .dead{
+    border:1px solid var(--line);border-radius:var(--r-md);padding:22px 24px;background:var(--surface);
+  }
+  .dead p{color:var(--ink-body);font-size:16px;line-height:1.65;max-width:70ch;}
+
+  /* ---- export ---- */
+  #out{
+    width:100%;min-height:220px;margin-top:18px;font-family:var(--mono);font-size:13px;
+    line-height:1.6;color:var(--ink);background:var(--surface);border:1px solid var(--line);
+    border-radius:var(--r-md);padding:16px;letter-spacing:0;
+  }
+  #out[hidden]{display:none;}
+
+  footer{padding:56px 0 90px;}
+
+  @media (max-width:900px){
+    .spec.k-h1,.spec.k-hero{font-size:var(--t-head);}
+    .spec.k-h2{font-size:var(--t-sub-lg);}
+    .spec.k-contact{font-size:var(--t-head);}
+    .spec.k-pull{font-size:var(--t-sub);}
+  }
+  @media (max-width:640px){
+    .spec.k-h1,.spec.k-hero,.spec.k-contact{font-size:var(--t-sub-lg);}
+    .spec.k-h2{font-size:var(--t-sub-md);}
+    .wrap{padding:0 22px;}
+    .inst.has-note{margin-left:0;padding-left:16px;}
+  }
+  @media (prefers-reduced-motion:reduce){
+    *{transition:none !important;animation:none !important;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="mono">D-RED · Redaction 35 audit</div>
+    <h1>Every place the site sets <em>Redaction.</em></h1>
+    <p>Five rules across the four pages put type into <code>--serif</code>. Four of them
+      render; one is dead. Twenty-one live instances in total, every one of them
+      reproduced below with the real sentence from the real page at the real size —
+      no lorem, no isolated glyphs.</p>
+    <p>Leave a note on any instance. Notes save as you type and survive a reload, so
+      you can walk the page in passes. <strong>Copy notes</strong> dumps everything you
+      wrote as plain text for handing back.</p>
+  </div>
+</header>
+
+<div class="bar">
+  <div class="wrap">
+    <button class="tgl" id="t-mark" aria-pressed="false">Mark the serif runs</button>
+    <button class="tgl" id="t-sans" aria-pressed="false">Swap to obliqued Onest</button>
+    <button class="tgl" id="t-copy" aria-pressed="false">Copy notes</button>
+    <button class="tgl" id="t-clear" aria-pressed="false">Clear notes</button>
+    <span class="status mono" id="status"></span>
+  </div>
+</div>
+
+<main id="roles"></main>
+
+<footer>
+  <div class="wrap">
+    <textarea id="out" hidden readonly aria-label="Exported notes"></textarea>
+  </div>
+</footer>
+
+<script>
+/* Every instance was read out of the source, not retyped from memory. The
+   `src` field is file:line at the time of the audit, so each specimen can be
+   traced back and re-checked. */
+const ROLES = [
+  {
+    id:'h1em',
+    lbl:'Rule 1 of 5',
+    name:'The italic close of a case-study H1',
+    blurb:'The largest type on the site, and the only place Redaction runs at 64px. '+
+          'Each H1 is a plain sans statement that hands its last clause to the serif — '+
+          'the turn in the sentence and the turn in the typeface land together.',
+    decl:'h1 em{\n  font-family:var(--serif);\n  font-style:italic;\n  font-weight:400;\n  color:var(--ink-2);\n  letter-spacing:-.01em;\n}',
+    where:'case-viewryt.html:137 · case-dentomate.html:133 · case-irbs.html:140 — 3 instances',
+    kind:'k-h1',
+    items:[
+      {src:'case-viewryt.html:436',   html:'Same copy. Same product. <em>Different design.</em>'},
+      {src:'case-dentomate.html:308', html:'Stop paying the <em>WhatsApp tax.</em>'},
+      {src:'case-irbs.html:321',      html:'Booking a room shouldn&rsquo;t feel like <em>filing a petition.</em>'}
+    ]
+  },
+  {
+    id:'hero',
+    lbl:'Rule 2 of 5',
+    name:'The hero trigger word on the home page',
+    blurb:'index.html has no <code>h1 em</code>. Its accent is a real <code>&lt;button&gt;</code> — '+
+          'the control that fires the aurora reveal — stripped back to inherit the H1 so it '+
+          'still reads as a word in the sentence. It is the only interactive Redaction on the '+
+          'site, and the only one with a focus ring. Try tabbing to it.',
+    decl:'h1 .convert{\n  font-family:var(--serif);\n  color:var(--ink-2);\n  font-style:italic;\n  font-weight:400;\n  letter-spacing:-.01em;\n  font-size:inherit;line-height:inherit;\n}',
+    where:'index.html:143 — 1 instance',
+    kind:'k-hero',
+    items:[
+      {src:'index.html:371', html:'Hi, I&rsquo;m Ravindra.<br/>I make designs that <button type="button" class="convert">convert.</button>'}
+    ]
+  },
+  {
+    id:'h2em',
+    lbl:'Rule 3 of 5',
+    name:'The italic close of a section H2',
+    blurb:'The workhorse — thirteen of the twenty-one instances. Same construction as the H1 '+
+          'accent, a step down at 56px. Worth judging as a set: at this density the device '+
+          'either reads as a voice or as a tic.',
+    decl:'h2 em{\n  font-family:var(--serif);\n  font-style:italic;\n  font-weight:400;\n  color:var(--ink-2);\n}',
+    where:'case-viewryt.html:159 · case-dentomate.html:153 · case-irbs.html:161 · index.html:195 — 13 instances',
+    kind:'k-h2',
+    items:[
+      {src:'case-viewryt.html:456',   html:'Strong product, <em>right audience.</em>'},
+      {src:'case-viewryt.html:543',   html:'Four rules for the redesign, <em>copy untouched.</em>'},
+      {src:'case-viewryt.html:564',   html:'Four principles that did <em>the heavy lifting.</em>'},
+      {src:'case-viewryt.html:631',   html:'Walk the page. <em>Every section has a job.</em>'},
+      {src:'case-viewryt.html:678',   html:'From losing money on every visit <em>to profitable.</em>'},
+      {src:'case-viewryt.html:694',   html:'Where this page goes <em>next.</em>'},
+      {src:'case-dentomate.html:349', html:'The practice <em>runs itself.</em>'},
+      {src:'case-dentomate.html:382', html:'Pricing designed to make the decision <em>obvious.</em>'},
+      {src:'case-irbs.html:360',      html:'Four kinds of rooms, <em>one queue of frustrated clubs.</em>'},
+      {src:'case-irbs.html:380',      html:'Eleven interviews, <em>three themes.</em>'},
+      {src:'case-irbs.html:400',      html:'Meet students where they already are: <em>inside OneStop.</em>'},
+      {src:'case-irbs.html:432',      html:'Wireframes, walkthroughs, <em>and a humbling beta.</em>'},
+      {src:'case-irbs.html:453',      html:'Live since September 2023 &mdash; <em>and still how rooms get booked.</em>'}
+    ]
+  },
+  {
+    id:'contact',
+    lbl:'Rule 4 of 5',
+    name:'The contact heading, one shade lighter',
+    blurb:'The one override. It inherits <code>--serif</code> from the global <code>h2 em</code> '+
+          'but drops to <code>--ink-3</code> instead of <code>--ink-2</code>, and runs at 64px '+
+          'rather than 56 because the contact block sets its own size. Whether the lighter grey '+
+          'is a deliberate softening at the end of the page or an inconsistency is a live question.',
+    decl:'.contact-inner h2 em{\n  color:var(--ink-3);   /* not --ink-2 */\n  font-style:italic;\n  font-weight:400;      /* 500 was never a real cut */\n}',
+    where:'index.html:314 — 1 instance',
+    kind:'k-contact',
+    items:[
+      {src:'index.html:463', html:'Have a number that needs <em>moving?</em>'}
+    ]
+  },
+  {
+    id:'pull',
+    lbl:'Rule 5 of 5',
+    name:'The pull quote — whole block, not an accent',
+    blurb:'The only rule that sets an entire block in Redaction rather than a closing clause. '+
+          '40px, full ink, a 2px rule down the left. One per case study, always the sentence '+
+          'the case turns on. The attribution underneath flips back to upright mono.',
+    decl:'.pull{\n  font-family:var(--serif);\n  font-style:italic;\n  font-weight:400;\n  font-size:var(--t-sub-lg);\n  line-height:1.3;\n  color:var(--ink);\n  letter-spacing:-.01em;\n  border-left:2px solid var(--ink-3);\n}',
+    where:'case-viewryt.html:192 · case-dentomate.html:185 · case-irbs.html:193 — 3 instances',
+    kind:'k-pull',
+    items:[
+      {src:'case-viewryt.html:474',   html:'The product wasn&rsquo;t the problem. The page&rsquo;s decision architecture was.'},
+      {src:'case-dentomate.html:331', html:'One prevented no-show pays for 7+ months of Dentomate.<span class="mono">The core economics of the product</span>'},
+      {src:'case-irbs.html:344',      html:'&ldquo;The conference hall was booked for a whole week &mdash; without permission.&rdquo;<span class="mono">Incident that kicked off the redesign</span>'}
+    ]
+  }
+];
+
+const KEY = 'redaction-notes-v1';
+let notes = {};
+try{ notes = JSON.parse(localStorage.getItem(KEY) || '{}'); }catch(e){ notes = {}; }
+
+const esc = s => s.replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+document.getElementById('roles').innerHTML = ROLES.map(r => `
+  <section class="role" id="${r.id}">
+    <div class="wrap">
+      <div class="role-head">
+        <div class="lbl">${r.lbl}</div>
+        <h2>${r.name}</h2>
+        <p>${r.blurb}</p>
+        <div class="decl">${esc(r.decl)}</div>
+        <div class="where">${r.where}</div>
+      </div>
+      ${r.items.map((it, i) => {
+        const id = `${r.id}-${i}`;
+        const val = notes[id] || '';
+        return `
+        <div class="inst${val ? ' has-note' : ''}" data-id="${id}">
+          <div class="src">${it.src}</div>
+          <div class="spec ${r.kind}">${it.html}</div>
+          <label class="note">
+            <span>Your note</span>
+            <textarea rows="1" data-id="${id}" placeholder="Keep / change / cut &mdash; and why">${esc(val)}</textarea>
+          </label>
+        </div>`;
+      }).join('')}
+    </div>
+  </section>
+`).join('') + `
+  <section class="role" id="deadrule">
+    <div class="wrap">
+      <div class="role-head">
+        <div class="lbl">Not rendering</div>
+        <h2>A sixth rule that never fires</h2>
+      </div>
+      <div class="dead">
+        <div class="src mono" style="margin-bottom:14px">case-irbs.html:93</div>
+        <div class="decl">.serif{font-family:var(--serif);font-style:italic;font-weight:400;}</div>
+        <p>A general-purpose utility class, defined on <code>case-irbs.html</code> only, and
+          applied to nothing. No <code>class="serif"</code> exists in any page&rsquo;s markup.
+          It is a leftover from before the accent settled on <code>&lt;em&gt;</code>. No visual
+          to judge here &mdash; the only question is whether to delete it or make the other
+          three pages match.</p>
+        <label class="note" style="margin-top:18px">
+          <span>Your note</span>
+          <textarea rows="1" data-id="dead-0" placeholder="Delete it, or add it to the other three?">${esc(notes['dead-0'] || '')}</textarea>
+        </label>
+      </div>
+    </div>
+  </section>`;
+
+/* rows="1" plus this keeps each field exactly as tall as its content, so a
+   one-word note does not leave a four-line hole down the page */
+function grow(ta){ ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 'px'; }
+
+const status = document.getElementById('status');
+let statusTimer;
+function say(msg){
+  status.textContent = msg;
+  clearTimeout(statusTimer);
+  statusTimer = setTimeout(() => { status.textContent = ''; }, 3000);
+}
+
+document.querySelectorAll('textarea[data-id]').forEach(ta => {
+  grow(ta);
+  ta.addEventListener('input', () => {
+    grow(ta);
+    const v = ta.value.trim();
+    if (v) notes[ta.dataset.id] = v; else delete notes[ta.dataset.id];
+    localStorage.setItem(KEY, JSON.stringify(notes));
+    const inst = ta.closest('.inst');
+    if (inst) inst.classList.toggle('has-note', !!v);
+  });
+});
+
+function toggle(btn, cls){
+  btn.addEventListener('click', () => {
+    const on = btn.getAttribute('aria-pressed') !== 'true';
+    btn.setAttribute('aria-pressed', String(on));
+    document.body.classList.toggle(cls, on);
+  });
+}
+toggle(document.getElementById('t-mark'), 'mark');
+toggle(document.getElementById('t-sans'), 'sans');
+
+const out = document.getElementById('out');
+
+document.getElementById('t-copy').addEventListener('click', () => {
+  const lines = [];
+  const push = (id, heading, src) => {
+    if (!notes[id]) return;
+    lines.push(`## ${heading}`, `${src}`, '', notes[id], '');
+  };
+  ROLES.forEach(r => r.items.forEach((it, i) => push(`${r.id}-${i}`, r.name, it.src)));
+  push('dead-0', 'Unused .serif utility', 'case-irbs.html:93');
+
+  if (!lines.length){ say('No notes yet'); return; }
+  const text = '# Redaction 35 — notes\n\n' + lines.join('\n');
+  out.value = text;
+  out.hidden = false;
+  out.scrollIntoView({ behavior:'smooth', block:'center' });
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(
+    () => say('Copied to clipboard'),
+    () => say('Shown below — select and copy')
+  );
+  else say('Shown below — select and copy');
+});
+
+document.getElementById('t-clear').addEventListener('click', () => {
+  if (!Object.keys(notes).length){ say('Nothing to clear'); return; }
+  if (!confirm('Delete every note on this page?')) return;
+  notes = {};
+  localStorage.removeItem(KEY);
+  document.querySelectorAll('textarea[data-id]').forEach(ta => { ta.value = ''; grow(ta); });
+  document.querySelectorAll('.inst').forEach(el => el.classList.remove('has-note'));
+  out.hidden = true;
+  say('Cleared');
+});
+</script>
+</body>
+</html>

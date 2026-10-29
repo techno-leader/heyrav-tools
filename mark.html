@@ -1,0 +1,335 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mark — grid construction</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#161616;
+    --ink-2:#4a4a4a;
+    --ink-3:#6e6e6e;
+    --mut:#767676;
+    --line:#ececec;
+    --line-2:#e7e7e7;
+    --paper:#ffffff;
+
+    --r-sm:8px;
+    --r-md:14px;
+    --r-pill:99px;
+
+    --t-body:18px;
+    --t-sub:24px;
+    --t-sub-lg:40px;
+    --t-label:12px;
+
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+
+    /* Construction chrome. The grid must sit far enough back that the mark
+       still reads as the subject and the grid as the scaffold. */
+    --g-grid:#e4e4e4;
+    --g-grid-5:#cfcfcf;
+    --g-guide:#9a9a9a;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);}
+  ::selection{background:#e5e5e5;}
+  .mono{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.14em;text-transform:uppercase;color:var(--ink-3);}
+  .wrap{max-width:1040px;margin:0 auto;padding:0 32px;}
+
+  header{padding:72px 0 40px;border-bottom:1px solid var(--line);}
+  h1{font-size:var(--t-sub-lg);font-weight:600;letter-spacing:-.03em;line-height:1.1;margin:14px 0 18px;}
+  header p{color:var(--mut);font-size:var(--t-body);line-height:1.6;max-width:64ch;}
+  header p + p{margin-top:14px;}
+  header b{font-weight:600;color:var(--ink-2);}
+
+  .driver{position:sticky;top:0;z-index:20;background:var(--paper);border-bottom:1px solid var(--line);padding:14px 0;}
+  .driver .row{display:flex;align-items:center;gap:20px;flex-wrap:wrap;}
+  .driver label{flex:1;display:flex;align-items:center;gap:14px;min-width:320px;min-height:44px;}
+  .driver label .mono{white-space:nowrap;}
+  .driver input[type=range]{flex:1;accent-color:var(--ink);min-height:44px;cursor:pointer;}
+  .driver output{font-family:var(--mono);font-size:var(--t-label);color:var(--ink);min-width:9ch;text-align:right;}
+  .tgl{
+    font-family:var(--mono);font-size:var(--t-label);letter-spacing:.1em;text-transform:uppercase;
+    min-height:44px;padding:0 20px;border-radius:var(--r-pill);cursor:pointer;
+    border:1px solid var(--line-2);background:var(--paper);color:var(--ink-3);
+    transition:border-color .2s,color .2s;
+  }
+  .tgl[aria-pressed="true"]{border-color:var(--ink);color:var(--ink);}
+  .tgl:focus-visible{outline:2px solid var(--ink-2);outline-offset:2px;}
+
+  .v{padding:48px 0;border-bottom:1px solid var(--line);}
+  .v-head{display:flex;align-items:baseline;gap:14px;margin-bottom:8px;}
+  .v-head b{font-size:var(--t-sub);font-weight:600;letter-spacing:-.015em;}
+  .v p{color:var(--mut);font-size:16px;line-height:1.6;max-width:66ch;margin-bottom:26px;}
+  .v p code, header p code{font-family:var(--mono);font-size:.86em;color:var(--ink-2);}
+
+  .stage{display:grid;grid-template-columns:minmax(320px,1fr) minmax(260px,340px);gap:40px;align-items:start;}
+  @media (max-width:880px){.stage{grid-template-columns:1fr;}}
+  .shot svg{width:100%;height:auto;display:block;}
+  .cap{margin-top:12px;}
+
+  /* Hairlines stay hairlines at any zoom, so the grid never thickens into
+     something that competes with the mark. */
+  .gl{stroke:var(--g-grid);stroke-width:1;fill:none;vector-effect:non-scaling-stroke;}
+  .gl5{stroke:var(--g-grid-5);}
+  .guide{stroke:var(--g-guide);stroke-width:1;fill:none;vector-effect:non-scaling-stroke;}
+  .dash{stroke-dasharray:7 6;}
+  .dot{fill:var(--ink);}
+  .frame{stroke:var(--ink);stroke-width:1.5;fill:none;vector-effect:non-scaling-stroke;}
+  .art{fill:var(--ink);}
+  .art.hollow{fill:none;stroke:var(--ink);stroke-width:2;vector-effect:non-scaling-stroke;}
+  .tag{font-family:var(--mono);font-size:13px;fill:var(--ink);letter-spacing:.04em;}
+  .tag.dim{fill:var(--ink-3);font-size:12px;}
+
+  /* Second pass of the same guides, clipped to the artwork and knocked out to
+     paper. Without it every centre and label that falls inside the mark is
+     black on black — and on this mark most of them do. */
+  .ko .guide{stroke:#8d8d8d;}
+  .ko .gl{stroke:rgba(255,255,255,.20);}
+  .ko .gl5{stroke:rgba(255,255,255,.34);}
+  .ko .dot{fill:var(--paper);}
+  .ko .tag{fill:var(--paper);}
+  .ko .tag.dim{fill:#b4b4b4;}
+
+  .readout{border:1px solid var(--line-2);border-radius:var(--r-md);padding:20px 22px;display:grid;gap:14px;}
+  .readout dl{display:grid;grid-template-columns:1fr;gap:12px;}
+  .readout dt{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.12em;text-transform:uppercase;color:var(--ink-3);}
+  .readout dd{font-family:var(--mono);font-size:15px;color:var(--ink);margin-top:2px;}
+  .readout code{
+    display:block;font-family:var(--mono);font-size:12px;line-height:1.7;color:var(--ink-2);
+    word-break:break-all;background:#fafafa;border-radius:var(--r-sm);padding:12px 14px;
+  }
+  @media (prefers-reduced-motion: reduce){*{transition:none !important;}}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <span class="mono">Mark — construction</span>
+    <h1>Both forms on one unit grid</h1>
+    <p>Nothing here is drawn by hand. Every centre sits on a grid intersection, every straight edge on a grid line, and every curve is a circular arc — SVG <code>A</code> commands only, no bezier control points.</p>
+    <p>The swash works because <b>13 and 11 are both odd</b>. Centres equidistant from both corners of a <code>13 × 11</code> box lie on the perpendicular bisector of its diagonal, <code>C(t) = (6.5, 5.5) + t·(−11, 13)</code>, and every half-integer <code>t</code> on that line lands on an exact grid point: <code>(1,12)</code>, <code>(12,−1)</code>, <code>(−10,25)</code>, <code>(23,−14)</code>. Their radii come out <code>√145·u</code> and <code>√725·u</code> — a ratio of exactly <b>√5</b>.</p>
+  </div>
+</header>
+
+<div class="driver">
+  <div class="wrap">
+    <div class="row">
+      <label><span class="mono">Unit</span><input id="sU" type="range" min="20" max="56" step="1"><output id="oU"></output></label>
+      <button class="tgl" id="tGrid" aria-pressed="true">Grid</button>
+      <button class="tgl" id="tCircles" aria-pressed="true">Circles</button>
+      <button class="tgl" id="tSolid" aria-pressed="true">Solid</button>
+    </div>
+    <div class="row">
+      <label><span class="mono">Outer sweep</span><input id="sUp" type="range" min="0.5" max="2.5" step="1"><output id="oUp"></output></label>
+      <label><span class="mono">Inner dive</span><input id="sLo" type="range" min="0.5" max="2.5" step="1"><output id="oLo"></output></label>
+    </div>
+  </div>
+</div>
+
+<section class="v">
+  <div class="wrap">
+    <div class="v-head"><b>A — the D</b><span class="mono">13 × 10 units</span></div>
+    <p>A rectangle eight units wide closed by a circle of radius <code>5u</code> centred on the intersection <code>(8, 5)</code>. Because the radius is exactly half the height, that circle is tangent to the top and bottom grid lines — the arc joins the straights with no flat spot and no corner. All four remaining corners are grid points.</p>
+    <div class="stage">
+      <div class="shot">
+        <svg id="svgD" xmlns="http://www.w3.org/2000/svg" aria-label="D mark construction"></svg>
+        <div class="cap mono" id="capD"></div>
+      </div>
+      <div class="readout">
+        <dl>
+          <dt>Circle</dt><dd id="dCircle"></dd>
+          <dt>Straight run</dt><dd id="dRun"></dd>
+          <dt>Tangency</dt><dd id="dTan"></dd>
+        </dl>
+        <code id="dPathTxt"></code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="v">
+  <div class="wrap">
+    <div class="v-head"><b>B — the swash</b><span class="mono">13 × 11 units</span></div>
+    <p>Two arcs strung between the same two grid points — the opposite corners <code>(0, 0)</code> and <code>(13, 11)</code>. Each is a plain circle centred on a grid intersection. Pick a near centre for a tight dive, a far one for a flat sweep; because both circles pass through both corners by construction, the tips stay pinned however you pair them. Matching the reference takes the far centre outside and the near centre inside.</p>
+    <div class="stage">
+      <div class="shot">
+        <svg id="svgS" xmlns="http://www.w3.org/2000/svg" aria-label="Swash construction"></svg>
+        <div class="cap mono" id="capS"></div>
+      </div>
+      <div class="readout">
+        <dl>
+          <dt>Outer sweep</dt><dd id="sUpR"></dd>
+          <dt>Inner dive</dt><dd id="sLoR"></dd>
+          <dt>Radius ratio</dt><dd id="sRatio"></dd>
+          <dt>Waist at mid-height</dt><dd id="sWaist"></dd>
+        </dl>
+        <code id="sPathTxt"></code>
+      </div>
+    </div>
+  </div>
+</section>
+
+<script>
+(function(){
+  /* ---- the system ---------------------------------------------------- */
+  const GW  = 13;   // both marks are 13 units wide
+  const GHD = 10;   // D height — even, so its radius GHD/2 is a whole unit
+  const GHS = 11;   // swash frame height — odd, which is what puts C(t) on grid
+
+  const S = { u:34, tUp:1.5, tLo:0.5, grid:true, circles:true, solid:true };
+
+  const $ = id => document.getElementById(id);
+  const r2 = n => Math.round(n*100)/100;
+  const el = (tag,attrs,txt) => {
+    const n = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    for(const k in attrs) n.setAttribute(k, attrs[k]);
+    if(txt!=null) n.textContent = txt;
+    return n;
+  };
+  /* Exact radicals beat decimals on a construction sheet: √145 is the drawing
+     instruction, 12.04 is the consequence. */
+  const surd = n => `\u221A${n}`;
+
+  /* ---- the swash family ---------------------------------------------- */
+  // Equidistant from (0,0) and (GW,GHS); half-integer t lands on a grid point.
+  const centre = t => [GW/2 - t*GHS, GHS/2 + t*GW];
+  const sq     = t => { const [x,y]=centre(t); return x*x + y*y; };   // R² in u²
+  const rad    = t => Math.sqrt(sq(t));
+
+  function swash(u){
+    const Rup = rad(S.tUp), Rlo = rad(S.tLo);
+    const A = R => `A${r2(R*u)} ${r2(R*u)} 0 0 1`;
+    return {
+      Rup, Rlo, cUp:centre(S.tUp), cLo:centre(-S.tLo),
+      d:`M0 0${A(Rup)} ${r2(GW*u)} ${r2(GHS*u)}${A(Rlo)} 0 0Z`
+    };
+  }
+  // Where a boundary crosses mid-height, in units. The near/far centre sit on
+  // opposite sides, so the waist is not centred on the frame — that asymmetry
+  // is the scythe.
+  function edgeAtMid(t, sign){
+    const [cx,cy] = centre(t*sign);              // sign +1 outer, −1 inner
+    return cx + sign*Math.sqrt(sq(t) - (GHS/2 - cy)**2);
+  }
+
+  /* ---- drawing ------------------------------------------------------- */
+  function grid(g,u,x0,y0,x1,y1){
+    for(let x=x0;x<=x1;x++) g.appendChild(el('line',{class:'gl'+(x%5?'':' gl5'),x1:x*u,y1:y0*u,x2:x*u,y2:y1*u}));
+    for(let y=y0;y<=y1;y++) g.appendChild(el('line',{class:'gl'+(y%5?'':' gl5'),x1:x0*u,y1:y*u,x2:x1*u,y2:y*u}));
+  }
+  function dot(g,u,x,y,label,place){
+    g.appendChild(el('circle',{class:'dot',cx:x*u,cy:y*u,r:4}));
+    if(label) g.appendChild(el('text', place==='sw'
+      ? {class:'tag',x:x*u-10,y:y*u+24,'text-anchor':'end'}
+      : {class:'tag',x:x*u+10,y:y*u-9}, label));
+  }
+  /* Radius labels ride their own arc, so they survive a centre that is off the
+     canvas. They must also clear the ink: the offset alone is not enough, since
+     a centred string is ~3u wide, so the anchor flips to run outward too. */
+  function arcLabel(g,u,c,R,lines){
+    const dx=GW/2-c[0], dy=GHS/2-c[1], m=Math.hypot(dx,dy);
+    const x=(c[0]+dx/m*(R+0.9))*u, y=(c[1]+dy/m*(R+0.9))*u;
+    const anchor = dx>=0 ? 'start' : 'end';
+    lines.forEach((t,i)=> g.appendChild(el('text',
+      {class:i?'tag dim':'tag', x, y:y+i*17, 'text-anchor':anchor}, t)));
+  }
+
+  /* Assemble a sheet: grid and guides under the mark, then the same two groups
+     again over it, clipped to the mark and restyled by `.ko`. */
+  function sheet(svg,id,u,pad,W,H,d,build){
+    svg.setAttribute('viewBox',`${-pad[0]*u} ${-pad[1]*u} ${(W+pad[0]*2)*u} ${(H+pad[1]*2)*u}`);
+    svg.replaceChildren();
+
+    const gGrid = el('g'), gGuide = el('g');
+    if(S.grid) grid(gGrid,u,-Math.ceil(pad[0]),-Math.ceil(pad[1]),W+Math.ceil(pad[0]),H+Math.ceil(pad[1]));
+    if(S.circles){
+      build(gGuide);
+      gGuide.appendChild(el('rect',{class:'frame',x:0,y:0,width:W*u,height:H*u}));
+    }
+    const defs = el('defs'), cp = el('clipPath',{id});
+    cp.appendChild(el('path',{d}));
+    defs.appendChild(cp);
+
+    const ko = el('g',{class:'ko','clip-path':`url(#${id})`});
+    ko.append(gGrid.cloneNode(true), gGuide.cloneNode(true));
+
+    svg.append(defs, gGrid, el('path',{class:'art'+(S.solid?'':' hollow'),d}), gGuide);
+    if(S.solid) svg.appendChild(ko);
+  }
+
+  function renderD(){
+    const u=S.u, R=GHD/2, run=GW-R;
+    const d = `M0 0H${r2(run*u)}A${r2(R*u)} ${r2(R*u)} 0 0 1 ${r2(run*u)} ${r2(GHD*u)}H0Z`;
+
+    sheet($('svgD'),'clipD',u,[S.circles?3:0.5, S.circles?3:0.5],GW,GHD,d, g=>{
+      g.appendChild(el('circle',{class:'guide dash',cx:run*u,cy:R*u,r:R*u}));
+      g.appendChild(el('line',{class:'guide dash',x1:run*u,y1:0,x2:run*u,y2:GHD*u}));
+      // the tangents: the reason R must be exactly half the height
+      g.appendChild(el('line',{class:'guide dash',x1:-1.4*u,y1:0,x2:(GW+1.4)*u,y2:0}));
+      g.appendChild(el('line',{class:'guide dash',x1:-1.4*u,y1:GHD*u,x2:(GW+1.4)*u,y2:GHD*u}));
+      g.appendChild(el('line',{class:'guide',x1:run*u,y1:R*u,x2:GW*u,y2:R*u}));
+      g.appendChild(el('text',{class:'tag',x:(run+R/2)*u,y:R*u-12,'text-anchor':'middle'},'R = 5u'));
+      dot(g,u,run,R,'(8, 5)','sw');
+      dot(g,u,run,0); dot(g,u,run,GHD);
+    });
+
+    $('capD').textContent = `${GW} × ${GHD} u  ·  u = ${u}px  ·  ${GW*u} × ${GHD*u}px`;
+    $('dCircle').textContent = `R = 5u at (8, 5)`;
+    $('dRun').textContent = `8u  (13 − 5)`;
+    $('dTan').textContent = `y = 0 and y = 10u`;
+    $('dPathTxt').textContent = d;
+  }
+
+  function renderS(){
+    const u=S.u, g=swash(u);
+
+    sheet($('svgS'),'clipS',u,[S.circles?4:0.5, S.circles?3:0.5],GW,GHS,g.d, gg=>{
+      gg.appendChild(el('line',{class:'guide dash',x1:0,y1:0,x2:GW*u,y2:GHS*u}));
+      [[g.cUp,g.Rup,S.tUp],[g.cLo,g.Rlo,S.tLo]].forEach(([c,R,t])=>{
+        gg.appendChild(el('circle',{class:'guide dash',cx:c[0]*u,cy:c[1]*u,r:R*u}));
+        gg.appendChild(el('line',{class:'guide',x1:c[0]*u,y1:c[1]*u,x2:0,y2:0}));
+        dot(gg,u,c[0],c[1]);
+        arcLabel(gg,u,c,R,[`R = ${surd(sq(t))} u`, `centre (${c[0]}, ${c[1]})`]);
+      });
+      dot(gg,u,0,0); dot(gg,u,GW,GHS);
+    });
+
+    const left=edgeAtMid(S.tLo,-1), right=edgeAtMid(S.tUp,1), waist=right-left;
+    $('capS').textContent = `${GW} × ${GHS} u  ·  u = ${u}px  ·  ${GW*u} × ${GHS*u}px`;
+    $('sUpR').textContent = `${surd(sq(S.tUp))} u = ${r2(g.Rup)} u at (${g.cUp})`;
+    $('sLoR').textContent = `${surd(sq(S.tLo))} u = ${r2(g.Rlo)} u at (${g.cLo})`;
+    $('sRatio').textContent = `${r2(g.Rup/g.Rlo)}  (${surd(r2(sq(S.tUp)/sq(S.tLo)))})`;
+    $('sWaist').textContent = `${r2(waist)} u = ${r2(waist*u)}px`;
+    $('sPathTxt').textContent = g.d;
+  }
+
+  function render(){
+    renderD(); renderS();
+    $('oU').value = `${S.u}px`;
+    $('oUp').value = surd(sq(S.tUp))+' u';
+    $('oLo').value = surd(sq(S.tLo))+' u';
+  }
+
+  const bind = (id,key) => {
+    const n=$(id); n.value=S[key];
+    n.addEventListener('input', ()=>{ S[key]=+n.value; render(); });
+  };
+  bind('sU','u'); bind('sUp','tUp'); bind('sLo','tLo');
+
+  const toggle = (id,key) => $(id).addEventListener('click', e => {
+    S[key]=!S[key]; e.currentTarget.setAttribute('aria-pressed', String(S[key])); render();
+  });
+  toggle('tGrid','grid'); toggle('tCircles','circles'); toggle('tSolid','solid');
+
+  render();
+})();
+</script>
+</body>
+</html>

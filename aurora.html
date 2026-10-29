@@ -1,0 +1,1185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Northern lights — test bench</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+<style>
+:root{
+  --ink:#16141f;
+  --lav:#8f7ff0;
+  --lav-deep:#6a58e0;
+  --mut:#8b87a0;
+  --line:#eceaf6;
+  --line-2:#e7e4f6;
+  --paper:#ffffff;
+
+  --r-sm:8px;
+  --r-md:14px;
+  --r-lg:20px;
+  --r-pill:99px;
+
+  --shadow-pop:0 18px 40px -22px rgba(64,52,150,.34);
+
+  --t-body:18px;
+  --t-sub:24px;
+  --t-sub-md:32px;
+  --t-sub-lg:40px;
+  --t-head:56px;
+  --t-head-lg:64px;
+}
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+  background:var(--paper);color:var(--ink);
+  font-family:"Space Grotesk","Inter",system-ui,sans-serif;
+  -webkit-font-smoothing:antialiased;
+  overflow:hidden;
+}
+canvas#gl{
+  position:fixed;inset:0;width:100vw;height:100vh;display:block;z-index:0;
+}
+
+.mono{
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.12em;
+  text-transform:uppercase;color:var(--mut);
+}
+
+/* ---- hero copy under test -----------------------------------------
+   This is the real hero markup from index.html, not a stand-in, so what
+   the contrast probe measures is what the page will actually ship. The
+   container mirrors .wrap (max-width + auto margins) rather than the
+   current .hero, which pads off the viewport edge and lands the h1 on a
+   different vertical line from every section below it. */
+#hero{
+  position:fixed;inset:0;z-index:2;
+  display:flex;flex-direction:column;justify-content:center;
+  pointer-events:none;
+}
+#hero .inner{width:100%;margin:0 auto;}
+#hero.centre .inner{text-align:center;}
+#hero h1{
+  font-size:var(--t-head-lg);line-height:1.05;letter-spacing:-0.035em;
+  font-weight:600;max-width:13ch;
+}
+#hero.centre h1{max-width:none;}
+/* The trigger is a real <button>: keyboard-reachable and announced, but
+   stripped back to inherit the h1's type so it still reads as a word in
+   the sentence, not a control. #hero is pointer-events:none, so the
+   button has to opt back in. */
+#hero h1 .convert{
+  font-family:"Instrument Serif",Georgia,serif;
+  color:var(--lav-deep);font-style:italic;font-weight:400;letter-spacing:-.01em;
+  font-size:inherit;line-height:inherit;
+  background:none;border:0;padding:0;margin:0;
+  pointer-events:auto;cursor:pointer;
+}
+#hero h1 .convert:focus-visible{
+  outline:2px solid var(--lav-deep);outline-offset:4px;border-radius:var(--r-sm);
+}
+#hero .sub{
+  margin-top:30px;font-size:var(--t-body);line-height:1.6;
+  color:var(--mut);max-width:42ch;
+}
+#hero.centre .sub{max-width:52ch;margin-left:auto;margin-right:auto;}
+#hero.off{display:none;}
+
+/* ---- readout -------------------------------------------------------
+   The panel owns the right edge, so diagnostics live bottom-left. */
+#diag{
+  position:fixed;left:44px;bottom:32px;z-index:3;
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.04em;
+  color:var(--mut);white-space:pre-line;pointer-events:none;
+  background:rgba(255,255,255,.72);border-radius:var(--r-sm);padding:8px 10px;
+}
+#diag b{color:var(--ink);font-weight:600;}
+#diag .ok{color:#0a7d55;}
+#diag .bad{color:#c0392b;}
+
+#fallback{
+  display:none;position:fixed;inset:0;z-index:4;
+  align-items:center;justify-content:center;padding:44px;text-align:center;
+}
+#fallback p{font-size:var(--t-body);line-height:1.6;color:var(--mut);max-width:38ch;}
+
+/* ---- control panel -------------------------------------------------
+   Ported from particles.html so the two benches behave identically:
+   same tokens, same 44px rows, same collapse / copy / reset.
+   -------------------------------------------------------------------- */
+#panel{
+  position:fixed;top:24px;right:24px;z-index:5;
+  width:312px;max-height:calc(100vh - 48px);
+  display:flex;flex-direction:column;
+  background:var(--paper);
+  border:1px solid var(--line);
+  border-radius:var(--r-lg);
+  box-shadow:var(--shadow-pop);
+  overflow:hidden;
+}
+#panel .head{
+  display:flex;align-items:center;justify-content:space-between;
+  gap:10px;padding:0 8px 0 16px;min-height:44px;
+  border-bottom:1px solid var(--line);flex:none;
+}
+#panelBody{overflow-y:auto;overscroll-behavior:contain;flex:1 1 auto;}
+#panel.collapsed #panelBody,#panel.collapsed .foot,#panel.collapsed #dump{display:none;}
+
+#panel details{border-bottom:1px solid var(--line);}
+#panel details:last-child{border-bottom:0;}
+#panel summary{
+  list-style:none;cursor:pointer;display:flex;align-items:center;
+  min-height:44px;padding:0 16px;
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--ink);
+}
+#panel summary::-webkit-details-marker{display:none;}
+#panel summary::after{content:"+";margin-left:auto;color:var(--mut);font-size:14px;}
+#panel details[open] summary::after{content:"–";}
+#panel .grp{padding:2px 16px 12px;}
+
+.row{display:flex;flex-direction:column;gap:4px;padding:6px 0;min-height:44px;justify-content:center;}
+.row .lab{
+  display:flex;align-items:baseline;justify-content:space-between;gap:10px;
+  font-size:13px;color:var(--mut);
+}
+.row .val{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--lav-deep);}
+.row input[type=range]{
+  -webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;cursor:pointer;
+}
+.row input[type=range]::-webkit-slider-runnable-track{height:3px;background:var(--line-2);border-radius:var(--r-pill);}
+.row input[type=range]::-moz-range-track{height:3px;background:var(--line-2);border-radius:var(--r-pill);}
+.row input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:16px;height:16px;margin-top:-6.5px;
+  background:var(--lav-deep);border-radius:var(--r-pill);border:0;
+}
+.row input[type=range]::-moz-range-thumb{
+  width:16px;height:16px;background:var(--lav-deep);border-radius:var(--r-pill);border:0;
+}
+/* ---- colour picker ------------------------------------------------
+   Three OKLCH rails repainted live. The C rail is drawn only as far as
+   sRGB can actually hold at this L and hue, so its flat tail is an
+   honest picture of the gamut edge rather than a slider that does
+   nothing. On white paper this matters more than usual: the whole look
+   depends on picking bright, in-gamut colour. */
+.pick .top{display:flex;align-items:center;gap:10px;min-height:44px;}
+.pick .sw{width:32px;height:32px;flex:none;border-radius:var(--r-sm);border:1px solid var(--line);}
+.pick .hex{
+  font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--mut);
+  text-transform:uppercase;letter-spacing:.04em;
+}
+.pick .rail{
+  -webkit-appearance:none;appearance:none;width:100%;height:22px;
+  background:transparent;cursor:pointer;margin-top:2px;
+}
+.pick .rail::-webkit-slider-runnable-track{
+  height:10px;border-radius:var(--r-pill);
+  background-image:var(--rail);border:1px solid var(--line);
+}
+.pick .rail::-moz-range-track{
+  height:10px;border-radius:var(--r-pill);
+  background-image:var(--rail);border:1px solid var(--line);
+}
+.pick .rail::-webkit-slider-thumb{
+  -webkit-appearance:none;appearance:none;width:14px;height:14px;margin-top:-3px;
+  background:var(--paper);border:2px solid var(--ink);border-radius:var(--r-pill);
+}
+.pick .rail::-moz-range-thumb{
+  width:14px;height:14px;background:var(--paper);
+  border:2px solid var(--ink);border-radius:var(--r-pill);
+}
+.pick .chip{display:flex;align-items:center;gap:8px;}
+.pick .chip span{
+  font-family:ui-monospace,Menlo,monospace;font-size:11px;color:var(--mut);width:12px;flex:none;
+}
+.swatches{display:flex;flex-wrap:wrap;gap:2px;margin-top:4px;}
+.swatches button{
+  width:44px;height:44px;border:0;background:transparent;cursor:pointer;
+  display:flex;align-items:center;justify-content:center;border-radius:var(--r-sm);
+}
+.swatches button i{
+  display:block;width:20px;height:20px;border-radius:var(--r-pill);
+  border:1px solid rgba(22,20,31,.14);
+}
+.row select,.row input[type=color]{
+  width:100%;min-height:44px;padding:0 10px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  background:var(--paper);color:var(--ink);
+  font-family:inherit;font-size:14px;cursor:pointer;
+}
+.row input[type=color]{padding:4px;}
+
+.foot{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--line);flex:none;}
+.btn{
+  flex:1 1 auto;min-height:44px;padding:0 14px;
+  border:1px solid var(--lav-deep);border-radius:var(--r-pill);
+  background:var(--lav-deep);color:var(--paper);
+  font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;
+}
+.btn-ghost{background:var(--paper);color:var(--lav-deep);}
+.btn-icon{
+  min-width:44px;min-height:44px;border:0;background:transparent;
+  color:var(--mut);font-size:18px;cursor:pointer;border-radius:var(--r-sm);
+}
+#dump{
+  display:none;margin:0 16px 12px;padding:12px;
+  border:1px solid var(--line);border-radius:var(--r-sm);
+  background:#fbfaff;color:var(--ink);
+  font-family:ui-monospace,Menlo,monospace;font-size:11px;line-height:1.5;
+  white-space:pre-wrap;word-break:break-word;max-height:190px;overflow:auto;
+  /* .mono uppercases and tracks out — neither is survivable for code */
+  text-transform:none;letter-spacing:0;
+}
+#dump.on{display:block;}
+
+@media (max-width:900px){
+  #panel{top:auto;bottom:0;right:0;left:0;width:auto;max-height:64vh;border-radius:var(--r-lg) var(--r-lg) 0 0;}
+  #diag{left:22px;right:22px;bottom:auto;top:24px;}
+  #hero h1{font-size:var(--t-head);}
+}
+@media (max-width:640px){
+  #hero h1{font-size:var(--t-sub-lg);}
+}
+</style>
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+
+<div id="hero">
+  <div class="inner">
+    <h1>Hi, I'm Ravindra.<br>I make designs that <button type="button" class="convert" id="trigger">convert.</button></h1>
+    <p class="sub">Design engineer crafting interfaces, motion and landing pages that turn attention into action.</p>
+  </div>
+</div>
+
+<div id="diag"></div>
+
+<div id="fallback"><p>This page needs WebGL, and this browser could not create a context.</p></div>
+
+<div id="panel">
+  <div class="head">
+    <span class="mono">Controls</span>
+    <button class="btn-icon" id="collapse" aria-expanded="true" aria-label="Collapse controls">–</button>
+  </div>
+  <div id="panelBody"></div>
+  <pre id="dump" class="mono"></pre>
+  <div class="foot">
+    <button class="btn" id="copyBtn">Copy values</button>
+    <button class="btn btn-ghost" id="resetBtn">Reset</button>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+  const canvas = document.getElementById('gl');
+  const diag   = document.getElementById('diag');
+  const heroEl = document.getElementById('hero');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  let renderer;
+  try{
+    renderer = new THREE.WebGLRenderer({canvas, antialias:true});
+  }catch(e){
+    canvas.style.display = 'none';
+    document.getElementById('panel').style.display = 'none';
+    diag.style.display = 'none';
+    document.getElementById('fallback').style.display = 'flex';
+    return;
+  }
+  renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+  renderer.setSize(innerWidth, innerHeight);
+  renderer.autoClear = true;
+
+  const TECH  = ['curtains','volume','ribbons'];
+  const BLEND = ['normal','multiply'];
+  const COLM  = ['by height','by density','by layer'];
+
+  /* ================================================================
+     1. SHARED GLSL
+     ================================================================ */
+
+  /* OKLCH -> sRGB. Copied verbatim from particles.html:686-707 so the
+     two benches cannot drift apart on colour. */
+  const OKLCH = `
+    vec3 oklab2lrgb(vec3 lab){
+      float l_ = lab.x + 0.3963377774*lab.y + 0.2158037573*lab.z;
+      float m_ = lab.x - 0.1055613458*lab.y - 0.0638541728*lab.z;
+      float s_ = lab.x - 0.0894841775*lab.y - 1.2914855480*lab.z;
+      float l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+      return vec3(
+        4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+       -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+       -0.0041960863*l - 0.7034186147*m + 1.7076147010*s);
+    }
+    vec3 lrgb2srgb(vec3 c){
+      c = max(c, vec3(0.));
+      vec3 lo = c*12.92;
+      vec3 hi = 1.055*pow(c, vec3(1./2.4)) - 0.055;
+      return mix(lo, hi, step(vec3(0.0031308), c));
+    }
+    vec3 oklch2rgb(vec3 lch){
+      float h = radians(lch.z);
+      vec3 lab = vec3(lch.x, lch.y*cos(h), lch.y*sin(h));
+      return clamp(lrgb2srgb(oklab2lrgb(lab)), 0., 1.);
+    }
+    /* shortest-path hue, so a green->magenta pair does not sweep the
+       long way round through mud */
+    vec3 lchMix(vec3 a, vec3 b, float t){
+      float dh = mod(b.z - a.z + 540.0, 360.0) - 180.0;
+      return vec3(mix(a.x,b.x,t), mix(a.y,b.y,t), a.z + dh*t);
+    }`;
+
+  const NOISE = `
+    float hash13(vec3 p){
+      p = fract(p*0.3183099 + vec3(0.1,0.2,0.3));
+      p *= 17.0;
+      return fract(p.x*p.y*p.z*(p.x+p.y+p.z));
+    }
+    float vnoise(vec3 x){
+      vec3 i = floor(x), f = fract(x);
+      f = f*f*(3.0-2.0*f);
+      return mix(mix(mix(hash13(i+vec3(0,0,0)), hash13(i+vec3(1,0,0)), f.x),
+                     mix(hash13(i+vec3(0,1,0)), hash13(i+vec3(1,1,0)), f.x), f.y),
+                 mix(mix(hash13(i+vec3(0,0,1)), hash13(i+vec3(1,0,1)), f.x),
+                     mix(hash13(i+vec3(0,1,1)), hash13(i+vec3(1,1,1)), f.x), f.y), f.z);
+    }
+    /* bounded loop with a dynamic break — GLSL ES 1.0 needs the bound
+       itself to be constant */
+    float fbm(vec3 p, int oct){
+      float a = 0.5, s = 0.0;
+      for(int i=0;i<8;i++){
+        if(i>=oct) break;
+        s += a*vnoise(p);
+        p *= 2.02; a *= 0.5;
+      }
+      return s;
+    }`;
+
+  /* On white paper an aurora cannot be additive — additive light on a
+     white ground saturates to white and the colour disappears. Both
+     paths below therefore emit a colour plus a coverage value, and the
+     blend mode decides how that lands:
+       normal   -> vec4(colour, coverage)      colour laid over paper
+       multiply -> vec4(mix(white, colour, coverage), 1.0)
+     Multiply is what makes overlapping curtains deepen instead of
+     washing out, which is the closest white-paper analogue to the way
+     real aurora layers compound. */
+  const OUT = `
+    vec4 compose(vec3 col, float cov){
+      cov = clamp(cov, 0.0, 1.0);
+      if(uBlend == 1) return vec4(mix(vec3(1.0), col, cov), 1.0);
+      return vec4(col, cov);
+    }`;
+
+  /* ================================================================
+     2. FULLSCREEN PASS — curtains + volume
+     ================================================================ */
+
+  const FS_VERT = `
+    varying vec2 vUv;
+    void main(){ vUv = uv; gl_Position = vec4(position.xy, 0.0, 1.0); }`;
+
+  const FS_FRAG = `
+    precision highp float;
+    varying vec2 vUv;
+    uniform vec2  uRes;
+    uniform vec2  uPos;
+    uniform float uTime, uIntensity, uAlphaGamma, uGrain, uColMix;
+    uniform int   uTech, uBlend, uColMode;
+    uniform vec3  uCA, uCB, uCC;
+
+    uniform int   uCurtLayers, uCurtOct;
+    uniform float uCurtScale, uCurtWarp, uCurtBand, uCurtSharp;
+    uniform float uCurtTilt, uCurtRise, uCurtSpeed, uCurtSep;
+
+    uniform int   uVolSteps, uVolOct;
+    uniform float uVolDensity, uVolScale, uVolWarp, uVolFall;
+    uniform float uVolWind, uVolPitch, uVolDolly;
+
+    uniform float uReveal;      /* 0 = paper, 1 = fully revealed */
+    uniform vec2  uRevOrigin;   /* click point, in vUv space */
+    uniform float uRipAmp, uRipFreq, uRipDecay, uRipWidth;
+    ${OKLCH}
+    ${NOISE}
+    ${OUT}
+
+    /* Set by ripple() before the field is sampled. Globals rather than
+       out-params so curtains() and volume() can both read them without
+       changing their signatures. */
+    vec2  gWarp = vec2(0.0);
+    float gMask = 1.0;
+
+    /* Expanding ripple front. The wave rides just BEHIND the leading
+       edge and decays, so the field is stretched as the front passes
+       over it and settles once the wave has gone by — the distortion
+       is in the sample position, not a wipe over a finished image. */
+    void ripple(){
+      vec2  d = (vUv - uRevOrigin) * vec2(uRes.x/uRes.y, 1.0);
+      /* +epsilon: d is exactly zero at the click pixel, and d/r would
+         be NaN there — the same trap as atan(0,0). */
+      float r = length(d) + 1e-6;
+      float maxR = length(vec2(uRes.x/uRes.y, 1.0));
+      float band = uReveal*maxR*1.3 - r;   /* >0 once the front has passed */
+
+      gMask = smoothstep(0.0, uRipWidth, band);
+      float wave = sin(band*uRipFreq) * exp(-max(band, 0.0)*uRipDecay)
+                 * smoothstep(0.0, uRipWidth*2.0, band);
+      /* fade the whole distortion out as the reveal completes, so the
+         resting state is the undistorted field you tuned */
+      gWarp = (d/r) * wave * uRipAmp * (1.0 - uReveal*uReveal);
+    }
+
+    vec3 ramp3(float t){
+      t = clamp(t, 0.0, 1.0);
+      vec3 lch = t < 0.5 ? lchMix(uCA, uCB, t*2.0) : lchMix(uCB, uCC, (t-0.5)*2.0);
+      return oklch2rgb(lch);
+    }
+
+    /* ---- A. layered fbm curtains --------------------------------
+       Each layer is a band whose centre line is an fbm curve in x.
+       Brightness is highest at the base of the band and decays
+       upward over uCurtRise, which is the way a real curtain reads:
+       a hard lower edge with rays fading into nothing above it. */
+    void curtains(out float cov, out float ct){
+      vec2 p = (vUv - 0.5 - uPos + gWarp) * vec2(uRes.x/uRes.y, 1.0) * uCurtScale;
+      float T = uTime * uCurtSpeed;
+      float acc = 0.0, colAcc = 0.0;
+      for(int i=0;i<8;i++){
+        if(i>=uCurtLayers) break;
+        float fi = float(i);
+        float off = fi * uCurtSep;
+        float w1 = fbm(vec3(p.x*0.8 + off*3.1, T*0.25 + off, off*3.0), uCurtOct);
+        float w2 = fbm(vec3(p.x*1.9 - off*2.0, T*0.15, 5.0 + off), uCurtOct);
+        float base = (w1-0.5)*uCurtWarp + (w2-0.5)*uCurtWarp*0.45
+                   + uCurtTilt*p.x + (fi - float(uCurtLayers-1)*0.5)*uCurtSep*0.35;
+        float h = p.y - base;
+        /* hard-ish lower edge, exponential decay above it */
+        float prof = smoothstep(-uCurtBand, uCurtBand*0.35, h)
+                   * exp(-max(h, 0.0)/max(uCurtRise, 1e-3));
+        float ray = 0.55 + 0.45*fbm(vec3(p.x*7.0 + off*11.0, T*0.6, 3.0), uCurtOct);
+        float band = pow(prof, uCurtSharp) * ray;
+        acc += band;
+        float layerT = (uCurtLayers > 1) ? fi/float(uCurtLayers-1) : 0.0;
+        float coord = uColMode == 0 ? clamp(h/max(uCurtRise,1e-3)*0.6, 0.0, 1.0)
+                    : uColMode == 1 ? clamp(band*1.6, 0.0, 1.0)
+                    : layerT;
+        colAcc += band*coord;
+      }
+      cov = acc;
+      ct  = acc > 1e-4 ? colAcc/acc : 0.0;
+    }
+
+    /* ---- B. raymarched volume -----------------------------------
+       Marches a ray through domain-warped 3D noise confined to a
+       horizontal slab. Genuinely 3D: curtains occlude each other and
+       the field parallaxes when the camera pitches. */
+    void volume(out float cov, out float ct){
+      vec2 uv = (vUv - 0.5 - uPos + gWarp) * vec2(uRes.x/uRes.y, 1.0);
+      vec3 ro = vec3(0.0, 0.3, uVolDolly);
+      vec3 rd = normalize(vec3(uv, -1.4));
+      float cp = cos(uVolPitch), sp = sin(uVolPitch);
+      rd = vec3(rd.x, rd.y*cp - rd.z*sp, rd.y*sp + rd.z*cp);
+      float tmax = 6.0;
+      float stepLen = tmax/float(uVolSteps);
+      float acc = 0.0, colAcc = 0.0;
+      for(int i=0;i<96;i++){
+        if(i>=uVolSteps) break;
+        vec3 q = ro + rd*(float(i)*stepLen);
+        vec3 n = q*uVolScale + vec3(uTime*uVolWind, 0.0, uTime*uVolWind*0.35);
+        float w = fbm(n*0.7, uVolOct);
+        float d = fbm(n + uVolWarp*(w-0.5), uVolOct);
+        d = smoothstep(0.42, 0.86, d);
+        float hf = exp(-abs(q.y - 0.45)*uVolFall);
+        float dens = d*hf*uVolDensity*stepLen;
+        float coord = uColMode == 0 ? clamp((q.y+0.6)/2.0, 0.0, 1.0)
+                    : uColMode == 1 ? clamp(d, 0.0, 1.0)
+                    : clamp(float(i)/float(uVolSteps), 0.0, 1.0);
+        /* front-to-back: nearer samples shadow the ones behind */
+        float contrib = dens*(1.0 - clamp(acc, 0.0, 1.0));
+        acc += contrib;
+        colAcc += contrib*coord;
+      }
+      cov = acc;
+      ct  = acc > 1e-4 ? colAcc/acc : 0.0;
+    }
+
+    void main(){
+      /* Resting state is plain paper. Bailing out here skips the whole
+         field — curtains alone is 4 layers x 5 octaves of fbm per pixel —
+         so the default state costs a compare, not a noise storm. */
+      if(uReveal <= 0.0){ gl_FragColor = compose(vec3(1.0), 0.0); return; }
+      ripple();
+      float cov, ct;
+      if(uTech == 0) curtains(cov, ct); else volume(cov, ct);
+      cov = pow(clamp(cov, 0.0, 1.0), uAlphaGamma) * uIntensity * gMask;
+      vec3 col = mix(oklch2rgb(uCB), ramp3(ct), uColMix);
+      /* a touch of grain, because a smooth wash of one hue over white
+         banks badly on 8-bit displays */
+      cov += (hash13(vec3(gl_FragCoord.xy, uTime*60.0)) - 0.5)*uGrain;
+      gl_FragColor = compose(col, cov);
+    }`;
+
+  /* ================================================================
+     3. RIBBON PASS — real geometry
+     ================================================================ */
+
+  const RIB_VERT = `
+    precision highp float;
+    attribute float aRib;
+    varying vec2  vUvR;
+    varying float vRib;
+    uniform float uTime, uRibW, uRibH, uRibDisp, uRibCurl, uRibSpacing, uRibSpeed;
+    uniform int   uRibCount;
+    ${NOISE}
+    void main(){
+      vUvR = uv; vRib = aRib;
+      float centred = aRib - float(uRibCount-1)*0.5;
+      vec3 p = vec3(position.x*uRibW, position.y*uRibH, centred*uRibSpacing);
+      float ph = aRib*1.7;
+      float T  = uTime*uRibSpeed;
+      /* the ribbon waves along its own length; the noise term keeps the
+         wave from reading as a clean sine */
+      p.z += sin(position.x*uRibCurl*6.2831 + T + ph)*uRibDisp;
+      p.y += (fbm(vec3(position.x*uRibCurl*2.0, T*0.4, ph), 4) - 0.5)*uRibDisp*1.6;
+      p.x += cos(position.x*uRibCurl*3.0 - T*0.7 + ph)*uRibDisp*0.25;
+      gl_Position = projectionMatrix*modelViewMatrix*vec4(p, 1.0);
+    }`;
+
+  const RIB_FRAG = `
+    precision highp float;
+    varying vec2  vUvR;
+    varying float vRib;
+    uniform float uRibAlpha, uIntensity, uAlphaGamma, uColMix;
+    uniform int   uBlend, uColMode, uRibCount;
+    uniform vec3  uCA, uCB, uCC;
+    ${OKLCH}
+    ${OUT}
+    vec3 ramp3(float t){
+      t = clamp(t, 0.0, 1.0);
+      vec3 lch = t < 0.5 ? lchMix(uCA, uCB, t*2.0) : lchMix(uCB, uCC, (t-0.5)*2.0);
+      return oklch2rgb(lch);
+    }
+    void main(){
+      /* bright at the base, gone at the top; feathered at both ends so
+         a ribbon never shows a cut edge */
+      float vfade = pow(1.0 - vUvR.y, 1.6);
+      float hfade = smoothstep(0.0, 0.12, vUvR.x)*smoothstep(1.0, 0.88, vUvR.x);
+      float cov = pow(vfade*hfade, uAlphaGamma)*uRibAlpha*uIntensity;
+      float layerT = (uRibCount > 1) ? vRib/float(uRibCount-1) : 0.0;
+      float coord = uColMode == 0 ? 1.0 - vUvR.y
+                  : uColMode == 1 ? vfade
+                  : layerT;
+      vec3 col = mix(oklch2rgb(uCB), ramp3(coord), uColMix);
+      gl_FragColor = compose(col, cov);
+    }`;
+
+  /* ================================================================
+     4. OKLCH helpers in JS — deliberately beside the shader copy so
+     the two must agree. Ported from particles.html:961-987.
+     ================================================================ */
+  function oklchLin(L, C, H){
+    const h = H*Math.PI/180, a = C*Math.cos(h), b = C*Math.sin(h);
+    const l_ = L + 0.3963377774*a + 0.2158037573*b;
+    const m_ = L - 0.1055613458*a - 0.0638541728*b;
+    const s_ = L - 0.0894841775*a - 1.2914855480*b;
+    const l = l_*l_*l_, m = m_*m_*m_, s = s_*s_*s_;
+    return [ 4.0767416621*l - 3.3077115913*m + 0.2309699292*s,
+            -1.2684380046*l + 2.6097574011*m - 0.3413193965*s,
+            -0.0041960863*l - 0.7034186147*m + 1.7076147010*s];
+  }
+  const inGamut = (L,C,H) => oklchLin(L,C,H).every(v => v >= -0.001 && v <= 1.001);
+  function oklchHex(L, C, H){
+    const to8 = v => {
+      v = Math.max(0, Math.min(1, v));
+      v = v <= 0.0031308 ? v*12.92 : 1.055*Math.pow(v, 1/2.4) - 0.055;
+      return Math.round(Math.max(0, Math.min(1, v))*255).toString(16).padStart(2,'0');
+    };
+    return '#' + oklchLin(L,C,H).map(to8).join('');
+  }
+  function maxC(L, H){
+    let lo = 0, hi = 0.4;
+    for(let i=0;i<18;i++){ const m = (lo+hi)/2; inGamut(L,m,H) ? lo = m : hi = m; }
+    return lo;
+  }
+
+  /* Bright, in-gamut aurora stops — green, teal, cyan, magenta,
+     violet, and the site lavender so the effect can be pulled back
+     onto the existing palette. */
+  const PRESETS = [
+    [0.80,0.20,150], [0.80,0.14,196], [0.84,0.13,225],
+    [0.70,0.24,350], [0.62,0.25,300], [0.62,0.18,285]
+  ];
+
+  const SPEC = [
+    {g:'Scene', k:'technique',  t:'sel', o:TECH,  v:'curtains'},
+    {g:'Scene', k:'blend',      t:'sel', o:BLEND, v:'multiply', l:'Blend on paper'},
+    {g:'Scene', k:'speed',      t:'rng', min:0, max:3, st:.01, v:2,    l:'Speed'},
+    {g:'Scene', k:'intensity',  t:'rng', min:0, max:2, st:.01, v:0.51, l:'Intensity'},
+    {g:'Scene', k:'alphaGamma', t:'rng', min:.3, max:3, st:.01, v:1.11, l:'Coverage gamma'},
+    {g:'Scene', k:'grain',      t:'rng', min:0, max:.12, st:.002, v:0.058, l:'Grain'},
+    /* Screen-space pan, normalised as a fraction of the frame, so a
+       value keeps its meaning across viewport sizes. +x right, +y up.
+       Applies to all three techniques. */
+    {g:'Scene', k:'posX',       t:'rng', min:-1, max:1, st:.01, v:0, l:'Position X'},
+    {g:'Scene', k:'posY',       t:'rng', min:-1, max:1, st:.01, v:0, l:'Position Y'},
+    {g:'Scene', k:'bg',         t:'col', v:'#ffffff', l:'Paper'},
+
+    {g:'Curtains', k:'curtLayers', t:'rng', min:1, max:8,  st:1,   v:4,    l:'Layers'},
+    {g:'Curtains', k:'curtOct',    t:'rng', min:1, max:7,  st:1,   v:5,    l:'Noise octaves'},
+    {g:'Curtains', k:'curtScale',  t:'rng', min:.2, max:4, st:.01, v:1.4,  l:'Scale'},
+    {g:'Curtains', k:'curtWarp',   t:'rng', min:0, max:2,  st:.01, v:0.98, l:'Curve warp'},
+    {g:'Curtains', k:'curtBand',   t:'rng', min:.02, max:1, st:.01, v:0.3, l:'Edge softness'},
+    {g:'Curtains', k:'curtSharp',  t:'rng', min:.3, max:6, st:.05, v:1.4,  l:'Falloff sharpness'},
+    {g:'Curtains', k:'curtRise',   t:'rng', min:.05, max:2, st:.01, v:0.5, l:'Ray height'},
+    {g:'Curtains', k:'curtTilt',   t:'rng', min:-1, max:1, st:.01, v:0.12, l:'Tilt'},
+    {g:'Curtains', k:'curtSep',    t:'rng', min:0, max:1,  st:.01, v:0.47, l:'Layer separation'},
+    {g:'Curtains', k:'curtSpeed',  t:'rng', min:0, max:3,  st:.01, v:0.57, l:'Drift'},
+
+    {g:'Volume', k:'volSteps',   t:'rng', min:8, max:96, st:1,   v:35,   l:'March steps'},
+    {g:'Volume', k:'volDensity', t:'rng', min:0, max:3,  st:.01, v:0.78, l:'Density'},
+    {g:'Volume', k:'volScale',   t:'rng', min:.2, max:4, st:.01, v:1.1,  l:'Noise scale'},
+    {g:'Volume', k:'volOct',     t:'rng', min:1, max:6,  st:1,   v:4,    l:'Noise octaves'},
+    {g:'Volume', k:'volWarp',    t:'rng', min:0, max:2,  st:.01, v:0.97, l:'Domain warp'},
+    {g:'Volume', k:'volFall',    t:'rng', min:.2, max:4, st:.01, v:1.4,  l:'Height falloff'},
+    {g:'Volume', k:'volWind',    t:'rng', min:0, max:2,  st:.01, v:1.17, l:'Wind'},
+    {g:'Volume', k:'volPitch',   t:'rng', min:-.8, max:.8, st:.01, v:-0.34, l:'Camera pitch'},
+    {g:'Volume', k:'volDolly',   t:'rng', min:.5, max:5, st:.05, v:2.05, l:'Camera distance'},
+
+    {g:'Ribbons', k:'ribCount',   t:'rng', min:1, max:16, st:1,   v:7,    l:'Ribbons'},
+    {g:'Ribbons', k:'ribSeg',     t:'rng', min:16, max:160, st:8, v:80,   l:'Segments'},
+    {g:'Ribbons', k:'ribWidth',   t:'rng', min:.2, max:6, st:.05, v:3.4,  l:'Width'},
+    {g:'Ribbons', k:'ribHeight',  t:'rng', min:.2, max:3, st:.05, v:1.2,  l:'Height'},
+    {g:'Ribbons', k:'ribDisp',    t:'rng', min:0, max:1.5, st:.01, v:0.71, l:'Displacement'},
+    {g:'Ribbons', k:'ribCurl',    t:'rng', min:0, max:3,  st:.01, v:0.6,  l:'Curl'},
+    {g:'Ribbons', k:'ribSpacing', t:'rng', min:.02, max:1, st:.01, v:0.22, l:'Spacing'},
+    {g:'Ribbons', k:'ribAlpha',   t:'rng', min:0, max:1,  st:.01, v:0.4,  l:'Opacity'},
+    {g:'Ribbons', k:'ribSpeed',   t:'rng', min:0, max:3,  st:.01, v:0.6,  l:'Drift'},
+    {g:'Ribbons', k:'ribOrbit',   t:'rng', min:-1, max:1, st:.01, v:0.12, l:'Camera orbit'},
+
+    {g:'Colour', k:'ca', t:'pick', v:[0.88,0.20,150], l:'Stop 1'},
+    {g:'Colour', k:'cb', t:'pick', v:[0.92,0.13,205], l:'Stop 2'},
+    {g:'Colour', k:'cc', t:'pick', v:[0.88,0.22,318], l:'Stop 3'},
+    {g:'Colour', k:'colMode', t:'sel', o:COLM, v:'by height', l:'Ramp axis'},
+    {g:'Colour', k:'colMix',  t:'rng', min:0, max:1, st:.01, v:1, l:'Ramp amount'},
+
+    {g:'Reveal', k:'revealDur', t:'rng', min:.2, max:4, st:.05, v:1.4, l:'Reveal duration (s)'},
+    {g:'Reveal', k:'ripAmp',    t:'rng', min:0, max:.6, st:.005, v:0.18, l:'Ripple amount'},
+    {g:'Reveal', k:'ripFreq',   t:'rng', min:1, max:40, st:.5,  v:12,   l:'Ripple frequency'},
+    {g:'Reveal', k:'ripDecay',  t:'rng', min:0, max:12, st:.1,  v:3.2,  l:'Ripple decay'},
+    {g:'Reveal', k:'ripWidth',  t:'rng', min:.01, max:.6, st:.01, v:0.18, l:'Front softness'},
+
+    {g:'Hero', k:'showHero', t:'sel', o:['on','off'], v:'on',   l:'Hero copy'},
+    {g:'Hero', k:'heroAlign', t:'sel', o:['left','centre'], v:'centre', l:'Align'},
+    {g:'Hero', k:'heroMaxW',  t:'rng', min:900, max:1600, st:20, v:1180, l:'Container max-width'},
+    {g:'Hero', k:'heroPad',   t:'rng', min:22, max:120, st:2,   v:44,   l:'Side padding'}
+  ];
+
+  const CH = ['L','C','H'];
+  const DEFAULTS = {};
+  SPEC.forEach(s => {
+    if(s.t === 'pick') CH.forEach((c,i) => DEFAULTS[s.k+c] = s.v[i]);
+    else DEFAULTS[s.k] = s.v;
+  });
+  const P = Object.assign({}, DEFAULTS);
+  if(reduce) P.speed = 0;
+
+  const STORE = 'aurora-bench-v1';
+  try{
+    const saved = JSON.parse(localStorage.getItem(STORE) || 'null');
+    if(saved && !reduce) Object.keys(DEFAULTS).forEach(k => {
+      if(saved[k] !== undefined) P[k] = saved[k];
+    });
+  }catch(e){ /* corrupt or blocked storage — defaults are fine */ }
+
+  /* ================================================================
+     5. SCENES
+     ================================================================ */
+
+  const fsUniforms = {
+    uRes:{value:new THREE.Vector2(1,1)}, uPos:{value:new THREE.Vector2(0,0)}, uTime:{value:0},
+    uIntensity:{value:1}, uAlphaGamma:{value:1}, uGrain:{value:0}, uColMix:{value:1},
+    uTech:{value:0}, uBlend:{value:0}, uColMode:{value:0},
+    uCA:{value:new THREE.Vector3()}, uCB:{value:new THREE.Vector3()}, uCC:{value:new THREE.Vector3()},
+    uCurtLayers:{value:4}, uCurtOct:{value:5}, uCurtScale:{value:1.2},
+    uCurtWarp:{value:.65}, uCurtBand:{value:.2}, uCurtSharp:{value:1.4},
+    uCurtTilt:{value:.12}, uCurtRise:{value:.5}, uCurtSpeed:{value:.5}, uCurtSep:{value:.35},
+    uVolSteps:{value:40}, uVolOct:{value:4}, uVolDensity:{value:.9}, uVolScale:{value:1.1},
+    uVolWarp:{value:.8}, uVolFall:{value:1.4}, uVolWind:{value:.35},
+    uVolPitch:{value:-.1}, uVolDolly:{value:2.2},
+    uReveal:{value:0}, uRevOrigin:{value:new THREE.Vector2(.5,.5)},
+    uRipAmp:{value:.18}, uRipFreq:{value:12}, uRipDecay:{value:3.2}, uRipWidth:{value:.18}
+  };
+  const fsMat = new THREE.ShaderMaterial({
+    uniforms:fsUniforms, vertexShader:FS_VERT, fragmentShader:FS_FRAG,
+    transparent:true, depthTest:false, depthWrite:false
+  });
+  const fsScene = new THREE.Scene();
+  fsScene.add(new THREE.Mesh(new THREE.PlaneGeometry(2,2), fsMat));
+  const fsCam = new THREE.Camera();
+
+  const ribUniforms = {
+    uTime:{value:0}, uRibW:{value:3.4}, uRibH:{value:1.2}, uRibDisp:{value:.42},
+    uRibCurl:{value:.6}, uRibSpacing:{value:.22}, uRibSpeed:{value:.6},
+    uRibCount:{value:7}, uRibAlpha:{value:.35},
+    uIntensity:{value:1}, uAlphaGamma:{value:1}, uColMix:{value:1},
+    uBlend:{value:0}, uColMode:{value:0},
+    uCA:{value:new THREE.Vector3()}, uCB:{value:new THREE.Vector3()}, uCC:{value:new THREE.Vector3()}
+  };
+  const ribMat = new THREE.ShaderMaterial({
+    uniforms:ribUniforms, vertexShader:RIB_VERT, fragmentShader:RIB_FRAG,
+    transparent:true, depthTest:false, depthWrite:false, side:THREE.DoubleSide
+  });
+  const ribScene = new THREE.Scene();
+  const ribCam = new THREE.PerspectiveCamera(45, 1, .1, 100);
+  let ribMesh = null, builtRib = -1, builtSeg = -1, ribVerts = 0;
+
+  /* Geometry is unit-sized ([-.5,.5] on both axes) and scaled in the
+     vertex shader, so width/height/spacing are all draggable without a
+     rebuild. Only the ribbon count and segment count change the buffers. */
+  function buildRibbons(){
+    const n = Math.max(1, P.ribCount|0), seg = Math.max(8, P.ribSeg|0);
+    const pos = [], uvs = [], ribs = [], idx = [];
+    let vo = 0;
+    for(let r=0;r<n;r++){
+      for(let i=0;i<=seg;i++){
+        const u = i/seg;
+        for(let j=0;j<2;j++){
+          pos.push(u-0.5, j-0.5, 0);
+          uvs.push(u, j);
+          ribs.push(r);
+        }
+      }
+      for(let i=0;i<seg;i++){
+        const a = vo + i*2;
+        idx.push(a, a+1, a+2, a+1, a+3, a+2);
+      }
+      vo += (seg+1)*2;
+    }
+    const g = new THREE.BufferGeometry();
+    g.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+    g.setAttribute('uv',       new THREE.Float32BufferAttribute(uvs, 2));
+    g.setAttribute('aRib',     new THREE.Float32BufferAttribute(ribs, 1));
+    g.setIndex(idx);
+    if(ribMesh){ ribMesh.geometry.dispose(); ribMesh.geometry = g; }
+    else { ribMesh = new THREE.Mesh(g, ribMat); ribScene.add(ribMesh); }
+    builtRib = n; builtSeg = seg; ribVerts = pos.length/3;
+  }
+  buildRibbons();
+
+  /* ================================================================
+     6. CONTRAST PROBE
+     Re-renders the current scene into a small target and reads it back,
+     rather than reading the visible framebuffer. Reading the default
+     framebuffer outside the rAF callback returns a cleared buffer
+     (alpha:false, preserveDrawingBuffer:false), and reading inside it
+     stalls the pipeline every frame. A 128x72 re-render costs nothing
+     by comparison and is measured from the same shader.
+     ================================================================ */
+  const PW = 128, PH = 72;
+  const probeRT = new THREE.WebGLRenderTarget(PW, PH);
+  probeRT.texture.minFilter = probeRT.texture.magFilter = THREE.NearestFilter;
+  probeRT.texture.generateMipmaps = false;
+  const probePx = new Uint8Array(PW*PH*4);
+
+  const srgb2lin = v => { v/=255; return v <= 0.04045 ? v/12.92 : Math.pow((v+0.055)/1.055, 2.4); };
+  const relLum = (r,g,b) => 0.2126*srgb2lin(r) + 0.7152*srgb2lin(g) + 0.0722*srgb2lin(b);
+  const ratio = (a,b) => (Math.max(a,b) + 0.05)/(Math.min(a,b) + 0.05);
+
+  /* Each probe must use its OWN foreground, not a shared ink constant.
+     h1 is --ink #16141f but .sub is --mut #8b87a0, which is far lighter —
+     measuring the sub against ink overstates its contrast by ~5x. */
+  const fgLum = el => {
+    const m = getComputedStyle(el).color.match(/[\d.]+/g);
+    return m ? relLum(+m[0], +m[1], +m[2]) : 0;
+  };
+
+  /* worst (lowest) contrast anywhere under the element's box — the
+     text is dark on light, so the worst case is the darkest patch of
+     aurora, not the average */
+  function probeRect(el){
+    const b = el.getBoundingClientRect();
+    if(b.width <= 0 || b.height <= 0) return null;
+    const fg = fgLum(el);
+    const x0 = Math.max(0, Math.floor(b.left/innerWidth*PW));
+    const x1 = Math.min(PW, Math.ceil(b.right/innerWidth*PW));
+    /* readRenderTargetPixels rows run bottom-up */
+    const y0 = Math.max(0, Math.floor((1 - b.bottom/innerHeight)*PH));
+    const y1 = Math.min(PH, Math.ceil((1 - b.top/innerHeight)*PH));
+    let worst = 1e9, sum = 0, n = 0;
+    for(let y=y0;y<y1;y++){
+      for(let x=x0;x<x1;x++){
+        const o = (y*PW + x)*4;
+        const L = relLum(probePx[o], probePx[o+1], probePx[o+2]);
+        const c = ratio(L, fg);
+        if(c < worst) worst = c;
+        sum += c; n++;
+      }
+    }
+    return n ? {worst, mean:sum/n} : null;
+  }
+
+  const h1El  = document.querySelector('#hero h1');
+  const subEl = document.querySelector('#hero .sub');
+  let contrastTxt = '';
+  function measure(scene, cam){
+    renderer.setRenderTarget(probeRT);
+    renderer.render(scene, cam);
+    renderer.readRenderTargetPixels(probeRT, 0, 0, PW, PH, probePx);
+    renderer.setRenderTarget(null);
+    if(P.showHero === 'off'){ contrastTxt = ''; return; }
+    const a = probeRect(h1El), b = probeRect(subEl);
+    const tag = (c, need) => {
+      const cls = c >= need ? 'ok' : 'bad';
+      return '<span class="' + cls + '">' + c.toFixed(2) + ':1 ' + (c >= need ? '✓' : '✗') + '</span>';
+    };
+    /* h1 is 64px semibold, so WCAG treats it as large text (3:1 AA,
+       4.5:1 AAA); .sub is 18px body copy (4.5:1 AA, 7:1 AAA) */
+    contrastTxt =
+      (a ? 'h1  worst ' + tag(a.worst, 3) + '  AA-large 3:1\n' : '') +
+      (b ? 'sub worst ' + tag(b.worst, 4.5) + '  AA-body 4.5:1' : '');
+  }
+
+  /* ================================================================
+     7. PANEL — ported from particles.html:1095-1340
+     ================================================================ */
+  const body = document.getElementById('panelBody');
+  const inputs = {};
+  const groups = [];
+  SPEC.forEach(s => { if(!groups.includes(s.g)) groups.push(s.g); });
+
+  groups.forEach((gname, gi) => {
+    const d = document.createElement('details');
+    if(gi === 0) d.open = true;
+    const sm = document.createElement('summary');
+    sm.textContent = gname;
+    d.appendChild(sm);
+    const wrap = document.createElement('div');
+    wrap.className = 'grp';
+    SPEC.filter(s => s.g === gname).forEach(s => {
+      const row = document.createElement('div');
+      row.className = 'row';
+      const lab = document.createElement('label');
+      lab.className = 'lab';
+      const name = document.createElement('span');
+      name.textContent = s.l || s.k;
+      const val = document.createElement('span');
+      val.className = 'val';
+      lab.appendChild(name); lab.appendChild(val);
+      row.appendChild(lab);
+
+      if(s.t === 'pick'){
+        row.classList.add('pick');
+        val.remove();
+        const top = document.createElement('div'); top.className = 'top';
+        const sw  = document.createElement('div'); sw.className = 'sw';
+        const hex = document.createElement('span'); hex.className = 'hex';
+        top.appendChild(sw); top.appendChild(hex);
+        row.appendChild(top);
+
+        const rails = {};
+        CH.forEach(c => {
+          const chip = document.createElement('div'); chip.className = 'chip';
+          const tag = document.createElement('span'); tag.textContent = c;
+          const r = document.createElement('input');
+          r.type = 'range'; r.className = 'rail'; r.id = 'c_' + s.k + c;
+          r.min = 0; r.step = c === 'H' ? 1 : 0.005;
+          r.max = c === 'H' ? 360 : (c === 'L' ? 1 : 0.4);
+          r.value = P[s.k+c];
+          chip.appendChild(tag); chip.appendChild(r);
+          row.appendChild(chip);
+          rails[c] = r;
+          r.addEventListener('input', () => {
+            P[s.k+c] = parseFloat(r.value);
+            paint(); apply(); save();
+          });
+        });
+
+        const swatches = document.createElement('div');
+        swatches.className = 'swatches';
+        PRESETS.forEach(pr => {
+          const b = document.createElement('button');
+          b.type = 'button';
+          b.setAttribute('aria-label', 'Set ' + (s.l||s.k) + ' to ' + oklchHex(pr[0],pr[1],pr[2]));
+          const dot = document.createElement('i');
+          dot.style.background = oklchHex(pr[0], pr[1], pr[2]);
+          b.appendChild(dot);
+          b.addEventListener('click', () => {
+            CH.forEach((c,i) => { P[s.k+c] = pr[i]; rails[c].value = pr[i]; });
+            paint(); apply(); save();
+          });
+          swatches.appendChild(b);
+        });
+        row.appendChild(swatches);
+
+        function paint(){
+          const L = P[s.k+'L'], C = P[s.k+'C'], H = P[s.k+'H'];
+          const cap = maxC(L, H);
+          const ramp = (fn, n) => {
+            const out = [];
+            for(let i=0;i<=n;i++) out.push(fn(i/n) + ' ' + (100*i/n).toFixed(1) + '%');
+            return 'linear-gradient(90deg,' + out.join(',') + ')';
+          };
+          rails.L.style.setProperty('--rail', ramp(u => oklchHex(u, Math.min(C, maxC(u,H)), H), 10));
+          rails.C.style.setProperty('--rail', ramp(u => oklchHex(L, Math.min(u*0.4, cap), H), 10));
+          rails.H.style.setProperty('--rail', ramp(u => oklchHex(L, Math.min(C, maxC(L, u*360)), u*360), 14));
+          const hx = oklchHex(L, Math.min(C, cap), H);
+          sw.style.background = hx;
+          hex.textContent = hx + (C > cap + 0.002 ? '  (C clipped ' + cap.toFixed(2) + ')' : '');
+        }
+        paint();
+        inputs[s.k] = {pick:true, keys:CH.map(c => s.k+c), rails, paint, s};
+        wrap.appendChild(row);
+        return;
+      }
+
+      let el;
+      if(s.t === 'rng'){
+        el = document.createElement('input');
+        el.type = 'range'; el.min = s.min; el.max = s.max; el.step = s.st;
+        el.value = P[s.k];
+        val.textContent = (+P[s.k]).toFixed(String(s.st).split('.')[1] ? String(s.st).split('.')[1].length : 0);
+      }else if(s.t === 'sel'){
+        el = document.createElement('select');
+        s.o.forEach(o => {
+          const op = document.createElement('option');
+          op.value = o; op.textContent = o; el.appendChild(op);
+        });
+        el.value = P[s.k];
+        val.textContent = '';
+      }else{
+        el = document.createElement('input');
+        el.type = 'color'; el.value = P[s.k];
+        val.textContent = P[s.k];
+      }
+      el.id = 'c_' + s.k;
+      lab.setAttribute('for', el.id);
+      row.appendChild(el);
+      wrap.appendChild(row);
+      inputs[s.k] = {el, val, s};
+
+      el.addEventListener('input', () => {
+        P[s.k] = (s.t === 'rng') ? parseFloat(el.value) : el.value;
+        if(s.t === 'rng'){
+          const dp = String(s.st).split('.')[1] ? String(s.st).split('.')[1].length : 0;
+          val.textContent = P[s.k].toFixed(dp);
+        }
+        if(s.t === 'col') val.textContent = P[s.k];
+        apply(); save();
+      });
+    });
+    d.appendChild(wrap);
+    body.appendChild(d);
+  });
+
+  function save(){
+    try{ localStorage.setItem(STORE, JSON.stringify(P)); }catch(e){}
+  }
+
+  function apply(){
+    if(builtRib !== Math.max(1, P.ribCount|0) || builtSeg !== Math.max(8, P.ribSeg|0)) buildRibbons();
+
+    const f = fsUniforms, r = ribUniforms;
+    f.uTech.value  = TECH.indexOf(P.technique);
+    f.uBlend.value = r.uBlend.value = BLEND.indexOf(P.blend);
+    f.uColMode.value = r.uColMode.value = COLM.indexOf(P.colMode);
+    f.uIntensity.value = r.uIntensity.value = P.intensity;
+    f.uAlphaGamma.value = r.uAlphaGamma.value = P.alphaGamma;
+    f.uColMix.value = r.uColMix.value = P.colMix;
+    f.uGrain.value = P.grain;
+    f.uPos.value.set(P.posX, P.posY);
+    f.uRipAmp.value   = P.ripAmp;
+    f.uRipFreq.value  = P.ripFreq;
+    f.uRipDecay.value = P.ripDecay;
+    f.uRipWidth.value = P.ripWidth;
+
+    /* chroma is clamped to what sRGB can hold, so the shader is fed the
+       same colour the picker rail actually paints */
+    [['ca','uCA'],['cb','uCB'],['cc','uCC']].forEach(([k,u]) => {
+      const L = P[k+'L'], H = P[k+'H'], C = Math.min(P[k+'C'], maxC(L,H));
+      f[u].value.set(L, C, H);
+      r[u].value.set(L, C, H);
+    });
+
+    f.uCurtLayers.value = P.curtLayers|0; f.uCurtOct.value = P.curtOct|0;
+    f.uCurtScale.value = P.curtScale;     f.uCurtWarp.value = P.curtWarp;
+    f.uCurtBand.value = P.curtBand;       f.uCurtSharp.value = P.curtSharp;
+    f.uCurtTilt.value = P.curtTilt;       f.uCurtRise.value = P.curtRise;
+    f.uCurtSpeed.value = P.curtSpeed;     f.uCurtSep.value = P.curtSep;
+
+    f.uVolSteps.value = P.volSteps|0;     f.uVolOct.value = P.volOct|0;
+    f.uVolDensity.value = P.volDensity;   f.uVolScale.value = P.volScale;
+    f.uVolWarp.value = P.volWarp;         f.uVolFall.value = P.volFall;
+    f.uVolWind.value = P.volWind;         f.uVolPitch.value = P.volPitch;
+    f.uVolDolly.value = P.volDolly;
+
+    r.uRibW.value = P.ribWidth;   r.uRibH.value = P.ribHeight;
+    r.uRibDisp.value = P.ribDisp; r.uRibCurl.value = P.ribCurl;
+    r.uRibSpacing.value = P.ribSpacing; r.uRibSpeed.value = P.ribSpeed;
+    r.uRibAlpha.value = P.ribAlpha; r.uRibCount.value = Math.max(1, P.ribCount|0);
+
+    const bl = BLEND.indexOf(P.blend) === 1 ? THREE.MultiplyBlending : THREE.NormalBlending;
+    fsMat.blending = ribMat.blending = bl;
+    fsMat.needsUpdate = ribMat.needsUpdate = true;
+
+    renderer.setClearColor(new THREE.Color(P.bg), 1);
+    document.body.style.background = P.bg;
+
+    heroEl.classList.toggle('off', P.showHero === 'off');
+    heroEl.classList.toggle('centre', P.heroAlign === 'centre');
+    const inner = heroEl.querySelector('.inner');
+    inner.style.maxWidth = P.heroMaxW + 'px';
+    inner.style.paddingLeft = inner.style.paddingRight = P.heroPad + 'px';
+  }
+
+  document.getElementById('collapse').addEventListener('click', function(){
+    const p = document.getElementById('panel');
+    const open = !p.classList.toggle('collapsed');
+    this.textContent = open ? '–' : '+';
+    this.setAttribute('aria-expanded', String(open));
+  });
+
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    Object.assign(P, DEFAULTS);
+    Object.keys(inputs).forEach(k => {
+      const entry = inputs[k];
+      if(entry.pick){
+        entry.keys.forEach((key, i) => entry.rails[CH[i]].value = P[key]);
+        entry.paint();
+        return;
+      }
+      const {el, val, s} = entry;
+      el.value = P[k];
+      if(s.t === 'rng'){
+        const dp = String(s.st).split('.')[1] ? String(s.st).split('.')[1].length : 0;
+        val.textContent = (+P[k]).toFixed(dp);
+      }else if(s.t === 'col') val.textContent = P[k];
+    });
+    try{ localStorage.removeItem(STORE); }catch(e){}
+    apply();
+    document.getElementById('dump').classList.remove('on');
+  });
+
+  const copyBtn = document.getElementById('copyBtn');
+  const dump    = document.getElementById('dump');
+  copyBtn.addEventListener('click', () => {
+    const changed = Object.keys(DEFAULTS).filter(k => P[k] !== DEFAULTS[k]);
+    const fmt = v => typeof v === 'string' ? "'" + v + "'" : v;
+    const lines = Object.keys(DEFAULTS).map(k =>
+      '  ' + k + ': ' + fmt(P[k]) + (P[k] !== DEFAULTS[k] ? ',   // changed from ' + fmt(DEFAULTS[k]) : ','));
+    const text =
+      '/* aurora.html bench values — ' + changed.length + ' changed from default */\n' +
+      'const P = {\n' + lines.join('\n') + '\n};';
+    dump.textContent = text;
+    dump.classList.add('on');
+    const done = ok => {
+      copyBtn.textContent = ok ? 'Copied' : 'Select below';
+      setTimeout(() => copyBtn.textContent = 'Copy values', 1600);
+    };
+    if(navigator.clipboard && navigator.clipboard.writeText){
+      navigator.clipboard.writeText(text).then(() => done(true), () => done(false));
+    }else{
+      done(false);
+    }
+  });
+
+  /* ================================================================
+     8. LOOP
+     ================================================================ */
+  function resize(){
+    const w = innerWidth, h = innerHeight;
+    renderer.setSize(w, h);
+    fsUniforms.uRes.value.set(w, h);
+    ribCam.aspect = w/h;
+    ribCam.updateProjectionMatrix();
+  }
+  addEventListener('resize', resize);
+  resize();
+  apply();
+
+  /* ---- reveal trigger ------------------------------------------
+     Second-click behaviour is a placeholder: for now a click while
+     already revealed re-runs the ripple from the new origin, so the
+     effect can be tuned repeatedly without a page reload. */
+  let reveal = 0, revealing = false;
+  const trigger = document.getElementById('trigger');
+
+  /* debug: freeze the reveal part-way with ?reveal=0.35, so a single
+     phase of the ripple can be inspected or screenshotted. Same idea as
+     index.html's ?s= scroll-phase override. */
+  const forcedReveal = parseFloat(new URLSearchParams(location.search).get('reveal'));
+  const frozen = !isNaN(forcedReveal);
+  if(frozen) reveal = Math.min(Math.max(forcedReveal, 0), 1);
+
+  function fire(clientX, clientY){
+    fsUniforms.uRevOrigin.value.set(clientX/innerWidth, 1 - clientY/innerHeight);
+    reveal = 0; revealing = true;
+    /* Under reduced motion there is no travelling wave to watch, so
+       skip straight to the revealed state instead of animating. */
+    if(reduce){ reveal = 1; }
+  }
+  trigger.addEventListener('click', (e) => {
+    const r = trigger.getBoundingClientRect();
+    fire(r.left + r.width/2, r.top + r.height/2);
+  });
+  /* bench convenience: click anywhere on the canvas to replay from there */
+  document.getElementById('gl').addEventListener('pointerdown',
+    (e) => fire(e.clientX, e.clientY));
+
+  let tAnim = 0, last = performance.now(), fps = 0, sinceProbe = 1e9;
+  function frame(now){
+    requestAnimationFrame(frame);
+    /* capped like the rest of the cluster, so a stalled tab does not
+       jump the animation forward by seconds */
+    const dt = Math.min((now - last)/1000, 0.1);
+    last = now;
+    fps += (1/Math.max(dt, 1e-4) - fps)*0.08;
+    tAnim += dt*P.speed;
+
+    fsUniforms.uTime.value = ribUniforms.uTime.value = tAnim;
+
+    /* Reveal is a one-way 0->1 ramp driven by the click, eased so the
+       front decelerates into place rather than stopping dead. */
+    if(revealing && reveal < 1 && !frozen){
+      reveal = Math.min(1, reveal + dt/Math.max(P.revealDur, 1e-3));
+    }
+    const eased = frozen ? reveal : 1 - Math.pow(1 - reveal, 3);
+    fsUniforms.uReveal.value = eased;
+
+    const ribbons = P.technique === 'ribbons';
+    const scene = ribbons ? ribScene : fsScene;
+    const cam   = ribbons ? ribCam   : fsCam;
+
+    if(ribbons){
+      const a = tAnim*P.ribOrbit*0.3;
+      ribCam.position.set(Math.sin(a)*3.2, 0.35, Math.cos(a)*3.2);
+      ribCam.lookAt(0, 0, 0);
+      /* Ribbons are real geometry under a perspective camera, so the
+         screen-space pan cannot be a UV shift. setViewOffset slides the
+         projection window instead, which is an exact screen-space pan
+         and keeps posX/posY meaning the same thing in all three modes.
+         Window left  => content right, so x is negated.
+         Window down  => content up,    so y is not. */
+      const w = innerWidth, h = innerHeight;
+      ribCam.setViewOffset(w, h, -P.posX*w, P.posY*h, w, h);
+    }
+
+    sinceProbe += dt;
+    if(sinceProbe > 0.25){ sinceProbe = 0; measure(scene, cam); }
+
+    renderer.render(scene, cam);
+
+    diag.innerHTML =
+      '<b>' + P.technique + '</b> · ' + P.blend + ' · ' + fps.toFixed(0) + ' fps' +
+      (ribbons ? ' · ' + ribVerts.toLocaleString() + ' verts'
+               : P.technique === 'volume' ? ' · ' + (P.volSteps|0) + ' steps'
+               : ' · ' + (P.curtLayers|0) + ' layers') +
+      (contrastTxt ? '\n' + contrastTxt : '');
+  }
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Stagger - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+<style>
+  @font-face{font-family:"Redaction 35";font-style:italic;font-weight:400;font-display:swap;
+    src:url(https://cdn.jsdelivr.net/fontsource/fonts/redaction-35@latest/latin-400-italic.woff2) format("woff2");}
+  :root{--serif:"Redaction 35",Georgia,serif;--t-head-lg:64px;}
+  .board-wrap{padding-bottom:236px;}
+  .board canvas{display:none;}
+  /* the artboard is laid out at real pixels, then scaled to fit */
+  .art{position:absolute;left:0;top:0;transform-origin:0 0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:28px;text-align:center;}
+  .art h1{font-size:var(--t-head-lg);font-weight:var(--w-head);line-height:1.08;letter-spacing:-.02em;max-width:13ch;margin-inline:auto;color:var(--ink);}
+  .art h1 em{font-family:var(--serif);font-style:italic;font-weight:400;}
+  .art .sub{font-size:var(--t-body);color:var(--ink-3);max-width:46ch;line-height:1.5;}
+  .art .cta{display:inline-flex;align-items:center;min-height:44px;padding:12px 28px;border-radius:var(--r-pill);background:var(--ink);color:var(--paper);font-size:var(--t-body);letter-spacing:.02em;}
+  .art .ln{display:block;}
+  /* timeline */
+  .tl{position:absolute;left:28px;right:28px;bottom:84px;height:140px;background:var(--paper);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 16px 10px;display:flex;flex-direction:column;gap:6px;}
+  .tl-head{display:flex;justify-content:space-between;font-size:var(--t-label);color:var(--mut);}
+  .tl-head b{font-weight:400;color:var(--ink-2);}
+  .tl-rows{position:relative;flex:1;display:flex;flex-direction:column;justify-content:space-around;}
+  .tl-row{position:relative;height:14px;}
+  .tl-row.l0{height:34px;}
+  .tl-row span{position:absolute;top:0;height:100%;border-radius:var(--r-xs);background:var(--ink);opacity:.85;min-width:2px;}
+  .tl-row.l1 span{background:var(--ink-3);}
+  .tl-row.l2 span{background:var(--line-2);outline:1px solid var(--ink-3);outline-offset:-1px;}
+  .tl-lab{position:absolute;left:-2px;top:-15px;font-size:var(--t-label);color:var(--mut);white-space:nowrap;}
+  .tl-ph{position:absolute;top:0;bottom:0;width:1px;background:var(--ink);left:0;}
+  .tl-ticks{display:flex;justify-content:space-between;font-family:var(--mono);font-size:var(--t-label);color:var(--mut);}
+  /* bezier editor */
+  .bz{margin-top:6px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--wash);touch-action:none;display:block;width:100%;height:auto;}
+  .bz .grid{stroke:var(--line-2);stroke-width:1;}
+  .bz .curve{fill:none;stroke:var(--ink);stroke-width:2;}
+  .bz .arm{stroke:var(--ink-3);stroke-width:1;}
+  .bz .h{fill:var(--paper);stroke:var(--ink);stroke-width:2;cursor:grab;}
+  .bz .hit{fill:transparent;cursor:grab;}
+  .bz-v{display:block;margin-top:4px;font-family:var(--mono);font-size:var(--t-label);color:var(--ink-3);}
+  @media (max-width:900px){ .board-wrap{padding-bottom:220px;} .tl{left:16px;right:16px;} }
+</style>
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script>
+/* Stagger - the hero's entrance as a bench. The preview is driven by the very
+   CSS the export hands over, so what you tune is what ships: one keyframe
+   (the "from" state), one animation rule, and a --i index per unit written
+   as the only inline style. Reduced motion turns the whole thing off. */
+
+const EASES = {
+  heyrav: [.32,.72,0,1],     // --ease in components.html
+  out:    [.22,1,.36,1],     // --ease-out
+  expo:   [.16,1,.3,1],
+  back:   [.34,1.56,.64,1],
+  inOut:  [.65,0,.35,1],
+  linear: [0,0,1,1],
+};
+const bezOf = S => S.ease === 'custom' ? S.bez : EASES[S.ease];
+const bezStr = b => `cubic-bezier(${b.map(v => +(+v).toFixed(3)).join(',')})`;
+
+/* split text into units; *word* marks the serif accent */
+function units(text, mode) {
+  const lines = text.split('\n');
+  return lines.map(line => {
+    const words = line.split(/\s+/).filter(Boolean).map(w => ({ w: w.replace(/\*/g, ''), em: /^\*.*\*[.,!?]?$/.test(w) }));
+    return words;
+  });
+}
+function esc(s) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;'); }
+function build(S, forExport) {
+  let i = 0; const idx = [];   // one entry per unit: [layer, index]
+  const next = (layer) => { const n = i++; idx.push(layer); return n; };
+  const wrapUnit = (html, layer) => `<span class="st-u st-${layer}" style="--i:${next(layer)}">${html}</span>`;
+  const maskWrap = h => S.mask ? `<span class="st-mask">${h}</span>` : h;
+  // headline
+  const L = units(S.head);
+  let h1 = '';
+  L.forEach((words, li) => {
+    const word = w => w.em ? `<em>${esc(w.w)}</em>` : esc(w.w);
+    let lineHtml = '';
+    if (S.split === 'lines') lineHtml = maskWrap(wrapUnit(words.map(word).join(' '), 'h'));
+    else if (S.split === 'words') lineHtml = words.map(w => maskWrap(wrapUnit(word(w), 'h'))).join(' ');
+    else lineHtml = words.map(w => `<span class="st-word">${[...w.w].map(ch => maskWrap(wrapUnit(w.em ? `<em>${esc(ch)}</em>` : esc(ch), 'h'))).join('')}</span>`).join(' ');
+    h1 += `<span class="ln">${lineHtml}</span>`;
+  });
+  const headCount = i;
+  let sub = '';
+  if (S.sub.trim()) sub = S.subSplit === 'whole' ? wrapUnit(esc(S.sub), 's') : S.sub.split(/\s+/).map(w => wrapUnit(esc(w), 's')).join(' ');
+  const subCount = i - headCount;
+  const cta = S.cta ? wrapUnit(`<span class="cta">${esc(S.ctaLabel)}</span>`, 'c') : '';
+  // reorder indices within each layer
+  const reorder = (layer, n, base) => {
+    let order = [...Array(n).keys()];
+    if (S.order === 'reverse') order.reverse();
+    else if (S.order === 'centre') { const m = (n - 1)/2; order = order.map(k => Math.round(Math.abs(k - m)*2)); }
+    else if (S.order === 'random') { const r = Kit.rng(S.seed); for (let k = n - 1; k > 0; k--) { const j = Math.floor(r()*(k + 1)); [order[k], order[j]] = [order[j], order[k]]; } }
+    return order;
+  };
+  const hOrd = reorder('h', headCount), sOrd = reorder('s', subCount);
+  let k = 0;
+  const html = `<h1>${h1}</h1>${sub ? `<p class="sub">${sub}</p>` : ''}${cta}`
+    .replace(/style="--i:(\d+)"/g, (m, n) => { n = +n; let v = n < headCount ? hOrd[n] : n < headCount + subCount ? sOrd[n - headCount] : 0; return `style="--i:${v}"`; });
+  const maxH = Math.max(0, ...hOrd), maxS = Math.max(0, ...sOrd);
+  return { html, headCount, subCount, maxH, maxS, hOrd, sOrd };
+}
+function timing(S, B) {
+  const hEnd = B.maxH*S.stagger + S.dur;
+  const sStart = Math.max(0, hEnd + S.gap);       // gap measured from the last headline unit landing
+  const sEnd = sStart + B.maxS*S.subStagger + S.dur;
+  const cStart = Math.max(0, sEnd + S.gap);
+  return { hEnd, sStart, sEnd, cStart, total: S.cta ? cStart + S.dur : sEnd };
+}
+function css(S, B, speed = 1) {
+  const t = timing(S, B), k = 1/speed, b = bezOf(S);
+  const from = [];
+  if (S.x || S.y) from.push(`translate(${S.x}px,${S.y}${S.yUnit})`);
+  if (S.scale !== 100) from.push(`scale(${S.scale/100})`);
+  if (S.rot) from.push(`rotate(${S.rot}deg)`);
+  return `/* heyrav stagger - generated */
+.st-u{display:inline-block;animation:st-in ${Math.round(S.dur*k)}ms ${bezStr(b)} both;
+  animation-delay:calc(var(--i) * var(--st-s) + var(--st-o));}
+.st-h{--st-s:${Math.round(S.stagger*k)}ms;--st-o:${Math.round(S.delay*k)}ms;}
+.st-s{--st-s:${Math.round(S.subStagger*k)}ms;--st-o:${Math.round((S.delay + t.sStart)*k)}ms;}
+.st-c{--st-s:0ms;--st-o:${Math.round((S.delay + t.cStart)*k)}ms;}
+.st-mask{display:inline-block;overflow:hidden;vertical-align:top;padding-bottom:.12em;margin-bottom:-.12em;}
+.st-word{display:inline-block;white-space:nowrap;}
+@keyframes st-in{from{opacity:${S.op/100};${from.length ? `transform:${from.join(' ')};` : ''}${S.blur ? `filter:blur(${S.blur}px);` : ''}}}
+@media (prefers-reduced-motion:reduce){.st-u{animation:none}}`;
+}
+
+/* ---- stage ---- */
+const styleEl = document.createElement('style'); document.head.append(styleEl);
+let art, tl, tlRows, ph, B, playT0 = 0, rafId = 0;
+function render(S) {
+  if (!art) return;
+  B = build(S);
+  // preview css never carries the reduced-motion block: here motion is the content
+  styleEl.textContent = css(S, B, S.speed).replace(/@media \(prefers-reduced-motion[^}]*}}/, '');
+  art.innerHTML = B.html;
+  timelineDraw(S);
+  playT0 = performance.now();
+  cancelAnimationFrame(rafId); rafId = requestAnimationFrame(playhead);
+}
+function timelineDraw(S) {
+  const t = timing(S, B), total = S.delay + t.total, rows = [];
+  // a small gantt per layer: one hairline bar per unit, stacked in sequence order
+  const bar = (start, k = 0, n = 1) => `<span style="left:${start/total*100}%;width:${S.dur/total*100}%;top:${k/n*100}%;height:${n > 1 ? Math.max(8, 100/n) : 100}%"></span>`;
+  const hb = B.hOrd.map((i, k) => bar(S.delay + i*S.stagger, i, B.maxH + 1)).join('');
+  const sb = B.sOrd.map(i => bar(S.delay + t.sStart + i*S.subStagger, i, B.maxS + 1)).join('');
+  const cb = S.cta ? bar(S.delay + t.cStart) : '';
+  tlRows.innerHTML = `<div class="tl-row l0">${hb}</div>${sb ? `<div class="tl-row l1">${sb}</div>` : ''}${cb ? `<div class="tl-row l2">${cb}</div>` : ''}<i class="tl-ph"></i>`;
+  ph = tlRows.querySelector('.tl-ph');
+  tl.querySelector('.tl-head').innerHTML = `<b>headline · ${B.headCount} ${S.split}${B.subCount ? ` &nbsp; sub · ${B.subCount}` : ''}${S.cta ? ' &nbsp; button' : ''}</b><span class="num">${Math.round(total)} ms total${S.speed !== 1 ? ` · previewing at ${S.speed}x` : ''}</span>`;
+  const ticks = 5; tl.querySelector('.tl-ticks').innerHTML = [...Array(ticks + 1)].map((_, i) => `<span>${Math.round(total*i/ticks)}</span>`).join('');
+}
+function playhead(now) {
+  const S = T.S, total = S.delay + timing(S, B).total;
+  const el = (now - playT0)*S.speed;
+  ph.style.left = Math.min(100, el/total*100) + '%';
+  if (el < total) rafId = requestAnimationFrame(playhead);
+  else if (S.loop) setTimeout(() => render(S), 900);
+}
+
+/* ---- bezier editor (custom control) ---- */
+function bezEditor(api) {
+  const W = 260, H = 180, P = 22, sy = H - 2*P;
+  const box = Kit.h('div');
+  box.innerHTML = `<svg class="bz" viewBox="0 0 ${W} ${H}" aria-label="easing curve - drag the two handles">
+    <line class="grid" x1="${P}" y1="${H-P}" x2="${W-P}" y2="${H-P}"/><line class="grid" x1="${P}" y1="${P}" x2="${W-P}" y2="${P}"/>
+    <line class="grid" x1="${P}" y1="${P}" x2="${P}" y2="${H-P}"/><line class="grid" x1="${W-P}" y1="${P}" x2="${W-P}" y2="${H-P}"/>
+    <line class="arm a1"/><line class="arm a2"/><path class="curve"/>
+    <circle class="hit k1" r="22"/><circle class="hit k2" r="22"/><circle class="h h1" r="6"/><circle class="h h2" r="6"/></svg><span class="bz-v"></span>`;
+  const svg = box.querySelector('svg'), X = v => P + v*(W - 2*P), Y = v => H - P - v*sy;
+  let drag = 0;
+  const toVal = e => { const r = svg.getBoundingClientRect(); const x = (e.clientX - r.left)/r.width*W, y = (e.clientY - r.top)/r.height*H;
+    return [Kit.clamp((x - P)/(W - 2*P)), +(((H - P - y)/sy)).toFixed(3)]; };
+  svg.addEventListener('pointerdown', e => { if (e.target.classList.contains('k1') || e.target.classList.contains('h1')) drag = 1; else if (e.target.classList.contains('k2') || e.target.classList.contains('h2')) drag = 2; if (drag) svg.setPointerCapture(e.pointerId); });
+  svg.addEventListener('pointermove', e => { if (!drag) return; const [x, y] = toVal(e); const b = [...bezOf(api.S)];
+    b[(drag - 1)*2] = +x.toFixed(3); b[(drag - 1)*2 + 1] = Math.max(-.6, Math.min(1.6, y)); api.S.bez = b; api.set('ease', 'custom'); });
+  svg.addEventListener('pointerup', () => { if (drag) { drag = 0; api.commit('bez'); } });
+  box._draw = S => { const b = bezOf(S);
+    const [x1, y1, x2, y2] = [X(b[0]), Y(b[1]), X(b[2]), Y(b[3])];
+    svg.querySelector('.curve').setAttribute('d', `M${X(0)} ${Y(0)}C${x1} ${y1} ${x2} ${y2} ${X(1)} ${Y(1)}`);
+    const set = (q, a) => Object.entries(a).forEach(([k, v]) => svg.querySelector(q).setAttribute(k, v));
+    set('.a1', { x1: X(0), y1: Y(0), x2: x1, y2: y1 }); set('.a2', { x1: X(1), y1: Y(1), x2: x2, y2: y2 });
+    set('.h1', { cx: x1, cy: y1 }); set('.h2', { cx: x2, cy: y2 }); set('.k1', { cx: x1, cy: y1 }); set('.k2', { cx: x2, cy: y2 });
+    box.querySelector('.bz-v').textContent = bezStr(b); };
+  return box;
+}
+
+const T = Kit.tool({
+  title: 'Stagger', slug: 'heyrav-stagger', static: true,
+  lede: 'Tune how the hero arrives - split, offset, easing, rhythm - and copy out exactly the CSS you are watching.',
+  size: S => S.size,
+  presets: {
+    Hero: {},
+    Rise: { split:'words', y:110, yUnit:'%', mask:true, blur:0, op:100, dur:900, stagger:60, ease:'heyrav' },
+    Blur: { split:'words', y:12, blur:12, op:0, dur:1100, stagger:70, ease:'out' },
+    Type: { split:'chars', y:0, blur:0, op:0, dur:10, stagger:38, ease:'linear', subSplit:'whole' },
+    Spring: { split:'chars', y:40, scale:70, rot:-8, op:0, dur:700, stagger:22, ease:'back', order:'centre' },
+    Slow: { split:'lines', y:28, blur:6, op:0, dur:1600, stagger:220, ease:'expo', gap:-600 },
+  },
+  groups: [
+    { name: 'content', controls: [
+      { k:'size', type:'select', label:'artboard', value:[1440,900], rand:false, options:[[[1440,900],'1440 × 900 desktop'],[[1440,500],'1440 × 500 hero band'],[[390,844],'390 × 844 phone']] },
+      { k:'head', type:'text', rows:3, label:'headline', value:'Hi, I’m Ravindra.\nI make designs that *convert.*', rand:false, help:'One line per row. Wrap a word in *stars* for the Redaction accent.' },
+      { k:'sub', type:'text', rows:2, label:'subline', value:'2+ years exp. designing for performance marketing · IIT Eng. Grad.', rand:false },
+      { k:'cta', type:'toggle', label:'button', value:true, rand:false },
+      { k:'ctaLabel', type:'text', label:'button label', value:'Explore Case Study', rand:false, when:S=>S.cta },
+    ]},
+    { name: 'split', controls: [
+      { k:'split', type:'seg', label:'headline by', value:'words', options:['lines','words','chars'] },
+      { k:'subSplit', type:'seg', label:'subline by', value:'whole', options:['whole','words'] },
+      { k:'mask', type:'toggle', label:'mask each unit', value:false, help:'Clips every unit to its own box, so a rise reads as text sliding out of a slot.' },
+      { k:'order', type:'seg', label:'order', value:'forward', options:[['forward','→'],['reverse','←'],['centre','↔'],['random','?']] },
+      { k:'seed', type:'range', label:'random seed', min:1, max:99, value:7, when:S=>S.order==='random' },
+    ]},
+    { name: 'from', controls: [
+      { k:'y', type:'range', label:'rise', min:-120, max:120, value:24, rand:[0,60], help:'Distance each unit travels up into place. Units are set below.' },
+      { k:'yUnit', type:'seg', label:'rise unit', value:'px', options:[['px','px'],['%','% of unit']], adv:true, rand:false },
+      { k:'x', type:'range', label:'slide', min:-80, max:80, value:0, unit:'px', adv:true, rand:[-20,20] },
+      { k:'blur', type:'range', label:'blur', min:0, max:24, value:8, unit:'px', rand:[0,12] },
+      { k:'scale', type:'range', label:'scale', min:40, max:160, value:100, unit:'%', rand:[85,110] },
+      { k:'rot', type:'range', label:'rotate', min:-30, max:30, value:0, unit:'°', adv:true, rand:[-6,6] },
+      { k:'op', type:'range', label:'start opacity', min:0, max:100, value:0, unit:'%', rand:false },
+    ]},
+    { name: 'timing', controls: [
+      { k:'dur', type:'range', label:'duration', min:10, max:2400, step:10, value:900, unit:'ms', rand:[400,1400] },
+      { k:'stagger', type:'range', label:'headline stagger', min:0, max:400, step:2, value:70, unit:'ms', rand:[20,140] },
+      { k:'subStagger', type:'range', label:'subline stagger', min:0, max:200, step:2, value:24, unit:'ms', when:S=>S.subSplit==='words', rand:[10,60] },
+      { k:'gap', type:'range', label:'layer gap', min:-1200, max:1200, step:10, value:-400, unit:'ms', rand:[-700,200], help:'From the last headline unit landing to the subline starting. Negative overlaps them.' },
+      { k:'delay', type:'range', label:'initial delay', min:0, max:1500, step:10, value:200, unit:'ms', adv:true, rand:false },
+      { k:'ease', type:'select', label:'easing', value:'heyrav', options:[['heyrav','heyrav - the site\'s --ease'],['out','ease out'],['expo','expo out'],['back','back - overshoot'],['inOut','in-out'],['linear','linear'],['custom','custom']] },
+      { k:'bez', type:'custom', value:[.32,.72,0,1], render: bezEditor, sync: (S, el) => el._draw(S), rand: S => { S.ease = 'custom'; return [+(Math.random()*.6).toFixed(2), +(Math.random()*1.4).toFixed(2), +(.2 + Math.random()*.6).toFixed(2), 1]; },
+        help:'Drag either handle to make your own.' },
+    ]},
+    { name: 'preview', controls: [
+      { type:'button', label:'Replay', run: () => render(T.S) },
+      { k:'speed', type:'seg', label:'speed', value:1, rand:false, options:[[1,'1x'],[.5,'0.5x'],[.25,'0.25x'],[.1,'0.1x']], help:'Slow motion is preview only - the export keeps real time.' },
+      { k:'loop', type:'toggle', label:'loop', value:false, rand:false },
+    ]},
+    { name: 'export', controls: [
+      { type:'buttons', buttons:[
+        { label:'Copy CSS', run: api => api.copy(css(api.S, build(api.S), 1), 'css copied') },
+        { label:'Copy HTML', run: api => api.copy(build(api.S).html, 'html copied') },
+      ]},
+      { type:'button', label:'Copy link to this state', run: api => api.link() },
+      { type:'note', text:'The only inline style is --i, the unit\'s place in the sequence. Everything else is one rule and one keyframe, already wrapped in prefers-reduced-motion.' },
+    ]},
+  ],
+  draw: () => {},
+  onResize: (W, H) => {
+    if (!art) {
+      art = Kit.h('div', { class: 'art' }); T.board.append(art);
+      tl = Kit.h('div', { class: 'tl', 'aria-label': 'timeline' }, Kit.h('div', { class: 'tl-head' }), Kit.h('div', { class: 'tl-rows' }), Kit.h('div', { class: 'tl-ticks' }));
+      document.querySelector('.stage').insertBefore(tl, document.querySelector('.dock'));
+      tlRows = tl.querySelector('.tl-rows');
+    }
+    Object.assign(art.style, { width: W + 'px', height: H + 'px', transform: `scale(${T.view.scale})`, padding: W < 600 ? '24px' : '48px' });
+    render(T.S);
+  },
+});
+T.on(() => render(T.S));
+</script>
+</body>
+</html>

@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>D-CODE — rain glyph sets</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<style>
+  /* Tokens copied verbatim from index.html — this bench must not invent any. */
+  :root{
+    --ink:#161616; --ink-2:#4a4a4a; --ink-3:#6e6e6e; --mut:#767676;
+    --line:#ececec; --line-2:#e7e7e7; --paper:#ffffff; --sel:#bbfff0;
+    --g-a:oklch(0.62 0.171 150);
+    --g-b:oklch(0.62 0.301 318);
+    --g-c:oklch(0.62 0.106 205);
+    --r-sm:8px; --r-md:14px; --r-lg:20px; --r-pill:99px;
+    --t-body:18px; --t-label:12px;
+    --w-head:450;
+    --sans:"Onest",-apple-system,"Segoe UI",Helvetica,Arial,sans-serif;
+    --mono:ui-monospace,"SF Mono",Menlo,monospace;
+
+    /* bench knobs — the driver writes these */
+    --code-size:13px;
+    --code-op:.30;
+    --code-gap:2px;
+    --k:1;
+  }
+  *{margin:0;padding:0;box-sizing:border-box;}
+  ::selection{background:var(--sel);}
+  body{background:var(--paper);color:var(--ink);font-family:var(--sans);}
+
+  .page{max-width:1180px;margin-inline:auto;padding:48px 44px 140px;}
+  .mono{font-family:var(--mono);font-size:var(--t-label);letter-spacing:.08em;
+        text-transform:uppercase;color:var(--ink-3);}
+  h1.t{font-size:40px;font-weight:var(--w-head);letter-spacing:-.03em;margin:10px 0 8px;}
+  p.lede{font-size:var(--t-body);color:var(--mut);max-width:62ch;line-height:1.55;}
+  .note{font-size:15px;color:var(--mut);line-height:1.55;max-width:64ch;margin-top:10px;}
+  .note code{font-family:var(--mono);font-size:13px;color:var(--ink-2);}
+
+  .stages{display:grid;gap:34px;margin-top:44px;}
+  .stage-head{display:flex;align-items:baseline;gap:14px;margin-bottom:12px;}
+  .stage-head b{font-size:var(--t-body);font-weight:600;}
+
+  /* Each stage is the hero in miniature. The field is never judged on its own:
+     it only has to work behind the tear, so the tear is always in frame. */
+  .stage{
+    position:relative;overflow:hidden;isolation:isolate;
+    height:260px;border:1px solid var(--line);border-radius:var(--r-lg);
+    background:var(--paper);
+    display:flex;align-items:center;
+  }
+  .stage .line{
+    position:relative;z-index:2;padding-inline:40px;
+    font-size:36px;line-height:1.05;letter-spacing:-.03em;font-weight:var(--w-head);
+  }
+
+  /* Sits between the white ground and the heading — exactly where canvas#gl
+     sits on the real page. */
+  .field{
+    position:absolute;inset:0;z-index:1;
+    display:flex;gap:var(--code-gap);align-items:flex-start;
+    font-family:var(--mono);font-size:var(--code-size);line-height:1.18;
+    color:var(--ink-3);
+    opacity:0;pointer-events:none;user-select:none;white-space:pre;
+  }
+  .field .col{flex:1 1 0;text-align:center;will-change:transform;}
+  .field .col span{display:block;}
+
+  .stage.playing .field{animation:field-in calc(.68s * var(--k)) steps(1,end) 1;}
+  /* Coverage, not a cross-fade: the field is either part of the frame or it is
+     not. A fade would read as a background image loading in. */
+  @keyframes field-in{
+    0%{opacity:0;} 12%{opacity:var(--code-op);}
+    88%{opacity:var(--code-op);} 100%{opacity:0;}
+  }
+  .stage.playing .field .col{
+    animation:fall calc(.68s * var(--k)) linear 1;
+    animation-delay:calc(var(--d) * -1ms);
+  }
+  @keyframes fall{from{transform:translateY(var(--y0));}to{transform:translateY(var(--y1));}}
+
+  /* ---------------- the hint itself, copied verbatim from index.html ------- */
+  .convert{
+    font-family:"Redaction 35",Georgia,serif;
+    color:var(--ink-2);font-style:italic;font-weight:400;letter-spacing:-.01em;
+    font-size:inherit;line-height:inherit;
+    background:none;border:0;padding:0;margin:0;cursor:pointer;position:relative;
+  }
+  .convert .w{position:relative;display:inline-block;}
+  .stage.playing .convert .w{color:transparent;}
+  .stage.playing .convert .w::before,
+  .stage.playing .convert .w::after{
+    content:attr(data-word);
+    position:absolute;left:0;top:0;white-space:nowrap;color:var(--ink-2);
+  }
+  .stage.playing .convert .w::before{clip-path:inset(-.3em 0 46% 0);animation:tear-t calc(.34s * var(--k)) steps(1,end) 2;}
+  .stage.playing .convert .w::after {clip-path:inset(54% 0 -.4em 0);animation:tear-b calc(.34s * var(--k)) steps(1,end) 2;}
+  @keyframes tear-t{
+    0%,100%{transform:translate(0,0);text-shadow:none;}
+    20%{transform:translate(-.14em,-.012em);text-shadow:.055em 0 var(--g-b), -.032em 0 var(--g-a);}
+    45%{transform:translate(.07em,0);       text-shadow:-.045em 0 var(--g-a), .028em 0 var(--g-c);}
+    70%{transform:translate(-.04em,.012em); text-shadow:.055em 0 var(--g-b), -.032em 0 var(--g-a);}
+  }
+  @keyframes tear-b{
+    0%,100%{transform:translate(0,0);text-shadow:none;}
+    20%{transform:translate(.11em,.012em);  text-shadow:-.05em 0 var(--g-a), .03em 0 var(--g-b);}
+    45%{transform:translate(-.06em,0);      text-shadow:.04em 0 var(--g-b), -.025em 0 var(--g-c);}
+    70%{transform:translate(.035em,-.01em); text-shadow:-.05em 0 var(--g-a), .03em 0 var(--g-b);}
+  }
+  .convert .cur{
+    position:absolute;right:-.28em;bottom:-.36em;
+    width:.46em;line-height:0;color:var(--ink);opacity:0;pointer-events:none;
+  }
+  .convert .cur svg{display:block;width:100%;height:auto;}
+  .stage.playing .convert .cur{animation:cur calc(.92s * var(--k)) steps(1,end) 1;}
+  .stage.playing .convert .cur svg{animation:cur-jolt calc(.34s * var(--k)) steps(1,end) 2;}
+  @keyframes cur{
+    0%  {opacity:0;transform:translate(.18em,.18em);}
+    10% {opacity:1;transform:translate(0,0);}
+    46% {opacity:1;transform:translate(0,0);}
+    54% {opacity:1;transform:translate(.03em,.03em) scale(.92);}
+    66% {opacity:1;transform:translate(0,0);}
+    88% {opacity:1;transform:translate(0,0);}
+    100%{opacity:0;transform:translate(0,0);}
+  }
+  @keyframes cur-jolt{
+    0%,100%{transform:none;filter:none;}
+    20%{transform:translate(-.11em,.022em);
+        filter:drop-shadow(.045em 0 var(--g-b)) drop-shadow(-.03em 0 var(--g-a));}
+    45%{transform:translate(.06em,-.018em);
+        filter:drop-shadow(-.04em 0 var(--g-a)) drop-shadow(.025em 0 var(--g-c));}
+    70%{transform:translate(-.03em,0);
+        filter:drop-shadow(.03em 0 var(--g-b));}
+  }
+
+  /* ---------------- driver ---------------- */
+  .driver{
+    position:sticky;bottom:0;z-index:50;margin-top:48px;
+    background:var(--paper);border-top:1px solid var(--line);
+    padding:18px 0 22px;display:flex;flex-wrap:wrap;gap:26px;align-items:center;
+  }
+  .driver .grp{display:flex;align-items:center;gap:10px;}
+  .btn{
+    min-height:44px;padding:0 20px;border-radius:var(--r-pill);
+    border:1px solid var(--line-2);background:var(--paper);color:var(--ink);
+    font-family:var(--sans);font-size:15px;cursor:pointer;
+  }
+  .btn:hover{border-color:var(--ink-3);}
+  .btn[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  label.rng{display:flex;align-items:center;gap:8px;font-family:var(--mono);
+            font-size:var(--t-label);color:var(--ink-3);text-transform:uppercase;letter-spacing:.06em;}
+  input[type=range]{width:120px;accent-color:var(--ink);}
+  output{font-family:var(--mono);font-size:var(--t-label);color:var(--ink);min-width:4ch;}
+
+  @media (prefers-reduced-motion:reduce){
+    .stage.playing .field,
+    .stage.playing .field *,
+    .stage.playing .convert .w::before,
+    .stage.playing .convert .w::after,
+    .stage.playing .convert .cur,
+    .stage.playing .convert .cur svg{animation:none;}
+    .stage.playing .convert .w{color:var(--ink-2);}
+    .field{opacity:0;}
+  }
+</style>
+</head>
+<body>
+<div class="page">
+  <div class="mono">D-CODE · rain · glyph sets</div>
+  <h1 class="t">Letters, numbers, symbols — three cases</h1>
+  <p class="lede">Same ingredients in all three: English letters, digits and operators.
+  The only variable is the case the letters are drawn in, which at 13px is what decides
+  whether the columns break up or stay rigid.</p>
+  <p class="note">Two rules apply to all three: a glyph is never repeated directly below
+  itself, and never sits directly below its neighbour in the source string, so no pair
+  can read as a run. <b>Churn</b> re-rolls a fifth of the field on each of the four
+  glitch beats, so a falling column is a scramble rather than a fixed string sliding by.</p>
+
+  <div class="stages" id="stages"></div>
+
+  <div class="driver">
+    <div class="grp">
+      <button class="btn" id="playAll">Play all</button>
+      <button class="btn" id="churn" aria-pressed="true">Churn</button>
+      <button class="btn" id="loop" aria-pressed="false">Loop 5s</button>
+    </div>
+    <label class="rng">size <input type="range" id="size" min="9" max="20" step="1" value="13"><output id="sizeO">13px</output></label>
+    <label class="rng">opacity <input type="range" id="op" min="5" max="70" step="1" value="30"><output id="opO">.30</output></label>
+    <label class="rng">gap <input type="range" id="gap" min="0" max="14" step="1" value="2"><output id="gapO">2px</output></label>
+    <label class="rng">speed <input type="range" id="k" min="50" max="250" step="10" value="100"><output id="kO">1.00×</output></label>
+  </div>
+</div>
+
+<script>
+/* The pixel cursor, byte-identical to index.html's. */
+const CUR = '<svg viewBox="0 0 14 21" shape-rendering="crispEdges" aria-hidden="true" focusable="false"><g fill="var(--paper)"><rect x="5" y="1" width="2" height="19"/><rect x="8" y="8" width="2" height="12"/><rect x="11" y="10" width="2" height="10"/><rect x="1" y="12" width="4" height="2"/><rect x="7" y="12" width="1" height="8"/><rect x="10" y="12" width="1" height="8"/><rect x="2" y="14" width="3" height="2"/><rect x="3" y="16" width="2" height="2"/><rect x="4" y="18" width="1" height="2"/></g><g fill="currentColor"><rect x="5" y="0" width="2" height="1"/><rect x="4" y="1" width="1" height="11"/><rect x="7" y="1" width="1" height="11"/><rect x="8" y="7" width="2" height="1"/><rect x="10" y="8" width="1" height="4"/><rect x="11" y="9" width="2" height="1"/><rect x="13" y="10" width="1" height="11"/><rect x="1" y="11" width="3" height="1"/><rect x="0" y="12" width="1" height="2"/><rect x="1" y="14" width="1" height="2"/><rect x="2" y="16" width="1" height="2"/><rect x="3" y="18" width="1" height="3"/><rect x="4" y="20" width="9" height="1"/></g></svg>';
+
+/* All three are the same ingredients — English letters, digits, operators —
+   and differ only in which case the letters are drawn in. Case is the whole
+   argument at 13px: lowercase has ascenders and descenders and so breaks the
+   grid, uppercase sits on one band and so reinforces it. */
+const SYM = '{}[]()<>/\\*;:=+-_#$%&|!?^~.,';
+const NUM = '0123456789';
+const VARS = [
+  { id:'A', name:'Lowercase', set:'abcdefghijklmnopqrstuvwxyz' + NUM + SYM,
+    tag:'a\u2013z, 0\u20139, operators',
+    note:'Ascenders and descenders collide between rows, so the column reads as ' +
+         'broken texture rather than a line of type. The loosest of the three, ' +
+         'and the furthest from anything you could try to read.' },
+  { id:'B', name:'Mixed case', set:'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ' + NUM + SYM,
+    tag:'a\u2013z, A\u2013Z, 0\u20139, operators',
+    note:'The widest range of letterform in the set, so the field has the most ' +
+         'variation in weight \u2014 but mixed case is also the one arrangement that ' +
+         'can accidentally suggest a word, which is why the no-neighbour rule ' +
+         'matters most here.' },
+  { id:'C', name:'Uppercase', set:'ABCDEFGHIJKLMNOPQRSTUVWXYZ' + NUM + SYM,
+    tag:'A\u2013Z, 0\u20139, operators',
+    note:'Caps and digits share a height, so every row lands on the same two ' +
+         'lines and the columns stay rigid. Reads most like a terminal, and ' +
+         'darkest of the three at equal opacity because caps carry more ink.' },
+];
+
+const rnd = n => Math.floor(Math.random() * n);
+
+/* Pick a glyph that is neither the one above it nor that one's neighbour in the
+   source string. Two adjacent picks are what make a field look ordered; this is
+   the rule the last round was missing. */
+function pick(set, prev){
+  for(let tries = 0; tries < 12; tries++){
+    const i = rnd(set.length), c = set[i];
+    if(c === prev) continue;
+    const p = set.indexOf(prev);
+    if(p !== -1 && Math.abs(p - i) === 1) continue;
+    return c;
+  }
+  return set[rnd(set.length)];
+}
+
+const stages = document.getElementById('stages');
+stages.innerHTML = VARS.map(v => `
+  <div>
+    <div class="stage-head">
+      <span class="mono">${v.id}</span><b>${v.name}</b>
+      <span class="mono" style="text-transform:none;letter-spacing:.02em">${v.tag}</span>
+      <button class="btn" data-play="${v.id}" style="margin-left:auto;min-height:36px;font-size:13px">Play</button>
+    </div>
+    <div class="stage" data-v="${v.id}">
+      <div class="field" data-field="${v.id}"></div>
+      <div class="line">I make designs that <button type="button" class="convert"><span class="w" data-word="convert.">convert.</span><i class="cur" aria-hidden="true">${CUR}</i></button></div>
+    </div>
+    <p class="note">${v.note} <span class="mono" data-diag="${v.id}"></span></p>
+  </div>`).join('');
+
+/* Glyph advance has to be measured, not assumed: the four sets are not all the
+   same width in a fallback face, and a half column at the right edge looks
+   like a bug. */
+function advance(stage, sample){
+  const probe = document.createElement('span');
+  probe.style.cssText = 'position:absolute;visibility:hidden;white-space:pre;font-family:var(--mono)';
+  probe.style.fontSize = getComputedStyle(document.documentElement).getPropertyValue('--code-size');
+  probe.textContent = sample.repeat(4);
+  stage.appendChild(probe);
+  const w = probe.getBoundingClientRect().width / (sample.length * 4);
+  probe.remove();
+  return w;
+}
+
+function build(){
+  VARS.forEach(v => {
+    const stage = document.querySelector(`.stage[data-v="${v.id}"]`);
+    const field = stage.querySelector('.field');
+    const size = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--code-size'));
+    const gap  = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--code-gap'));
+    const lineH = size * 1.18;
+    const chW = advance(stage, v.set.slice(0, 20));
+    const W = stage.clientWidth, H = stage.clientHeight;
+    const rows = Math.ceil(H / lineH);
+    const cols = Math.max(1, Math.floor(W / (chW + gap)));
+
+    const out = [];
+    for(let c = 0; c < cols; c++){
+      /* Twice the frame height: the column has to cover the stage at both ends
+         of its travel or the field shows its own edges mid-fall. */
+      const n = rows * 2;
+      const head = rows + rnd(rows);
+      const y0 = -(rnd(60) + 20), y1 = y0 + 60 + rnd(90);
+      const spans = [];
+      let prev = '';
+      for(let i = 0; i < n; i++){
+        const d = head - i;
+        const o = d < 0 ? 0 : Math.max(0, 1 - d / (rows * 0.75));
+        prev = pick(v.set, prev);
+        spans.push(`<span style="opacity:${o.toFixed(2)}">${prev.replace(/&/g,'&amp;').replace(/</g,'&lt;')}</span>`);
+      }
+      out.push(`<div class="col" style="--y0:${y0}%;--y1:${y1}%;--d:${rnd(680)}">${spans.join('')}</div>`);
+    }
+    field.innerHTML = out.join('');
+    stage.dataset.cols = cols;
+  });
+}
+
+/* Churn: re-roll a fifth of the field on each of the four glitch beats, so a
+   falling column scrambles instead of sliding past as a fixed string. */
+const BEATS = 4;
+function churnPass(stage){
+  const v = VARS.find(x => x.id === stage.dataset.v);
+  const spans = stage.querySelectorAll('.field .col span');
+  const hits = Math.round(spans.length * 0.2);
+  for(let i = 0; i < hits; i++){
+    const s = spans[rnd(spans.length)];
+    s.textContent = pick(v.set, s.textContent);
+  }
+}
+
+const TOTAL = () => 920 * (+kIn.value / 100) + 60;
+function play(stage){
+  stage.classList.remove('playing');
+  void stage.offsetWidth;          /* reflow, or the animations will not restart */
+  stage.classList.add('playing');
+  clearTimeout(stage._t);
+  (stage._beats || []).forEach(clearTimeout);
+  stage._beats = [];
+  if(churnOn){
+    const beat = 680 * (+kIn.value / 100) / BEATS;
+    for(let i = 1; i < BEATS; i++) stage._beats.push(setTimeout(() => churnPass(stage), beat * i));
+  }
+  stage._t = setTimeout(() => { stage.classList.remove('playing'); build(); }, TOTAL());
+}
+const playAll = () => document.querySelectorAll('.stage').forEach(play);
+
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-play]');
+  if(b) play(document.querySelector(`.stage[data-v="${b.dataset.play}"]`));
+});
+document.getElementById('playAll').addEventListener('click', playAll);
+
+let churnOn = true;
+const churnBtn = document.getElementById('churn');
+churnBtn.addEventListener('click', () => {
+  churnOn = !churnOn; churnBtn.setAttribute('aria-pressed', String(churnOn)); playAll();
+});
+
+let loopT = null;
+const loopBtn = document.getElementById('loop');
+loopBtn.addEventListener('click', () => {
+  if(loopT){ clearInterval(loopT); loopT = null; loopBtn.setAttribute('aria-pressed','false'); loopBtn.textContent = 'Loop 5s'; }
+  else { loopT = setInterval(playAll, 5000); loopBtn.setAttribute('aria-pressed','true'); loopBtn.textContent = 'Stop loop'; playAll(); }
+});
+
+/* Tofu check: compare each set's rendered advance against U+FFFD. A set the
+   installed mono face cannot draw comes back the same width as the replacement
+   box, and that is worth knowing before picking it. */
+function diag(){
+  VARS.forEach(v => {
+    const stage = document.querySelector(`.stage[data-v="${v.id}"]`);
+    const set = advance(stage, v.set.slice(10, 30));
+    const dig = advance(stage, '0123456789');
+    document.querySelector(`[data-diag="${v.id}"]`).textContent =
+      `${stage.dataset.cols} cols · advance ${set.toFixed(2)}px vs digits ${dig.toFixed(2)}px`;
+  });
+}
+
+const root = document.documentElement;
+const sizeIn = document.getElementById('size'), opIn = document.getElementById('op'),
+      gapIn  = document.getElementById('gap'),  kIn  = document.getElementById('k');
+function sync(){
+  root.style.setProperty('--code-size', sizeIn.value + 'px');
+  root.style.setProperty('--code-op', (+opIn.value / 100).toFixed(2));
+  root.style.setProperty('--code-gap', gapIn.value + 'px');
+  root.style.setProperty('--k', (+kIn.value / 100).toFixed(2));
+  document.getElementById('sizeO').value = sizeIn.value + 'px';
+  document.getElementById('opO').value = '.' + String(opIn.value).padStart(2,'0');
+  document.getElementById('gapO').value = gapIn.value + 'px';
+  document.getElementById('kO').value = (+kIn.value / 100).toFixed(2) + '\u00d7';
+  build(); diag();
+}
+[sizeIn, opIn, gapIn, kIn].forEach(i => i.addEventListener('input', sync));
+addEventListener('resize', () => { build(); diag(); });
+
+sync();
+if(!matchMedia('(prefers-reduced-motion:reduce)').matches) playAll();
+</script>
+</body>
+</html>

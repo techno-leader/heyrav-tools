@@ -1,0 +1,384 @@
+{
+ "groups": [
+  {
+   "id": "tools",
+   "title": "Instruments",
+   "lede": "Live tools with every number exposed: pull a slider, hit R for random, slow it down, export the result."
+  },
+  {
+   "id": "hero",
+   "title": "The hero, through time",
+   "lede": "The home page as it stood at each turn, rebuilt from the repository - from the first lavender Three.js hero to the one-screen version that ships today."
+  },
+  {
+   "id": "thumbs",
+   "title": "Project thumbnails",
+   "lede": "Every way the work has been shown in a frame: shader quads, particle fields, the closing grid, the evidence reel."
+  },
+  {
+   "id": "system",
+   "title": "Benches and decisions",
+   "lede": "Side-by-side options built so a choice could be made by looking, not by arguing. Each notes what was picked."
+  }
+ ],
+ "items": [
+  {
+   "g": "tools",
+   "file": "tools/wall.html",
+   "title": "Creative Wall",
+   "date": "2026-10-29",
+   "note": "A wall of real ad variants; the middle column is a reel and whichever creative lands in the centre lights up, outlined, its label decoding.",
+   "tag": "new",
+   "cap": {
+    "clip": "stage",
+    "wait": 2500,
+    "eval": "t0 = T.clock.t - 4.7*1; 1",
+    "evalWait": 900
+   }
+  },
+  {
+   "g": "tools",
+   "file": "tools/lines.html",
+   "title": "Line Field",
+   "date": "2026-10-29",
+   "note": "The master D read as tone and redrawn as hairlines - flat or lifted into an isometric relief, hover to swell, click to ripple.",
+   "cap": {
+    "clip": "stage",
+    "state": {
+     "persp": true,
+     "tilt": 58,
+     "turn": -38,
+     "zoom": 105,
+     "extrude": 60,
+     "bg": "#0d1b4c",
+     "fg": "#ffffff",
+     "spacing": 6,
+     "inkW": 2.6,
+     "base": 0.35,
+     "scheme": "aurora",
+     "soft": 3
+    }
+   }
+  },
+  {
+   "g": "tools",
+   "file": "tools/pens.html",
+   "title": "Grid Pens",
+   "date": "2026-10-29",
+   "note": "Pens trace the swash and the D inside the closing grid's tiles, hold, and leave by blur, reverse or wipe. Exports an animated SVG.",
+   "cap": {
+    "clip": "stage",
+    "wait": 5000,
+    "state": {
+     "size": "fill",
+     "cell": 104,
+     "count": 30,
+     "pens": 12,
+     "speed": 420,
+     "style": "solid",
+     "stroke": 2,
+     "hold": 3000,
+     "pause": 0,
+     "inset": 12,
+     "shape": "swash"
+    }
+   }
+  },
+  {
+   "g": "tools",
+   "file": "tools/dots.html",
+   "title": "Dot Matrix",
+   "date": "2026-10-29",
+   "note": "Any image as halftone, ascii or dots - flat, on a cylinder or a globe - arriving by a sweep, crossed by a scan.",
+   "cap": {
+    "clip": "stage",
+    "wait": 3500,
+    "state": {
+     "proj": "globe",
+     "cover": 60,
+     "base": 10,
+     "cell": 7,
+     "dsize": 80,
+     "tilt": -14,
+     "bg": "#161616",
+     "fg": "#ffffff",
+     "backDots": true,
+     "backAlpha": 12,
+     "fit": 0.9,
+     "turn": 20
+    }
+   }
+  },
+  {
+   "g": "tools",
+   "file": "tools/stagger.html",
+   "title": "Stagger",
+   "date": "2026-10-29",
+   "note": "The hero's entrance as a bench: split, offset, blur, a draggable easing curve, a live timeline. Copies the exact CSS it previews.",
+   "cap": {
+    "clip": "stage",
+    "wait": 3500
+   }
+  },
+  {
+   "g": "tools",
+   "file": "tools/glitch.html",
+   "title": "Glitch",
+   "date": "2026-10-29",
+   "note": "The hero's hint taken apart - fringe tear, code rain, pixel hand. The CSS export keeps the hero's own two-half tear.",
+   "cap": {
+    "clip": "stage",
+    "wait": 1550,
+    "state": {
+     "size": "fill"
+    }
+   }
+  },
+  {
+   "g": "hero",
+   "file": "hero-2026-07-05-flower.html",
+   "title": "Flower",
+   "date": "2026-07-05",
+   "note": "\"Hi, I'm Ravindra.\" The first take on designs that convert, before the repository existed."
+  },
+  {
+   "g": "hero",
+   "file": "hero-2026-07-07-lavender.html",
+   "title": "Lavender, in Three.js",
+   "date": "2026-07-07",
+   "note": "The lavender hero that started the cluster: a live WebGL field behind the headline."
+  },
+  {
+   "g": "hero",
+   "file": "hero-2026-08-19-cluster.html",
+   "title": "Served from the root",
+   "date": "2026-08-19",
+   "note": "The lavender cluster becomes the home page, ViewRyt's design system rolled out across it."
+  },
+  {
+   "g": "hero",
+   "file": "hero-2026-09-11-monochrome.html",
+   "title": "Monochrome",
+   "date": "2026-09-11",
+   "note": "The review pass: lavender gone, Onest and Redaction 35 in, colour kept only where it is an event - the aurora behind the word.",
+   "cap": {
+    "click": "#trigger",
+    "wait": 3500
+   }
+  },
+  {
+   "g": "hero",
+   "file": "hero-2026-09-14-hint.html",
+   "title": "The word advertises itself",
+   "date": "2026-09-14",
+   "note": "convert. tears in RGB, code rains behind it and a pixel hand presses it - until the first click.",
+   "cap": {
+    "wait": 2500,
+    "eval": "Object.defineProperty(document,'hidden',{get:()=>false}); document.querySelectorAll('#trigger,.codefield,.hero').forEach(e=>e.classList.add('playing')); 1",
+    "evalWait": 600
+   }
+  },
+  {
+   "g": "hero",
+   "file": "hero-2026-09-20-drum.html",
+   "title": "The service drum",
+   "date": "2026-09-20",
+   "note": "An iOS-picker drum of services collapses into the headline, and the case links become ink pills.",
+   "cap": {
+    "query": "loader=1",
+    "wait": 900
+   }
+  },
+  {
+   "g": "hero",
+   "file": "hero-2026-09-21-one-screen.html",
+   "title": "One screen",
+   "date": "2026-09-21",
+   "note": "The hero cut to exactly one viewport, the word pointed at the work, the mark hung on the About wall.",
+   "cap": {
+    "wait": 3000,
+    "scroll": 520
+   }
+  },
+  {
+   "g": "hero",
+   "href": "https://heyrav.in",
+   "file": "",
+   "shot": "live",
+   "title": "Live today",
+   "date": "2026-10-24",
+   "note": "What ships now: the closing grid with its colour sweep, the rubber-band sign-off, TAE Ad Studio as a film.",
+   "tag": "live",
+   "cap": {
+    "hash": "contact",
+    "wait": 5000
+   }
+  },
+  {
+   "g": "thumbs",
+   "file": "hero-2026-08-19-cluster.html",
+   "hash": "work",
+   "shot": "cluster-work",
+   "title": "Raymarched quads",
+   "date": "2026-08-19",
+   "note": "The first case illustrations: flat shader quads, raymarched, one per project."
+  },
+  {
+   "g": "thumbs",
+   "file": "hero-2026-08-23-particles.html",
+   "hash": "work",
+   "shot": "particles-work",
+   "title": "Particle fields",
+   "date": "2026-08-23",
+   "note": "The quads rebuilt as live particle fields that answer the pointer - what the home page still uses.",
+   "tag": "shipped"
+  },
+  {
+   "g": "thumbs",
+   "file": "particles.html",
+   "title": "Particle bench",
+   "date": "2026-08-23",
+   "note": "The THREE.Points bench and control panel the case fields were tuned in."
+  },
+  {
+   "g": "thumbs",
+   "file": "grid.html",
+   "title": "Closing grid",
+   "date": "2026-09-13",
+   "note": "The footer replaced by a sparse scatter of work tiles, grey at rest; hover one and every copy colours.",
+   "tag": "shipped"
+  },
+  {
+   "g": "thumbs",
+   "file": "lab-evidence.html",
+   "title": "Evidence reel lab",
+   "date": "2026-08",
+   "note": "The animation lab for the case pages' evidence reel."
+  },
+  {
+   "g": "thumbs",
+   "file": "reel.html",
+   "title": "Reel axis",
+   "date": "2026-10",
+   "note": "Horizontal feed, synthetic vertical track, three scroll spans. Picked A, shipped into IRBS.",
+   "tag": "picked A"
+  },
+  {
+   "g": "thumbs",
+   "file": "herbius/bench-system.html",
+   "title": "Herbius launch system",
+   "date": "2026-10",
+   "note": "Five stations in a line - research, ads, pages, translations, launch - with the AI skills under every one."
+  },
+  {
+   "g": "system",
+   "file": "loader.html",
+   "title": "Loader drum",
+   "date": "2026-09",
+   "note": "The picker-wheel veil, landing pixel-exact on the hero from 1440 down to 400.",
+   "tag": "shipped"
+  },
+  {
+   "g": "system",
+   "file": "glitch.html",
+   "title": "D-GLITCH",
+   "date": "2026-09",
+   "note": "The convert word's tear and pointer, in every variant tried.",
+   "tag": "shipped"
+  },
+  {
+   "g": "system",
+   "file": "codebg.html",
+   "title": "D-CODE",
+   "date": "2026-09",
+   "note": "Three glyph sets for the rain - lowercase, mixed, uppercase - and the no-neighbour rule."
+  },
+  {
+   "g": "system",
+   "file": "aurora.html",
+   "title": "Northern lights",
+   "date": "2026-09",
+   "note": "The layered-fbm curtain shader behind the hero word. Parked, not deleted.",
+   "tag": "parked"
+  },
+  {
+   "g": "system",
+   "file": "btn.html",
+   "title": "Case-link buttons",
+   "date": "2026-09",
+   "note": "Six options, each beside its hover twin. Picked C, the solid ink pill.",
+   "tag": "picked C"
+  },
+  {
+   "g": "system",
+   "file": "bar.html",
+   "title": "Scroll progress bar",
+   "date": "2026-09",
+   "note": "Five bars, A to E. Picked B, the comet - a full-width gradient so the fade scales with progress.",
+   "tag": "picked B"
+  },
+  {
+   "g": "system",
+   "file": "foot.html",
+   "title": "Footer sign-off",
+   "date": "2026-09",
+   "note": "How big should the lockup be at the bottom of the page."
+  },
+  {
+   "g": "system",
+   "file": "mark.html",
+   "title": "Mark construction",
+   "date": "2026-09",
+   "note": "The earlier D and swash, rebuilt on a unit grid from primitives - since superseded by the master lockup.",
+   "tag": "superseded"
+  },
+  {
+   "g": "system",
+   "file": "tokens.html",
+   "title": "D-TOK",
+   "date": "2026-09",
+   "note": "Every literal colour left on the site, and three decisions about them."
+  },
+  {
+   "g": "system",
+   "file": "redaction.html",
+   "title": "D-RED",
+   "date": "2026-09",
+   "note": "Every place Redaction 35 renders, with a note field per instance."
+  },
+  {
+   "g": "system",
+   "file": "review.html",
+   "title": "The monochrome review",
+   "date": "2026-09",
+   "note": "The typography and colour review, kept as it was - it documents the old state."
+  },
+  {
+   "g": "system",
+   "file": "lab-design-review.html",
+   "title": "Rolling ViewRyt out",
+   "date": "2026-08",
+   "note": "The review that took ViewRyt's conventions across the whole cluster."
+  },
+  {
+   "g": "system",
+   "href": "https://heyrav.in/components.html",
+   "file": "",
+   "shot": "components",
+   "title": "Component lab",
+   "date": "ongoing",
+   "note": "One component a day, on the main site.",
+   "tag": "live"
+  },
+  {
+   "g": "system",
+   "href": "https://heyrav.in/museum.html",
+   "file": "",
+   "shot": "museum",
+   "title": "Museum",
+   "date": "2026-09",
+   "note": "A scroll-driven fly-through of the Udaipur drawings, on the main site.",
+   "tag": "live"
+  }
+ ]
+}
