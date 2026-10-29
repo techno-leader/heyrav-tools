@@ -24,20 +24,6 @@
  "items": [
   {
    "g": "tools",
-   "file": "tools/wall.html",
-   "title": "Creative Wall",
-   "date": "2026-10-29",
-   "note": "A wall of real ad variants; the middle column is a reel and whichever creative lands in the centre lights up, outlined, its label decoding.",
-   "tag": "new",
-   "cap": {
-    "clip": "stage",
-    "wait": 2500,
-    "eval": "t0 = T.clock.t - 4.7*1; 1",
-    "evalWait": 900
-   }
-  },
-  {
-   "g": "tools",
    "file": "tools/lines.html",
    "title": "Line Field",
    "date": "2026-10-29",

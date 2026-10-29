@@ -29,8 +29,8 @@ HISTORY = [
     ('hero-2026-09-20-drum', '0d52d41', 'index.html'),
     ('hero-2026-09-21-one-screen', 'a0da68e', 'index.html'),
 ]
-# folders the tools themselves read (tools/wall.html)
-EXTRA = ['herbius/assets/ads', 'assets/grid', 'assets/about', 'assets/lab/001']
+# folders the tools themselves read
+EXTRA = ['assets/grid', 'assets/about', 'assets/lab/001']
 EARLY = [
     ('hero-2026-07-05-flower', os.path.join(DL, 'ravindra-hero-flower.html')),
 ]
