@@ -211,6 +211,19 @@
   @media (prefers-reduced-motion:reduce){
     *{transition:none !important;}
   }
+
+  /* scrollbars - the design system rule: a thin rounded thumb on no track,
+     no border, firmer on hover. -webkit- rules only for Safari. */
+  :root{--scroll-thumb:color-mix(in srgb,var(--ink,#161616) 14%,transparent);--scroll-thumb-hover:color-mix(in srgb,var(--ink,#161616) 32%,transparent);}
+  *{scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent;}
+  *:hover{scrollbar-color:var(--scroll-thumb-hover) transparent;}
+  @supports not (scrollbar-color:auto){
+    ::-webkit-scrollbar{width:10px;height:10px;background:transparent;}
+    ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent;border:0;box-shadow:none;}
+    ::-webkit-scrollbar-thumb{background-color:var(--scroll-thumb);background-clip:padding-box;border:3px solid transparent;border-radius:99px;}
+    :hover::-webkit-scrollbar-thumb{background-color:var(--scroll-thumb-hover);}
+    ::-webkit-scrollbar-button{display:none;}
+  }
 </style>
 </head>
 <body>
