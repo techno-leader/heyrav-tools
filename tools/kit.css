@@ -43,7 +43,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 /* breadcrumb + title */
 .crumbs{display:flex;align-items:center;gap:6px;color:var(--mut);font-size:var(--t-ui);}
 .crumbs a{color:var(--mut);text-decoration:none;min-height:44px;display:inline-flex;align-items:center;}
-.crumbs a:hover{color:var(--ink);}
+@media (hover:hover) and (pointer:fine){.crumbs a:hover{color:var(--ink);}}
 .crumbs b{color:var(--ink);font-weight:var(--w-head);}
 .crumbs .sep{color:var(--line-2);}
 .lede{color:var(--ink-3);line-height:1.5;margin:2px 0 16px;}
@@ -55,7 +55,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
   background:var(--paper);cursor:pointer;color:var(--ink-2);
   transition:border-color .2s,background .2s,color .2s;
 }
-.chip:hover{border-color:var(--ink-3);color:var(--ink);}
+@media (hover:hover) and (pointer:fine){.chip:hover{border-color:var(--ink-3);color:var(--ink);}}
 .chip[aria-pressed="true"]{background:var(--ink);border-color:var(--ink);color:var(--paper);}
 
 /* groups */
@@ -101,7 +101,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
   flex:1;min-height:44px;border:0;background:none;cursor:pointer;border-radius:var(--r-sm);
   color:var(--ink-3);white-space:nowrap;padding:0 6px;
 }
-.seg button:hover{color:var(--ink);}
+@media (hover:hover) and (pointer:fine){.seg button:hover{color:var(--ink);}}
 .seg button[aria-pressed="true"]{
   color:var(--ink);background:var(--paper);
   box-shadow:inset 0 0 0 3px var(--wash),inset 0 0 0 4px var(--line);
@@ -142,7 +142,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
   box-shadow:inset 0 0 0 1px rgba(22,22,22,.12);transition:transform .2s var(--ease);
 }
 .sw-b[aria-pressed="true"] i{box-shadow:0 0 0 2px var(--paper),0 0 0 3.5px var(--ink);}
-.sw-b:hover i{transform:scale(1.1);}
+@media (hover:hover) and (pointer:fine){.sw-b:hover i{transform:scale(1.1);}}
 .sw-b.pick i{background:conic-gradient(var(--g-a),var(--g-c),var(--g-b),var(--g-a));}
 .sw-b input{position:absolute;opacity:0;width:1px;height:1px;}
 
@@ -154,9 +154,9 @@ button,input,select,textarea{font:inherit;color:inherit;}
   display:inline-flex;align-items:center;justify-content:center;gap:8px;
   transition:border-color .2s,background .2s;
 }
-.btn:hover{border-color:var(--ink-3);}
+@media (hover:hover) and (pointer:fine){.btn:hover{border-color:var(--ink-3);}}
 .btn.primary{background:var(--ink);border-color:var(--ink);color:var(--paper);}
-.btn.primary:hover{background:var(--ink-hover);}
+@media (hover:hover) and (pointer:fine){.btn.primary:hover{background:var(--ink-hover);}}
 
 /* drop zone */
 .drop{
@@ -165,7 +165,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
   color:var(--ink-3);cursor:pointer;text-align:center;padding:10px;transition:border-color .2s,background .2s;
 }
 .drop small{font-size:var(--t-label);color:var(--mut);}
-.drop:hover,.drop.over{border-color:var(--ink-3);background:var(--wash);}
+.drop.over{border-color:var(--ink-3);background:var(--wash);} @media (hover:hover) and (pointer:fine){.drop:hover{border-color:var(--ink-3);background:var(--wash);}}
 .drop.has{border-style:solid;}
 
 /* text */
@@ -198,11 +198,11 @@ button,input,select,textarea{font:inherit;color:inherit;}
   min-height:44px;min-width:44px;padding:0 16px;border:0;border-radius:var(--r-pill);
   background:none;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;color:var(--ink-2);
 }
-.dock button:hover{background:var(--wash);color:var(--ink);}
+@media (hover:hover) and (pointer:fine){.dock button:hover{background:var(--wash);color:var(--ink);}}
 .dock button:disabled{opacity:.35;cursor:default;background:none;}
 .dock button.primary{background:var(--ink);color:var(--paper);}
 .dock button.on{background:var(--wash);color:var(--ink);}
-.dock button.primary:hover{background:var(--ink-hover);}
+@media (hover:hover) and (pointer:fine){.dock button.primary:hover{background:var(--ink-hover);}}
 .dock .div{width:1px;height:20px;background:var(--line);margin:0 4px;}
 .dock kbd{font-family:var(--mono);font-size:var(--t-label);opacity:.55;}
 .icon{width:1em;height:1em;fill:currentColor;flex:none;}
@@ -231,11 +231,15 @@ button,input,select,textarea{font:inherit;color:inherit;}
    no track, no border, firmer on hover. -webkit- rules only for Safari. */
 :root{--scroll-thumb:color-mix(in srgb,var(--ink) 14%,transparent);--scroll-thumb-hover:color-mix(in srgb,var(--ink) 32%,transparent);}
 *{scrollbar-width:thin;scrollbar-color:var(--scroll-thumb) transparent;}
-*:hover{scrollbar-color:var(--scroll-thumb-hover) transparent;}
+@media (hover:hover) and (pointer:fine){*:hover{scrollbar-color:var(--scroll-thumb-hover) transparent;}}
 @supports not (scrollbar-color:auto){
   ::-webkit-scrollbar{width:10px;height:10px;background:transparent;}
   ::-webkit-scrollbar-track,::-webkit-scrollbar-corner{background:transparent;border:0;box-shadow:none;}
   ::-webkit-scrollbar-thumb{background-color:var(--scroll-thumb);background-clip:padding-box;border:3px solid transparent;border-radius:99px;}
-  :hover::-webkit-scrollbar-thumb{background-color:var(--scroll-thumb-hover);}
+  @media (hover:hover) and (pointer:fine){:hover::-webkit-scrollbar-thumb{background-color:var(--scroll-thumb-hover);}}
   ::-webkit-scrollbar-button{display:none;}
 }
+
+/* touch: no grey tap flash; 16px fields so iOS doesn't zoom into the rail */
+a,button,summary,label{-webkit-tap-highlight-color:transparent;}
+@media (pointer:coarse){input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),select,textarea{font-size:16px;}}
