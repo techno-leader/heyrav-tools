@@ -1,6 +1,5 @@
 /* heyrav tools - shared chrome.
-   One quiet control rail on the left, the work on the right. The anatomy is
-   lifted from James McDonald's mini design tools (Dive Club, Oct 2026):
+   One quiet control rail on the left, the work on the right. The anatomy:
    presets as chips, lowercase labels, a value on the right, one line of help
    under every control, collapsible groups, an advanced switch, and a dock with
    undo / redo / random. The skin is heyrav's own monochrome system. */
@@ -203,6 +202,7 @@ button,input,select,textarea{font:inherit;color:inherit;}
 .dock button:hover{background:var(--wash);color:var(--ink);}
 .dock button:disabled{opacity:.35;cursor:default;background:none;}
 .dock button.primary{background:var(--ink);color:var(--paper);}
+.dock button.on{background:var(--wash);color:var(--ink);}
 .dock button.primary:hover{background:var(--ink-hover);}
 .dock .div{width:1px;height:20px;background:var(--line);margin:0 4px;}
 .dock kbd{font-family:var(--mono);font-size:var(--t-label);opacity:.55;}

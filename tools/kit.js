@@ -277,8 +277,12 @@ const Kit = (() => {
     const undoBtn = h('button', { type: 'button', 'aria-label': 'undo', html: ICON.undo + '<span>Undo</span>', onclick: api.undo });
     const redoBtn = h('button', { type: 'button', 'aria-label': 'redo', html: ICON.redo + '<span>Redo</span>', onclick: api.redo });
     const randB = h('button', { type: 'button', class: 'primary', html: ICON.shuffle + '<span>Random</span><kbd>R</kbd>', onclick: randomise });
-    const dock = h('div', { class: 'dock' }, undoBtn, redoBtn, h('span', { class: 'div' }), playB, h('span', { class: 'div' }), randB);
-    if (cfg.static) playB.remove();
+    // speed: cycles 1X > .5X > .25X > .1X; S toggles 1X and the last slow speed
+    const speedB = h('button', { type: 'button', 'aria-label': 'animation speed', html: '<span>1X</span><kbd>S</kbd>', onclick: () => setSpeed(SPEEDS[(SPEEDS.indexOf(clock.rate) + 1) % SPEEDS.length]) });
+    const dock = h('div', { class: 'dock' }, undoBtn, redoBtn, h('span', { class: 'div' }), playB, speedB, h('span', { class: 'div' }), randB);
+    // a tool that already rescales its own preview names that param in cfg.previewSpeed (Stagger)
+    const ownSpeed = cfg.previewSpeed && cfg.previewSpeed in S ? cfg.previewSpeed : null;
+    if (cfg.static) { playB.remove(); if (!ownSpeed) speedB.remove(); }
     stage.append(wrap, dock);
 
     const ctx = canvas.getContext('2d');
@@ -315,17 +319,32 @@ const Kit = (() => {
 
     /* clock */
     const clock = {
-      on: false, t: 0, last: 0, raf: 0,
+      on: false, t: 0, last: 0, raf: 0, rate: 1,
       start() { if (this.on) return; this.on = true; this.last = performance.now(); this.raf = requestAnimationFrame(tick); syncPlay(); },
       stop() { this.on = false; cancelAnimationFrame(this.raf); syncPlay(); },
       toggle() { this.on ? this.stop() : this.start(); },
     };
     function syncPlay() { playB.innerHTML = (clock.on ? ICON.pause + '<span>Pause</span>' : ICON.play + '<span>Play</span>') + '<kbd>␣</kbd>'; }
+    const SPEEDS = [1, .5, .25, .1];
+    let slowRate = .25;
+    // With cfg.previewSpeed the dock drives that param; otherwise CSS / Web
+    // Animations on the page are retimed directly. The canvas clock follows both.
+    const retime = () => { if (document.getAnimations) for (const a of document.getAnimations()) if (a.playbackRate !== clock.rate) a.playbackRate = clock.rate; };
+    if (!ownSpeed) ['transitionrun', 'animationstart'].forEach(t => document.addEventListener(t, () => clock.rate !== 1 && retime(), true));
+    else api.on((k, s) => k === ownSpeed && s[k] !== clock.rate && setSpeed(s[k]));
+    function setSpeed(r) {
+      clock.rate = r; if (r < 1) slowRate = r;
+      speedB.innerHTML = `<span>${String(r).replace(/^0/, '')}X</span><kbd>S</kbd>`;
+      speedB.classList.toggle('on', r !== 1);
+      if (ownSpeed) { if (S[ownSpeed] !== r) set(ownSpeed, r); } else retime();
+      if (r !== 1 && !clock.on && !cfg.static) clock.start();
+    }
+    api.speed = r => r === undefined ? clock.rate : setSpeed(r);
     // heavy frames drop to every other vsync, so a slow laptop gets 30fps instead of a pegged core
     let cost = 0, skip = 0;
     function tick(now) {
       if (!clock.on) return;
-      clock.t += Math.min(64, now - clock.last) / 1000; clock.last = now;
+      clock.t += Math.min(64, now - clock.last) / 1000 * clock.rate; clock.last = now;
       if (cost > 22 && (skip ^= 1)) { clock.raf = requestAnimationFrame(tick); return; }
       const t0 = performance.now(); draw(); cost = cost * .9 + (performance.now() - t0) * .1;
       clock.raf = requestAnimationFrame(tick);
@@ -369,6 +388,7 @@ const Kit = (() => {
       else if (e.metaKey || e.ctrlKey || e.altKey) return;
       else if (k === 'r') randomise();
       else if (k === ' ' && !cfg.static) { e.preventDefault(); clock.toggle(); }
+      else if (k === 's' && (!cfg.static || ownSpeed) && !e.repeat) setSpeed(clock.rate === 1 ? slowRate : 1);
       else if (k === 'z') e.shiftKey ? api.redo() : api.undo();
     });
 
@@ -376,6 +396,7 @@ const Kit = (() => {
     requestAnimationFrame(() => {
       layout();
       syncPlay();
+      setSpeed(ownSpeed ? S[ownSpeed] : 1);
       if (!cfg.static && !reduced) clock.start();
     });
     return api;
