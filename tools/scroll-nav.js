@@ -380,7 +380,7 @@
       text = String(text);
       if (el.dataset.v === text) return;
       const fresh = !el.dataset.v || el.children.length !== text.length;
-      if (fresh) { el.innerHTML = ''; [...text].forEach(() => { const sl = document.createElement('span'); sl.className = 'roll'; el.append(sl); }); }
+      if (fresh) { el.innerHTML = ''; [...text].forEach(() => { const sl = document.createElement('span'); sl.className = 'sn-roll'; el.append(sl); }); }
       el.dataset.v = text;
       [...text].forEach((ch, j) => rollOne(el.children[j], ch, fresh ? 0 : dir));
     };
