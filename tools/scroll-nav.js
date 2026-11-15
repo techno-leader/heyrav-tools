@@ -31,7 +31,6 @@
     rowIcon: 'icon',                 // what leads each row: number | icon | image (the section's first picture)
     miniTop: 'number',               // top of the compact pill: number | icon
     announce: true, announceMs: 1500, // entering a section widens the pill into a capsule that names it
-    ring: true,                      // the icon rings as it arrives, like the island's silent-mode bell
     hideHeads: [],                   // section labels whose headline stays hidden (or data-subhead="off" on the section)
     // island
     iRest: 4, iRestA: .22, iW: 30, iMinH: 76, iMaxH: 180, iRad: 15, iCardW: 300, iRow: 36, iOpen: 110, iClose: 260,
@@ -63,7 +62,7 @@
   transition:background-color 150ms var(--sn-ease),color 150ms var(--sn-ease);}
 .snav-row .sn-num{opacity:.65;align-self:start;line-height:1.45;}
 .snav .sn-ic{display:grid;place-items:center;}
-.snav .sn-ic svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;transform-origin:50% 22%;}
+.snav .sn-ic svg{grid-area:1/1;width:16px;height:16px;fill:currentColor;}
 .snav-row .sn-ic{width:24px;height:20px;align-self:start;color:var(--sn-mut);opacity:.85;}
 .snav-row.sn-on .sn-ic{color:var(--sn-accent);opacity:1;}
 .snav-row .sn-th{width:24px;height:24px;border-radius:6px;object-fit:cover;align-self:start;margin-top:-1px;opacity:.85;}
@@ -76,7 +75,10 @@
 .snav-row.sn-seen .sn-meta{color:var(--sn-accent);opacity:.9;}
 .snav-row.sn-on{color:var(--sn-fg);background:color-mix(in srgb,var(--sn-fg) 9%,transparent);}
 /* progress under each section: a faint track, soft ink once read, mint while reading */
-.snav-rows.sn-bars .snav-row,.snav-card .snav-row{padding-bottom:15px;}
+/* room for a bar only on rows that show one: read rows when bars are on,
+   and in the island the current row, whose bar is the travelling dot */
+.snav-row{transition:background-color 150ms var(--sn-ease),color 150ms var(--sn-ease),padding-bottom 220ms var(--sn-ease);}
+.snav-row.sn-bar{padding-bottom:15px;}
 .snav-row .sn-pb{position:absolute;left:46px;right:12px;bottom:7px;height:2px;border-radius:2px;overflow:hidden;}
 .snav-row .sn-pb i{display:block;height:100%;border-radius:inherit;background:color-mix(in srgb,var(--sn-fg) 36%,transparent);
   transform-origin:0 50%;transform:scaleX(var(--p,0));transition:transform 160ms var(--sn-ease),background-color 160ms var(--sn-ease);}
@@ -223,24 +225,26 @@
   }
   const CHECK = '<svg viewBox="0 0 256 256"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>';
 
-  /* line icons on a 24 grid, drawn for this - stroked in currentColor */
+  /* filled icons on a 24 grid, drawn for this. Each is one or more solid
+     shapes in currentColor; a second number is that shape's tone, so a box
+     can show three faces and a layout its panels without any outline */
   const IC = {
-    package: 'M4 8l8-4 8 4v8l-8 4-8-4z M4 8l8 4 8-4 M12 12v8',
-    warning: 'M12 4l9 16H3z M12 10v4 M12 17.2v.3',
-    search: 'M11 4a7 7 0 1 0 0 14a7 7 0 1 0 0-14z M16 16l4.5 4.5',
-    list: 'M9 7h11 M9 12h11 M9 17h11 M4.5 7h.5 M4.5 12h.5 M4.5 17h.5',
-    sparkle: 'M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z M19 16l.7 1.8 1.8.7-1.8.7-.7 1.8-.7-1.8-1.8-.7 1.8-.7z',
-    layout: 'M5 4h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2z M3 9h18 M9 9v11',
-    chart: 'M4 4v16h16 M8 15l4-4 3 3 5-6',
-    flag: 'M5 21V4 M5 4h12l-2.5 4 2.5 4H5',
-    info: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18z M12 11v5 M12 7.8v.4',
-    tree: 'M12 3v6 M12 9l-6 5 M12 9l6 5 M12 9v5 M6 14v5 M12 14v5 M18 14v5',
-    bulb: 'M9 18h6 M10 21h4 M12 3a6 6 0 0 0-3.8 10.6c.6.6.8 1.3.8 2.4h6c0-1.1.2-1.8.8-2.4A6 6 0 0 0 12 3z',
-    pen: 'M4 20l1-4L16 5l3 3L8 19z M14 7l3 3',
-    wrench: 'M15 4a5 5 0 0 0-4.6 6.9L4 17.3V20h2.7l6.4-6.4A5 5 0 0 0 20 9l-3 1-2-2 1-3z',
-    stack: 'M12 4l8 4-8 4-8-4z M4 12l8 4 8-4 M4 16l8 4 8-4',
-    users: 'M9 11a3.5 3.5 0 1 0 0-7a3.5 3.5 0 1 0 0 7z M3 20a6 6 0 0 1 12 0 M16 4.5a3.5 3.5 0 0 1 0 6.5 M18 14.5a6 6 0 0 1 3 5.5',
-    dot: 'M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6z'
+    package: [['M12 2.6l8.6 4.3L12 11.2 3.4 6.9z', .5], ['M3 8.1l8.2 4.1V21.6L3 17.5z', 1], ['M21 8.1v9.4l-8.2 4.1v-9.4z', .75]],
+    warning: [['M10.27 3.5a2 2 0 0 1 3.46 0l8.06 13.95A2 2 0 0 1 20.06 20.5H3.94a2 2 0 0 1-1.73-3.05zM11 9v5.2h2V9zm0 7v2.2h2V16z', 1]],
+    search: [['M10.5 3a7.5 7.5 0 1 1 0 15a7.5 7.5 0 1 1 0-15zm0 2.6a4.9 4.9 0 1 0 0 9.8a4.9 4.9 0 1 0 0-9.8z', 1], ['M15.3 14.1l5.6 5.6-1.6 1.6-5.6-5.6z', 1]],
+    list: [['M3.5 5h3v3h-3zM3.5 10.5h3v3h-3zM3.5 16h3v3h-3z', 1], ['M9 5.3h11.5v2.4H9zM9 10.8h11.5v2.4H9zM9 16.3h11.5v2.4H9z', .7]],
+    sparkle: [['M11 2.5l2.3 6.4 6.4 2.3-6.4 2.3L11 19.9l-2.3-6.4-6.4-2.3 6.4-2.3z', 1], ['M19 14.8l1 2.7 2.7 1-2.7 1-1 2.7-1-2.7-2.7-1 2.7-1z', .6]],
+    layout: [['M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v3.2H3z', 1], ['M3 10.2h6.2V21H5a2 2 0 0 1-2-2z', .5], ['M11.2 10.2H21V19a2 2 0 0 1-2 2h-7.8z', .75]],
+    chart: [['M3.5 13.5h4V21h-4z', .5], ['M10 8.5h4V21h-4z', .75], ['M16.5 3.5h4V21h-4z', 1]],
+    flag: [['M4.5 2.5h2.2v19H4.5z', 1], ['M7.6 3.5H19l-2.6 4.6 2.6 4.6H7.6z', .75]],
+    info: [['M12 2.5a9.5 9.5 0 1 1 0 19a9.5 9.5 0 1 1 0-19zM10.9 10.4v6.8h2.2v-6.8zm0-3.8v2.3h2.2V6.6z', 1]],
+    tree: [['M9 2.8h6v5H9z', 1], ['M11.1 7.8h1.8v3.1h6.4V15h-1.8v-2.3H6.5V15H4.7v-4.1h6.4z', .55], ['M2.5 15h6.2v6.2H2.5zM15.3 15h6.2v6.2h-6.2z', .85]],
+    bulb: [['M12 2.5a6.6 6.6 0 0 1 4.1 11.8c-.6.5-1 1.2-1 2v.6H8.9v-.6c0-.8-.4-1.5-1-2A6.6 6.6 0 0 1 12 2.5z', 1], ['M8.9 18.3h6.2v1.6H8.9zM10 21h4v1.5h-4z', .6]],
+    pen: [['M15.2 3.9a2.1 2.1 0 0 1 3 0l1.9 1.9a2.1 2.1 0 0 1 0 3L9.3 19.6l-5.8 1.4 1.4-5.8z', 1]],
+    wrench: [['M14.6 2.5a5.6 5.6 0 0 0-5.3 7.4L2.8 16.4a2.3 2.3 0 0 0 0 3.3l1.5 1.5a2.3 2.3 0 0 0 3.3 0l6.5-6.5a5.6 5.6 0 0 0 7.4-6.6l-3.4 3.4-3.1-.6-.6-3.1 3.4-3.4a5.6 5.6 0 0 0-1.3-.3z', 1]],
+    stack: [['M12 2.8l9 4.6-9 4.6-9-4.6z', 1], ['M3 11.2l9 4.6 9-4.6v2.4l-9 4.6-9-4.6z', .7], ['M3 15.6l9 4.6 9-4.6V18l-9 4.6L3 18z', .45]],
+    users: [['M9 3.2a3.7 3.7 0 1 1 0 7.4a3.7 3.7 0 1 1 0-7.4zM2.3 20.6a6.7 6.7 0 0 1 13.4 0z', 1], ['M16.6 4a3.2 3.2 0 1 1 0 6.4a3.2 3.2 0 1 1 0-6.4zM16.9 12.4a5.7 5.7 0 0 1 4.8 8.2H17.7a8.1 8.1 0 0 0-2.6-7.4 5.7 5.7 0 0 1 1.8-.8z', .5]],
+    dot: [['M12 8.5a3.5 3.5 0 1 1 0 7a3.5 3.5 0 1 1 0-7z', 1]]
   };
   /* a section's icon from its name, unless it names its own with data-icon */
   const ICON_FOR = [
@@ -250,7 +254,7 @@
     [/built|build|stack|tech/i, 'wrench'], [/use today|tools|option|competit|alternative/i, 'stack'], [/user|people|team|clinic/i, 'users']
   ];
   const iconName = s => (s.el.dataset.icon && IC[s.el.dataset.icon]) ? s.el.dataset.icon : (ICON_FOR.find(([re]) => re.test(s.label)) || [0, 'dot'])[1];
-  const svg = name => `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="${IC[name] || IC.dot}"/></svg>`;
+  const svg = name => `<svg viewBox="0 0 24 24" aria-hidden="true">${(IC[name] || IC.dot).map(([d, o]) => `<path d="${d}" fill-rule="evenodd"${o < 1 ? ` opacity="${o}"` : ''}/>`).join('')}</svg>`;
 
   let styled = false;
   const injectCSS = () => {
@@ -388,11 +392,19 @@
     /* what leads a row: its number, its icon, or its first picture (the icon if it has none) */
     const lead = (s, j) => cfg.rowIcon === 'image' && s.img ? `<img class="sn-th" src="${esc(s.img)}" alt="" loading="lazy" decoding="async">`
       : cfg.rowIcon !== 'number' ? `<span class="sn-ic">${svg(s.icon)}</span>` : `<span class="sn-num">${pad(j + 1)}</span>`;
-    /* the bell: a damped swing about the top, as the island rings */
-    const ringEl = el => {
-      const g = el && el.querySelector('svg'); if (!g || !cfg.ring || reduce) return;
-      g.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-18deg)' }, { transform: 'rotate(15deg)' }, { transform: 'rotate(-11deg)' },
-        { transform: 'rotate(7deg)' }, { transform: 'rotate(-3deg)' }, { transform: 'rotate(0)' }], { duration: 760, easing: 'cubic-bezier(.36,.07,.19,.97)' });
+    /* icons change by crossfade: the old one blurs and slides out the way
+       you are reading, the new one comes in from the other side */
+    const swapIcon = (el, name, dir) => {
+      if (!el || el.dataset.icon === name) return;
+      el.dataset.icon = name;
+      const old = el.lastElementChild;
+      el.insertAdjacentHTML('beforeend', svg(name));
+      const n = el.lastElementChild;
+      if (!old) return;
+      if (!swapMs || !dir) { old.remove(); return; }
+      const o = { duration: swapMs + 60, easing: EASE[cfg.ease] || EASE['out-quint'] };
+      old.animate([{ opacity: 1, transform: 'none', filter: 'blur(0)' }, { opacity: 0, transform: `translateY(${-dir * 5}px) scale(.8)`, filter: 'blur(2px)' }], o).onfinish = () => old.remove();
+      n.animate([{ opacity: 0, transform: `translateY(${dir * 5}px) scale(.8)`, filter: 'blur(2px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], o);
     };
     const mins = w => { const m = w / cfg.wpm; return m < .75 ? '<1m' : Math.round(m) + 'm'; };
     function rowsHTML() {
@@ -401,11 +413,13 @@
         `<span class="sn-meta sn-num"></span>${cfg.rowBars ? '<i class="sn-pb"><i></i></i>' : ''}</button></li>`).join('');
     }
     function syncRows(list) {
+      const inCard = !!list.closest('.snav-card');
       secs.forEach((s, j) => { if (j < st.i || (j === st.i && st.sp > .85)) seen[j] = true; });
       list.querySelectorAll('.snav-row').forEach((b, j) => {
         const on = !st.pre && j === st.i; b.classList.toggle('sn-on', on); b.classList.toggle('sn-seen', seen[j] && !on);
         if (on) b.setAttribute('aria-current', 'location'); else b.removeAttribute('aria-current');
         if (cfg.rowBars) b.style.setProperty('--p', (on ? st.sp : seen[j] ? 1 : 0).toFixed(3));
+        b.classList.toggle('sn-bar', (on && (inCard || cfg.rowBars)) || (seen[j] && cfg.rowBars));
         const m = b.querySelector('.sn-meta'); let html = '';
         if (cfg.rowMeta === 'state') html = on ? Math.round(st.sp * 100) + '%' : seen[j] ? CHECK : '';
         else if (cfg.rowMeta === 'progress') html = (on ? Math.round(st.sp * 100) : seen[j] ? 100 : 0) + '%';
@@ -439,10 +453,10 @@
       const mini = h('div', 'snav-mini', `${cfg.miniTop === 'icon' ? '<span class="sn-ic sn-top"></span>' : '<b class="sn-num sn-rolls"></b>'}<i class="sn-m sn-num sn-rolls"></i>`);
       const annEl = h('div', 'snav-ann', '<span class="sn-ic"></span><span class="sn-num"></span><b></b>');
       const acc = h('i', 'snav-acc');
-      const card = h('div', 'snav-card', `${headHTML()}<ol class="snav-rows${cfg.rowBars ? ' bars' : ''}">${rowsHTML()}</ol>`);
+      const card = h('div', 'snav-card', `${headHTML()}<ol class="snav-rows${cfg.rowBars ? ' sn-bars' : ''}">${rowsHTML()}</ol>`);
       isl.append(card, mini, annEl, acc); box.append(isl);
       const numEl = mini.querySelector('b.sn-num'), topIc = mini.querySelector('.sn-ic.sn-top'), mEl = mini.querySelector('.sn-m'), list = card.querySelector('.snav-rows'), head = card.querySelector('.snav-head');
-      let act = false, open = false, hov = false, idleT, openT, closeT, lastI = -1, oh = 0, hh = 60, ann = false, annT, annHideT;
+      let act = false, open = false, hov = false, idleT, openT, closeT, lastI = -1, oh = 0, hh = 60, ann = false, annT, annHideT, annI = -1;
       let lastY = sc.scrollTop, lastT = performance.now(), calmT;
       const trackH = () => G.viewH - cfg.insetT - cfg.insetB;
       const thumbH = () => clamp(G.viewH / G.contentH * trackH(), 28, cfg.iMaxH);
@@ -517,19 +531,20 @@
       }
       function wake() { setAct(true); clearTimeout(idleT); idleT = setTimeout(() => { if (!hov && !open && !ann) setAct(false); }, cfg.idle); }
       /* the announce: a section held for a beat widens the pill into a capsule
-         that names it, the icon rings, and it folds back. Scrolling straight
+         that names it, then folds back. Scrolling straight
          through several sections only announces where you stop. */
       function showAnn() {
         if (open || drag || !cfg.announce || reduce || st.pre) return;
-        const s0 = secs[st.i];
-        annEl.querySelector('.sn-ic').innerHTML = svg(s0.icon);
-        annEl.querySelector('.sn-num').textContent = pad(st.i + 1);
-        annEl.querySelector('b').textContent = s0.label;
+        const s0 = secs[st.i], d = ann ? (st.i > annI ? 1 : -1) : 0;
+        /* already showing: the icon crossfades and the name slides, the capsule resizes around them */
+        swapIcon(annEl.querySelector('.sn-ic'), s0.icon, d);
+        if (d) { swap(annEl.querySelector('.sn-num'), pad(st.i + 1), d); swap(annEl.querySelector('b'), esc(s0.label), d); }
+        else { annEl.querySelector('.sn-num').textContent = pad(st.i + 1); annEl.querySelector('b').textContent = s0.label; }
+        annI = st.i;
         isl.style.setProperty('--sn-annw', Math.min(annEl.scrollWidth, G.viewH * 2, 360) + 'px');
         const was = ann; ann = true;
         if (!was) { glide(false); isl.classList.add('sn-ann'); }
         setAct(true); place();
-        setTimeout(() => ringEl(annEl.querySelector('.sn-ic')), was ? 0 : sp.ms * .3);
         clearTimeout(annHideT); annHideT = setTimeout(hideAnn, cfg.announceMs);
       }
       function hideAnn() { if (!ann) return; ann = false; glide(true); isl.classList.remove('sn-ann'); place(); wake(); }
@@ -538,11 +553,10 @@
         const dir = lastI < 0 ? 0 : (st.i > lastI ? 1 : st.i < lastI ? -1 : st.dir);
         const changed = lastI >= 0 && st.i !== lastI;
         if (numEl) roll(numEl, pad(st.i + 1), lastI < 0 ? 0 : (changed ? (st.i > lastI ? 1 : -1) : 0));
-        if (topIc && (changed || lastI < 0)) {
-          topIc.innerHTML = svg(secs[st.i].icon);
-          if (changed && !reduce) { topIc.animate([{ opacity: 0, transform: 'scale(.6)', filter: 'blur(2px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }], { duration: 220, easing: EASE['out-quint'] }); ringEl(topIc); }
-        }
+        if (topIc) swapIcon(topIc, secs[st.i].icon, changed ? (st.i > lastI ? 1 : -1) : 0);
         if (changed && cfg.announce && !open) { clearTimeout(annT); annT = setTimeout(showAnn, ann ? 0 : 180); }
+        /* rows ease their bar room in and out; once they settle, the open card re-measures */
+        if (changed && open) { clearTimeout(isl._rm); isl._rm = setTimeout(() => { if (open) { prepOpen(); place(); } }, 240); }
         lastI = st.i;
         roll(mEl, metric(), dir);
         syncHead(head, dir);
@@ -708,7 +722,7 @@
         `<span class="snav-pl"><span></span></span></button>` +
         (cfg.pArrows ? `<i class="snav-pd"></i><button class="snav-pa" data-d="-1" type="button" aria-label="Previous section">${CHEV.up}</button>` +
           `<button class="snav-pa" data-d="1" type="button" aria-label="Next section">${CHEV.down}</button>` : '');
-      const sheet = h('div', 'snav-sheet', `${headHTML()}<ol class="snav-rows${cfg.rowBars ? ' bars' : ''}">${rowsHTML()}</ol>`);
+      const sheet = h('div', 'snav-sheet', `${headHTML()}<ol class="snav-rows${cfg.rowBars ? ' sn-bars' : ''}">${rowsHTML()}</ol>`);
       box.append(sheet, pill);
       const main = pill.querySelector('.snav-pm'), ix = pill.querySelector('.sn-ix'), lab = pill.querySelector('.snav-pl'), labIn = lab.firstChild;
       const fl = pill.querySelector('.sn-fl'), list = sheet.querySelector('.snav-rows');
