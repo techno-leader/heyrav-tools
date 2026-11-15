@@ -27,6 +27,7 @@
     head: 'count-page',              // card header: count-page | page-time | count-time | off
     rowMeta: 'state',                // each row: state (read / % / -) | progress | time | none
     headlines: true,                 // each row carries its section's headline, a story outline
+    rowBars: true,                   // a progress bar under each section: read, reading, still to read
     hideHeads: [],                   // section labels whose headline stays hidden (or data-subhead="off" on the section)
     // island
     iRest: 4, iRestA: .22, iW: 30, iMinH: 76, iMaxH: 180, iRad: 15, iCardW: 300, iRow: 36, iOpen: 110, iClose: 260,
@@ -64,6 +65,13 @@
 .snav-row .meta svg{width:12px;height:12px;fill:currentColor;display:block;margin-top:2px;}
 .snav-row.seen .meta{color:var(--sn-accent);opacity:.9;}
 .snav-row.on{color:var(--sn-fg);background:color-mix(in srgb,var(--sn-fg) 9%,transparent);}
+/* progress under each section: a faint track, soft ink once read, mint while reading */
+.snav-rows.bars .snav-row{padding-bottom:15px;}
+.snav-row .pb{position:absolute;left:46px;right:12px;bottom:7px;height:2px;border-radius:2px;overflow:hidden;
+  background:color-mix(in srgb,var(--sn-fg) 10%,transparent);}
+.snav-row .pb i{display:block;height:100%;border-radius:inherit;background:color-mix(in srgb,var(--sn-fg) 36%,transparent);
+  transform-origin:0 50%;transform:scaleX(var(--p,0));transition:transform 160ms var(--sn-ease),background-color 160ms var(--sn-ease);}
+.snav-row.on .pb i{background:var(--sn-accent);}
 .snav-row.on .num{color:var(--sn-accent);opacity:1;}
 .snav-row:focus-visible{outline:2px solid var(--sn-accent);outline-offset:-2px;}
 @media (hover:hover) and (pointer:fine){.snav-row:hover{color:var(--sn-fg);background:color-mix(in srgb,var(--sn-fg) 6%,transparent);}}
@@ -325,13 +333,14 @@
     function rowsHTML() {
       return secs.map((s, j) => `<li style="--d:${Math.min(j, 10) * 18}ms"><button class="snav-row" data-i="${j}" type="button">` +
         `<span class="num">${pad(j + 1)}</span><span class="lab"><b>${esc(s.label)}</b>${showHead(s) ? `<small>${esc(s.head)}</small>` : ''}</span>` +
-        `<span class="meta num"></span></button></li>`).join('');
+        `<span class="meta num"></span>${cfg.rowBars ? '<i class="pb"><i></i></i>' : ''}</button></li>`).join('');
     }
     function syncRows(list) {
       secs.forEach((s, j) => { if (j < st.i || (j === st.i && st.sp > .85)) seen[j] = true; });
       list.querySelectorAll('.snav-row').forEach((b, j) => {
         const on = !st.pre && j === st.i; b.classList.toggle('on', on); b.classList.toggle('seen', seen[j] && !on);
         if (on) b.setAttribute('aria-current', 'location'); else b.removeAttribute('aria-current');
+        if (cfg.rowBars) b.style.setProperty('--p', (on ? st.sp : seen[j] ? 1 : 0).toFixed(3));
         const m = b.querySelector('.meta'); let html = '';
         if (cfg.rowMeta === 'state') html = on ? Math.round(st.sp * 100) + '%' : seen[j] ? CHECK : '';
         else if (cfg.rowMeta === 'progress') html = (on ? Math.round(st.sp * 100) : seen[j] ? 100 : 0) + '%';
@@ -364,7 +373,7 @@
       const isl = h('div', 'snav-i'); isl.tabIndex = 0; isl.setAttribute('aria-label', 'Sections - open the list'); isl.setAttribute('aria-expanded', 'false');
       const mini = h('div', 'snav-mini', `<b class="num rolls"></b><i class="m num rolls"></i>`);
       const acc = h('i', 'snav-acc');
-      const card = h('div', 'snav-card', `${headHTML()}<ol class="snav-rows">${rowsHTML()}</ol>`);
+      const card = h('div', 'snav-card', `${headHTML()}<ol class="snav-rows${cfg.rowBars ? ' bars' : ''}">${rowsHTML()}</ol>`);
       isl.append(card, mini, acc); box.append(isl);
       const numEl = mini.querySelector('.num'), mEl = mini.querySelector('.m'), list = card.querySelector('.snav-rows'), head = card.querySelector('.snav-head');
       let act = false, open = false, hov = false, idleT, openT, closeT, lastI = -1, oh = 0, hh = 60;
@@ -607,7 +616,7 @@
         `<span class="snav-pl"><span></span></span></button>` +
         (cfg.pArrows ? `<i class="snav-pd"></i><button class="snav-pa" data-d="-1" type="button" aria-label="Previous section">${CHEV.up}</button>` +
           `<button class="snav-pa" data-d="1" type="button" aria-label="Next section">${CHEV.down}</button>` : '');
-      const sheet = h('div', 'snav-sheet', `${headHTML()}<ol class="snav-rows">${rowsHTML()}</ol>`);
+      const sheet = h('div', 'snav-sheet', `${headHTML()}<ol class="snav-rows${cfg.rowBars ? ' bars' : ''}">${rowsHTML()}</ol>`);
       box.append(sheet, pill);
       const main = pill.querySelector('.snav-pm'), ix = pill.querySelector('.ix'), lab = pill.querySelector('.snav-pl'), labIn = lab.firstChild;
       const fl = pill.querySelector('.fl'), list = sheet.querySelector('.snav-rows');

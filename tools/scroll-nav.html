@@ -244,6 +244,7 @@ const T = Kit.tool({
       { k: 'rowMeta', type: 'seg', label: 'each section', value: D.rowMeta, when: S => !isR(S), options: [['state', 'read ✓'], ['progress', '%'], ['time', 'time'], ['none', 'nothing']],
         help: 'Read ✓ ticks off what has been scrolled past and shows the % of the current one - for a skimmer, what is left matters more than minutes.' },
       { k: 'headlines', type: 'toggle', label: 'headlines under names', value: D.headlines, when: S => !isR(S), help: 'Each section brings its own headline, so the list reads as the story of the case.' },
+      { k: 'rowBars', type: 'toggle', label: 'progress under each section', value: D.rowBars, when: S => !isR(S), help: 'A thin bar per section: full once read, mint while reading, empty ahead.' },
       { k: 'hideHeads', type: 'hidden', value: [], rand: false },
       { type: 'custom', when: S => !isR(S) && S.headlines, render: subheadList, sync: syncSubheads },
     ]},
