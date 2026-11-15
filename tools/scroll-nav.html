@@ -40,6 +40,12 @@
   .art.phone .pg-wrap{padding:0 22px;} .art.phone .pg-hero{padding:72px 0 48px;} .art.phone .pg-hero h1{font-size:40px;}
   .art.phone .cols{grid-template-columns:1fr;gap:8px;} .art.phone .pg h2{font-size:30px;} .art.phone .pg section{padding:52px 0;}
   .art.phone .pg-facts{grid-template-columns:1fr;}
+  /* per-section subhead switches */
+  .sh-list{display:flex;flex-direction:column;}
+  .tgl.sh{min-height:40px;gap:12px;}
+  .sh-t{display:flex;flex-direction:column;min-width:0;}
+  .sh-t b{font-weight:400;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .sh-t small{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 </style>
 </head>
 <body>
@@ -121,6 +127,35 @@ function siteConfig(S) {
 }
 
 const D = ScrollNav.DEF;
+/* one switch per section of the case on screen: its headline under its name,
+   or the name alone. Stored by label, so a setting carries to any page whose
+   section has that name; on the site a section can also opt out itself with
+   data-subhead="off". */
+function subheadList(api) {
+  const box = Kit.h('div', { class: 'subheads' }, Kit.h('div', { class: 'row-top' }, Kit.h('span', { class: 'lbl' }, 'subhead, per section')), Kit.h('div', { class: 'sh-list' }));
+  box.addEventListener('change', e => {
+    const label = e.target.dataset.label; if (!label) return;
+    const set = new Set(api.S.hideHeads || []);
+    e.target.checked ? set.delete(label) : set.add(label);
+    api.set('hideHeads', [...set]); api.commit('hideHeads');
+  });
+  return box;
+}
+function syncSubheads(S, box) {
+  const list = box.querySelector('.sh-list'), secs = CASES[S.case].secs, hid = new Set(S.hideHeads || []);
+  /* rebuilt only when the case changes; otherwise switches update in place, so focus stays put */
+  if (list.dataset.case !== S.case) {
+    list.dataset.case = S.case;
+    list.innerHTML = '';
+    secs.forEach(([label, head], j) => {
+      const id = 'sh-' + j;
+      const inp = Kit.h('input', { id, type: 'checkbox', 'data-label': label });
+      list.append(Kit.h('label', { class: 'tgl sh', for: id },
+        Kit.h('span', { class: 'sh-t' }, Kit.h('b', {}, String(j + 1).padStart(2, '0') + '  ' + label), Kit.h('small', {}, head)), inp, Kit.h('span', { class: 'sw' })));
+    });
+  }
+  list.querySelectorAll('input').forEach(i => { i.checked = !hid.has(i.dataset.label); });
+}
 const isI = S => S.style === 'island', isR = S => S.style === 'ruler', isP = S => S.style === 'pill';
 const EASES = [['out-quint', 'ease out (quint)'], ['drawer', 'drawer (.32,.72,0,1)'], ['snappy', 'snappy'], ['out-back', 'out, slight overshoot'], ['in-out', 'in-out (on-screen moves)']];
 const INK = [['#161616', 'ink'], ['#ffffff', 'paper'], ['#0d1b4c', 'night'], ['#3d6bff', 'cobalt']];
@@ -209,6 +244,8 @@ const T = Kit.tool({
       { k: 'rowMeta', type: 'seg', label: 'each section', value: D.rowMeta, when: S => !isR(S), options: [['state', 'read ✓'], ['progress', '%'], ['time', 'time'], ['none', 'nothing']],
         help: 'Read ✓ ticks off what has been scrolled past and shows the % of the current one - for a skimmer, what is left matters more than minutes.' },
       { k: 'headlines', type: 'toggle', label: 'headlines under names', value: D.headlines, when: S => !isR(S), help: 'Each section brings its own headline, so the list reads as the story of the case.' },
+      { k: 'hideHeads', type: 'hidden', value: [], rand: false },
+      { type: 'custom', when: S => !isR(S) && S.headlines, render: subheadList, sync: syncSubheads },
     ]},
     { name: 'motion', controls: [
       { k: 'ease', type: 'select', label: 'easing', value: D.ease, options: EASES, rand: ['out-quint', 'drawer', 'snappy'] },

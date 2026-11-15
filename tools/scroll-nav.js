@@ -27,6 +27,7 @@
     head: 'count-page',              // card header: count-page | page-time | count-time | off
     rowMeta: 'state',                // each row: state (read / % / -) | progress | time | none
     headlines: true,                 // each row carries its section's headline, a story outline
+    hideHeads: [],                   // section labels whose headline stays hidden (or data-subhead="off" on the section)
     // island
     iRest: 4, iRestA: .22, iW: 30, iMinH: 76, iMaxH: 180, iRad: 15, iCardW: 300, iRow: 36, iOpen: 110, iClose: 260,
     stretch: .35, hint: true,
@@ -53,7 +54,7 @@
 .snav .num{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;letter-spacing:.02em;}
 .snav-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;}
 .snav-row{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;column-gap:10px;width:100%;
-  min-height:var(--sn-row);padding:8px 12px 10px;border-radius:10px;text-align:left;color:var(--sn-mut);
+  min-height:var(--sn-row);padding:9px 12px;border-radius:10px;text-align:left;color:var(--sn-mut);
   transition:background-color 150ms var(--sn-ease),color 150ms var(--sn-ease);}
 .snav-row .num{opacity:.65;align-self:start;line-height:1.45;}
 .snav-row .lab{display:flex;flex-direction:column;min-width:0;line-height:1.35;}
@@ -64,12 +65,6 @@
 .snav-row.seen .meta{color:var(--sn-accent);opacity:.9;}
 .snav-row.on{color:var(--sn-fg);background:color-mix(in srgb,var(--sn-fg) 9%,transparent);}
 .snav-row.on .num{color:var(--sn-accent);opacity:1;}
-.snav-row .track{position:absolute;left:46px;right:12px;bottom:3px;height:2px;border-radius:2px;
-  background:color-mix(in srgb,var(--sn-accent) 18%,transparent);opacity:0;transition:opacity 150ms;}
-.snav-row.on .track{opacity:1;}
-.snav-row .bar{position:absolute;left:46px;right:12px;bottom:3px;height:2px;border-radius:2px;background:var(--sn-accent);
-  transform-origin:0 50%;transform:scaleX(var(--p,0));opacity:0;}
-.snav-sheet .snav-row.on .bar{opacity:1;}
 .snav-row:focus-visible{outline:2px solid var(--sn-accent);outline-offset:-2px;}
 @media (hover:hover) and (pointer:fine){.snav-row:hover{color:var(--sn-fg);background:color-mix(in srgb,var(--sn-fg) 6%,transparent);}}
 .snav-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:6px 12px 10px;color:var(--sn-mut);white-space:nowrap;}
@@ -97,6 +92,7 @@
 .snav-i.open{width:var(--sn-icard);height:var(--sn-oh);border-radius:calc(var(--sn-irad) + 5px);background:var(--sn-bg);
   box-shadow:0 16px 40px rgba(0,0,0,var(--sn-shadow)),0 2px 6px rgba(0,0,0,calc(var(--sn-shadow)*.6));cursor:default;}
 .snav-i:focus-visible{outline:2px solid var(--sn-accent);outline-offset:2px;}
+.snav-i.open:focus-visible{outline:0;}
 .snav-mini{position:absolute;right:0;top:0;width:var(--sn-iw);height:100%;display:flex;flex-direction:column;align-items:center;
   justify-content:space-between;padding:10px 0;opacity:0;scale:.9;filter:blur(2px);
   transition:opacity 160ms var(--sn-ease),scale 200ms var(--sn-ease),filter 160ms var(--sn-ease);}
@@ -104,10 +100,9 @@
 .snav-i.open .snav-mini{opacity:0;scale:.86;filter:blur(3px);transition-duration:110ms;}
 .snav-mini .num{font-size:10.5px;font-weight:500;}
 .snav-mini .m{font-size:9.5px;color:var(--sn-mut);}
-.snav-acc{position:absolute;right:var(--ax,13.5px);top:var(--ay,30px);width:var(--aw,3px);height:var(--ah,3px);border-radius:3px;
+.snav-acc{position:absolute;right:var(--ax,13px);top:var(--ay,30px);width:4px;height:4px;border-radius:50%;
   background:var(--sn-accent);opacity:0;pointer-events:none;
-  transition:right var(--sn-mdur) var(--sn-mease),top var(--sn-mdur) var(--sn-mease),width var(--sn-mdur) var(--sn-mease),
-    height 160ms var(--sn-ease),opacity 160ms var(--sn-ease);}
+  transition:right var(--sn-mdur) var(--sn-mease),top var(--sn-mdur) var(--sn-mease),opacity 160ms var(--sn-ease);}
 .snav-i.act .snav-acc{opacity:1;}
 .snav-i.open .snav-acc{opacity:var(--ao,1);}
 .snav-card{position:absolute;right:0;top:0;width:var(--sn-icard);padding:8px;pointer-events:none;}
@@ -323,17 +318,20 @@
       [...text].forEach((ch, j) => rollOne(el.children[j], ch, fresh ? 0 : dir));
     };
 
+    /* a section's headline shows unless turned off for it - in the settings, or on the section itself */
+    const hidden = new Set(cfg.hideHeads || []);
+    const showHead = s => cfg.headlines && s.head && !hidden.has(s.label) && s.el.dataset.subhead !== 'off';
     const mins = w => { const m = w / cfg.wpm; return m < .75 ? '<1m' : Math.round(m) + 'm'; };
     function rowsHTML() {
       return secs.map((s, j) => `<li style="--d:${Math.min(j, 10) * 18}ms"><button class="snav-row" data-i="${j}" type="button">` +
-        `<span class="num">${pad(j + 1)}</span><span class="lab"><b>${esc(s.label)}</b>${cfg.headlines && s.head ? `<small>${esc(s.head)}</small>` : ''}</span>` +
-        `<span class="meta num"></span><i class="track"></i><i class="bar"></i></button></li>`).join('');
+        `<span class="num">${pad(j + 1)}</span><span class="lab"><b>${esc(s.label)}</b>${showHead(s) ? `<small>${esc(s.head)}</small>` : ''}</span>` +
+        `<span class="meta num"></span></button></li>`).join('');
     }
     function syncRows(list) {
       secs.forEach((s, j) => { if (j < st.i || (j === st.i && st.sp > .85)) seen[j] = true; });
       list.querySelectorAll('.snav-row').forEach((b, j) => {
         const on = !st.pre && j === st.i; b.classList.toggle('on', on); b.classList.toggle('seen', seen[j] && !on);
-        if (on) { b.setAttribute('aria-current', 'location'); b.style.setProperty('--p', st.sp.toFixed(3)); } else b.removeAttribute('aria-current');
+        if (on) b.setAttribute('aria-current', 'location'); else b.removeAttribute('aria-current');
         const m = b.querySelector('.meta'); let html = '';
         if (cfg.rowMeta === 'state') html = on ? Math.round(st.sp * 100) + '%' : seen[j] ? CHECK : '';
         else if (cfg.rowMeta === 'progress') html = (on ? Math.round(st.sp * 100) : seen[j] ? 100 : 0) + '%';
@@ -381,29 +379,27 @@
       };
       const metric = () => cfg.miniMeta === 'page' ? Math.round(st.p * 100) + '' : cfg.miniMeta === 'count' ? '/' + pad(secs.length)
         : cfg.miniMeta === 'time' ? (st.left < .75 ? '<1' : Math.round(st.left) + 'm') : '';
-      /* the accent: a dot in the compact pill that grows into a line as the
-         section is read, and in the card becomes the progress line under
-         the current section - one element, so it travels between the two */
+      /* the accent is one dot. In the compact pill it sits between the
+         number and the metric; when the card opens it travels on the same
+         spring to the current section, just before its % - you are here */
       function placeAcc() {
         if (open) {
           const row = list.querySelector('.snav-row.on');
           if (!row || st.pre) { isl.style.setProperty('--ao', 0); return; }
           /* measured from the row's list item: while the rows ease in, their
-             transform makes each item the row's offset parent, so the row's own
-             offsetTop reads 0 - the item's offset is stable throughout */
-          const top = row.parentElement.offsetTop - list.scrollTop + row.offsetHeight - 5;
-          const inView = top > list.offsetTop && top < list.offsetTop + list.clientHeight + 4;
-          const span = row.offsetWidth - 46 - 12, w = Math.max(3, span * st.sp);
+             transform makes each item the row's offset parent */
+          const top = row.parentElement.offsetTop - list.scrollTop + 9 + 8 - 2;   /* row padding + half the first line */
+          const inView = top > list.offsetTop - 2 && top < list.offsetTop + list.clientHeight;
+          /* just before the row's metric, like a live indicator: "• 16%" */
+          const meta = row.querySelector('.meta');
+          const left = 8 + (meta.textContent ? meta.offsetLeft - 10 : row.offsetWidth - 12 - 4);
           isl.style.setProperty('--ao', inView ? 1 : 0);
-          isl.style.setProperty('--ay', top + 'px'); isl.style.setProperty('--ah', '2px');
-          isl.style.setProperty('--aw', w.toFixed(1) + 'px');
-          isl.style.setProperty('--ax', (cfg.iCardW - 8 - 46 - w).toFixed(1) + 'px');
+          isl.style.setProperty('--ay', top.toFixed(1) + 'px');
+          isl.style.setProperty('--ax', (cfg.iCardW - left - 4).toFixed(1) + 'px');
         } else {
           const showM = cfg.miniMeta !== 'none' && hh >= 64;
-          const y0 = 30, y1 = hh - 10 - (showM ? 18 : 2), L = Math.max(3, y1 - y0);
-          isl.style.setProperty('--ay', y0 + 'px'); isl.style.setProperty('--aw', '3px');
-          isl.style.setProperty('--ah', (3 + (L - 3) * st.sp).toFixed(1) + 'px');
-          isl.style.setProperty('--ax', (cfg.iW / 2 - 1.5) + 'px');
+          isl.style.setProperty('--ay', ((showM ? hh : hh + 8) / 2 - 2).toFixed(1) + 'px');
+          isl.style.setProperty('--ax', (cfg.iW / 2 - 2) + 'px');
           mEl.style.display = showM ? '' : 'none';
         }
       }
