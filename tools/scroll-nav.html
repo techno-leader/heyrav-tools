@@ -34,7 +34,7 @@
   .sec-label{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#767676;margin-bottom:22px;}
   .pg h2{font-size:38px;line-height:1.1;letter-spacing:-.025em;font-weight:450;margin:0 0 20px;max-width:18ch;}
   .cols{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;}
-  .ph{border-radius:16px;background:rgba(0,0,0,.05);margin:22px 0;}
+  .ph{display:block;width:100%;object-fit:cover;border-radius:16px;background:rgba(0,0,0,.05);margin:22px 0;}
   .pg-foot{padding:120px 0 160px;text-align:center;color:#767676;font-size:14px;}
   .art.phone .pg-nav{padding:0 20px;} .art.phone .pg-nav span{display:none;}
   .art.phone .pg-wrap{padding:0 22px;} .art.phone .pg-hero{padding:72px 0 48px;} .art.phone .pg-hero h1{font-size:40px;}
@@ -54,7 +54,7 @@
   <main class="stage"></main>
 </div>
 <script src="kit.js?v=254cce0697"></script>
-<script src="scroll-nav.js?v=75521cb0a3"></script>
+<script src="scroll-nav.js?v=7f774ad908"></script>
 <script>
 /* Scroll Nav - three ways to move through a long case study without the
    scrollbar: an island that is the thumb, a ruler of sections, a chapter
@@ -92,12 +92,19 @@ let art, pg, nav, builtFor = '', dragging = false, userAt = 0;
 
 function buildPage(S) {
   const c = CASES[S.case];
+  /* a quiet abstract picture per section, so image-led rows have something to show */
+  const pic = (j, hgt) => {
+    const hue = [210, 18, 152, 265, 38, 330, 190][j % 7];
+    const svgS = `<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 400 ${Math.max(120, hgt)}'><rect width='400' height='${Math.max(120, hgt)}' fill='hsl(${hue} 40% 92%)'/>` +
+      `<circle cx='${90 + j * 37 % 220}' cy='60' r='${38 + j * 7 % 30}' fill='hsl(${hue} 55% 72%)'/><rect x='${180 - j * 23 % 90}' y='${70 + j * 11 % 40}' width='170' height='70' rx='14' fill='hsl(${hue} 45% 82%)'/></svg>`;
+    return 'data:image/svg+xml,' + encodeURIComponent(svgS);
+  };
   const lines = n => Array.from({ length: n }, (_, i) => `<span class="ln" style="width:${[96, 88, 92, 74, 85, 60][i % 6]}%"></span>`).join('');
   pg.innerHTML = `<div class="doc"><div class="pg-nav"><b>R</b><span><i>Work</i><i>About</i><i>Resume</i></span></div>
     <header class="pg-hero"><div class="pg-wrap"><h1>${c.title}</h1>${lines(3)}
       <div class="pg-facts"><div><i></i><span class="ln" style="width:80%"></span></div><div><i></i><span class="ln" style="width:70%"></span></div><div><i></i><span class="ln" style="width:60%"></span></div></div></div></header>
     ${c.secs.map(([label, h2, words, paras, img]) => `<section data-words="${words}"><div class="pg-wrap"><div class="sec-label">${label.replace(/&/g, '&amp;')}</div>
-      <div class="cols"><h2>${h2}</h2><div>${lines(paras * 2)}</div></div>${img ? `<div class="ph" style="height:${img}px"></div>` : ''}</div></section>`).join('')}
+      <div class="cols"><h2>${h2}</h2><div>${lines(paras * 2)}</div></div><img class="ph" src="${pic(c.secs.findIndex(x => x[0] === label), img || 140)}" alt="" style="height:${img || 140}px"></div></section>`).join('')}
     <footer class="pg-foot">End of the case</footer></div>`;
   builtFor = S.case;
 }
@@ -239,12 +246,15 @@ const T = Kit.tool({
     ]},
     { name: 'what it says', controls: [
       { k: 'miniMeta', type: 'seg', label: 'compact island', value: D.miniMeta, when: isI, options: [['page', '% of page'], ['count', 'of total'], ['time', 'time'], ['none', 'nothing']],
-        help: 'Under the section number while you scroll. The dot between them travels to the current section when the card opens.' },
+        help: 'Under the section number while you scroll. The dot between them travels into the current section\'s progress bar when the card opens.' },
       { k: 'head', type: 'select', label: 'card header', value: D.head, when: S => !isR(S), options: [['count-page', 'Section 3 of 7 · 42% read'], ['page-time', '42% read · 5 min left'], ['count-time', 'Section 3 of 7 · 5 min left'], ['off', 'no header']] },
       { k: 'rowMeta', type: 'seg', label: 'each section', value: D.rowMeta, when: S => !isR(S), options: [['state', 'read ✓'], ['progress', '%'], ['time', 'time'], ['none', 'nothing']],
         help: 'Read ✓ ticks off what has been scrolled past and shows the % of the current one - for a skimmer, what is left matters more than minutes.' },
       { k: 'headlines', type: 'toggle', label: 'headlines under names', value: D.headlines, when: S => !isR(S), help: 'Each section brings its own headline, so the list reads as the story of the case.' },
-      { k: 'rowBars', type: 'toggle', label: 'progress under each section', value: D.rowBars, when: S => !isR(S), help: 'A thin bar per section: full once read, mint while reading, empty ahead.' },
+      { k: 'rowIcon', type: 'seg', label: 'each row leads with', value: D.rowIcon, when: S => !isR(S), options: [['number', '01'], ['icon', 'icon'], ['image', 'picture']],
+        help: 'Icons are picked from the section name (a section can name its own with data-icon). Picture uses the first image in the section.' },
+      { k: 'miniTop', type: 'seg', label: 'compact top', value: D.miniTop, when: isI, options: [['number', '03'], ['icon', 'icon']] },
+      { k: 'rowBars', type: 'toggle', label: 'progress under each section', value: D.rowBars, when: S => !isR(S), help: 'Full once read, nothing ahead. The current section\'s bar is the dot itself - it stretches into it when the card opens.' },
       { k: 'hideHeads', type: 'hidden', value: [], rand: false },
       { type: 'custom', when: S => !isR(S) && S.headlines, render: subheadList, sync: syncSubheads },
     ]},
@@ -254,6 +264,9 @@ const T = Kit.tool({
       { k: 'bounce', type: 'range', label: 'bounce', min: 0, max: .45, step: .01, value: D.bounce, when: S => S.spring, rand: [0, .25], help: '0 settles without overshoot; past .3 it starts to wobble.' },
       { k: 'dur', type: 'range', label: 'morph', min: 0, max: 600, step: 10, value: D.dur, unit: 'ms', rand: [180, 340], help: 'Size and shape changes - with the spring on, its perceived length. Closing runs at about 70%.' },
       { k: 'swap', type: 'range', label: 'swap', min: 0, max: 400, step: 10, value: D.swap, unit: 'ms', rand: [120, 240], help: 'A new section name sliding in, the way you are scrolling.' },
+      { k: 'announce', type: 'toggle', label: 'announce each section', value: D.announce, when: isI, help: 'Settle into a new section and the pill widens into a capsule that names it, then folds back - the Dynamic Island\'s own move.' },
+      { k: 'announceMs', type: 'range', label: 'announce holds', min: 600, max: 4000, step: 50, value: D.announceMs, unit: 'ms', when: S => isI(S) && S.announce, rand: [1000, 2200] },
+      { k: 'ring', type: 'toggle', label: 'ring the icon', value: D.ring, when: S => !isR(S), help: 'The arriving icon swings like the island\'s silent-mode bell.' },
       { k: 'stretch', type: 'range', label: 'scroll stretch', min: 0, max: 1, step: .01, value: D.stretch, when: isI, rand: [0, .6], help: 'The pill stretches a little with scroll speed and settles back.' },
       { k: 'hint', type: 'toggle', label: 'widen on hover first', value: D.hint, when: isI, help: 'A 4px lean toward the pointer before the card opens.' },
       { k: 'idle', type: 'range', label: 'rests after', min: 200, max: 4000, step: 50, value: D.idle, unit: 'ms', rand: [700, 1600] },
