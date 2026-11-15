@@ -118,7 +118,7 @@ const T = Kit.tool({
   lede: 'Light falling across the site through a window, a jharokha, a forest canopy or blinds - clear or through stained glass. It follows the time of day: direction, length and colour all move with the sun.',
   size: S => S.view === 'both' ? [1970, 1000] : S.view,
   presets: {
-    Recording: {},
+    'Large window': {},
     Jharokha: { pattern:'jharokha', time:'manual', hour:10.5, x:.6, y:.42 },
     'Golden jali': { pattern:'jharokha', time:'manual', hour:17.6, leaves:.35, x:.55, y:.45, depth:.5, bloom:.3, grain:.25 },
     Cathedral: { pattern:'jharokha', time:'manual', hour:16.8, arch:'pointed', rise:.34, cusps:0, openings:3, gap:.06, jh:.6, jali:'lattice', lattice:1.5, hole:1.15,
@@ -128,8 +128,7 @@ const T = Kit.tool({
     'Light shafts': { pattern:'jharokha', time:'manual', hour:17.4, bg:'#181818', glass:'stained', sat:.75, shafts:.85, shaftLen:1.4, bloom:.4, disp:.25, depth:.95, x:.5, y:.55 },
     Canopy: { pattern:'canopy', time:'manual', hour:8.5, density:.55, depth:.38 },
     Blinds: { pattern:'blinds', time:'manual', hour:16.75, slats:14, x:.58, y:.45 },
-    Moonlight: { pattern:'jharokha', time:'manual', hour:22, bg:'#181818', depth:.7 },
-    'A day': { pattern:'jharokha', time:'cycle', hour:5, cycle:40 },
+    'A day': { time:'cycle', hour:5, cycle:40 },
     // saved looks, kept for the site's style switcher (portfolio assets/window-light-styles.js)
     'Mono canopy': { pattern:'canopy', hour:9.25, palette:'mono', sun:'#fff6e8', depth:.55, tint:.82, soft:.4, size:1.45, turn:-7, x:.49, y:.58,
       wind:.7, leaves:.15, density:.39, slats:11, arch:'flat', jw:.265, jh:.57, rise:.32, cusps:2, cusp:.042, frame:.032, openings:3, gap:.055,
