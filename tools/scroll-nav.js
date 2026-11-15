@@ -20,9 +20,16 @@
     bg: '#161616', fg: '#ffffff', accent: '#bbfff0', rest: '#161616',
     font: 12, edge: 8, insetT: 72, insetB: 16, offset: 72, hideBar: true,
     ease: 'out-quint', dur: 260, swap: 180, idle: 1100,
-    wpm: 230, minutes: true, numbers: true, smooth: true, keys: true, shadow: .16,
+    wpm: 230, numbers: true, smooth: true, keys: true, shadow: .16,
+    spring: true, bounce: .16,       // size changes ride a spring; bounce 0 is critically damped
+    // what the numbers say
+    miniMeta: 'page',                // compact island: page | count | time | none
+    head: 'count-page',              // card header: count-page | page-time | count-time | off
+    rowMeta: 'state',                // each row: state (read / % / -) | progress | time | none
+    headlines: true,                 // each row carries its section's headline, a story outline
     // island
-    iRest: 4, iRestA: .22, iW: 30, iMinH: 76, iMaxH: 180, iRad: 15, iCardW: 272, iRow: 34, iOpen: 110, iClose: 260,
+    iRest: 4, iRestA: .22, iW: 30, iMinH: 76, iMaxH: 180, iRad: 15, iCardW: 300, iRow: 36, iOpen: 110, iClose: 260,
+    stretch: .35, hint: true,
     // ruler
     rGap: 8, rMinor: 5, rMajor: 13, rThick: 1.5, rTickA: .16, rMajorA: .42, rMag: 18, rRadius: 72, rHit: 56, rInd: 24, rSnap: true, rTip: true, rLabBg: '#ffffff',
     // pill
@@ -41,49 +48,75 @@
   -webkit-font-smoothing:antialiased;--sn-ease:${EASE['out-quint']};}
 .snav.fixed{position:fixed;}
 .snav *{box-sizing:border-box;}
-.snav button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;}
+/* the reset weighs nothing, so every component's own padding wins over it */
+:where(.snav) button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer;}
 .snav .num{font-family:ui-monospace,"SF Mono",Menlo,monospace;font-variant-numeric:tabular-nums;letter-spacing:.02em;}
-.snav-rows{list-style:none;margin:0;padding:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;}
-.snav-row{position:relative;display:grid;grid-template-columns:22px 1fr auto;align-items:center;gap:8px;width:100%;
-  height:var(--sn-row);padding:0 10px;border-radius:9px;text-align:left;color:var(--sn-mut);
+.snav-rows{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:none;}
+.snav-row{position:relative;display:grid;grid-template-columns:24px minmax(0,1fr) auto;align-items:center;column-gap:10px;width:100%;
+  min-height:var(--sn-row);padding:8px 12px 10px;border-radius:10px;text-align:left;color:var(--sn-mut);
   transition:background-color 150ms var(--sn-ease),color 150ms var(--sn-ease);}
-.snav-row .num{opacity:.7;}
-.snav-row .t{opacity:.7;}
+.snav-row .num{opacity:.65;align-self:start;line-height:1.45;}
+.snav-row .lab{display:flex;flex-direction:column;min-width:0;line-height:1.35;}
+.snav-row .lab b{font-weight:450;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.snav-row .lab small{font-size:.92em;opacity:.62;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px;}
+.snav-row .meta{font-size:.92em;opacity:.75;align-self:start;line-height:1.45;}
+.snav-row .meta svg{width:12px;height:12px;fill:currentColor;display:block;margin-top:2px;}
+.snav-row.seen .meta{color:var(--sn-accent);opacity:.9;}
 .snav-row.on{color:var(--sn-fg);background:color-mix(in srgb,var(--sn-fg) 9%,transparent);}
 .snav-row.on .num{color:var(--sn-accent);opacity:1;}
-.snav-row .bar{position:absolute;left:40px;right:10px;bottom:5px;height:2px;border-radius:2px;background:var(--sn-accent);
-  transform-origin:0 50%;transform:scaleX(var(--p,0));opacity:0;transition:opacity 150ms;}
-.snav-row.on .bar{opacity:.9;}
+.snav-row .track{position:absolute;left:46px;right:12px;bottom:3px;height:2px;border-radius:2px;
+  background:color-mix(in srgb,var(--sn-accent) 18%,transparent);opacity:0;transition:opacity 150ms;}
+.snav-row.on .track{opacity:1;}
+.snav-row .bar{position:absolute;left:46px;right:12px;bottom:3px;height:2px;border-radius:2px;background:var(--sn-accent);
+  transform-origin:0 50%;transform:scaleX(var(--p,0));opacity:0;}
+.snav-sheet .snav-row.on .bar{opacity:1;}
 .snav-row:focus-visible{outline:2px solid var(--sn-accent);outline-offset:-2px;}
 @media (hover:hover) and (pointer:fine){.snav-row:hover{color:var(--sn-fg);background:color-mix(in srgb,var(--sn-fg) 6%,transparent);}}
-.snav-head{display:flex;justify-content:space-between;align-items:baseline;padding:6px 10px 8px;color:var(--sn-mut);}
+.snav-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;padding:6px 12px 10px;color:var(--sn-mut);white-space:nowrap;}
 .snav-head b{font-weight:500;color:var(--sn-fg);}
+.roll{display:inline-grid;overflow:hidden;vertical-align:bottom;}
+.roll > span{grid-area:1/1;}
+.rolls{display:inline-flex;}
 
-/* ---- island ---- */
+/* ---- island ----
+   minimal: a thin thumb. compact: the black pill, number on top, the
+   accent in the middle growing with the section, the metric below.
+   expanded: the same pill grown into the card - the number stays top
+   left, the accent travels to the progress line under the section. */
 .snav-hit{position:absolute;top:0;bottom:0;right:0;width:22px;pointer-events:auto;cursor:pointer;}
 .snav-i{position:absolute;right:var(--sn-edge);top:0;width:var(--sn-irest);height:var(--sn-h,60px);
   border-radius:var(--sn-irad);background:color-mix(in srgb,var(--sn-rest) calc(var(--sn-irestA)*100%),transparent);
-  overflow:hidden;pointer-events:auto;cursor:pointer;color:var(--sn-fg);will-change:transform;
-  transition:width var(--sn-dur) var(--sn-ease),height var(--sn-dur) var(--sn-ease),
-    background-color var(--sn-dur) var(--sn-ease),border-radius var(--sn-dur) var(--sn-ease),box-shadow var(--sn-dur) var(--sn-ease);}
-.snav-i.glide{transition:width var(--sn-dur) var(--sn-ease),height var(--sn-dur) var(--sn-ease),transform var(--sn-dur) var(--sn-ease),
-    background-color var(--sn-dur) var(--sn-ease),border-radius var(--sn-dur) var(--sn-ease),box-shadow var(--sn-dur) var(--sn-ease);}
+  overflow:hidden;pointer-events:auto;cursor:pointer;color:var(--sn-fg);will-change:transform;transform-origin:100% 50%;
+  transition:width var(--sn-mdur) var(--sn-mease),height var(--sn-mdur) var(--sn-mease),border-radius var(--sn-mdur) var(--sn-mease),
+    background-color var(--sn-dur) var(--sn-ease),box-shadow var(--sn-dur) var(--sn-ease),scale 420ms var(--sn-mease);}
+.snav-i.glide{transition:width var(--sn-mdur) var(--sn-mease),height var(--sn-mdur) var(--sn-mease),border-radius var(--sn-mdur) var(--sn-mease),
+    transform var(--sn-mdur) var(--sn-mease),background-color var(--sn-dur) var(--sn-ease),box-shadow var(--sn-dur) var(--sn-ease),scale 420ms var(--sn-mease);}
 .snav-i.act{width:var(--sn-iw);background:var(--sn-bg);}
+.snav-i.act.hint{width:calc(var(--sn-iw) + 4px);}
 .snav-i.drag{cursor:grabbing;}
-.snav-i.open{width:var(--sn-icard);height:var(--sn-oh);border-radius:calc(var(--sn-irad) + 4px);background:var(--sn-bg);
-  box-shadow:0 14px 36px rgba(0,0,0,var(--sn-shadow)),0 2px 6px rgba(0,0,0,calc(var(--sn-shadow)*.6));cursor:default;}
+.snav-i.open{width:var(--sn-icard);height:var(--sn-oh);border-radius:calc(var(--sn-irad) + 5px);background:var(--sn-bg);
+  box-shadow:0 16px 40px rgba(0,0,0,var(--sn-shadow)),0 2px 6px rgba(0,0,0,calc(var(--sn-shadow)*.6));cursor:default;}
 .snav-i:focus-visible{outline:2px solid var(--sn-accent);outline-offset:2px;}
-.snav-mini{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:space-between;
-  padding:9px 0;opacity:0;transition:opacity var(--sn-swap) var(--sn-ease);}
-.snav-i.act .snav-mini{opacity:1;}
-.snav-i.open .snav-mini{opacity:0;transition-duration:90ms;}
-.snav-mini .num{font-size:10px;font-weight:500;}
-.snav-mini .t{font-size:9.5px;color:var(--sn-mut);}
-.snav-mini .dot{width:4px;height:4px;border-radius:50%;background:var(--sn-accent);}
-.snav-card{position:absolute;right:0;top:0;width:var(--sn-icard);padding:8px;opacity:0;filter:blur(3px);
-  transform:translateY(4px);pointer-events:none;
-  transition:opacity var(--sn-swap) var(--sn-ease),filter var(--sn-swap) var(--sn-ease),transform var(--sn-swap) var(--sn-ease);}
-.snav-i.open .snav-card{opacity:1;filter:none;transform:none;pointer-events:auto;transition-delay:calc(var(--sn-dur)*.3);}
+.snav-mini{position:absolute;right:0;top:0;width:var(--sn-iw);height:100%;display:flex;flex-direction:column;align-items:center;
+  justify-content:space-between;padding:10px 0;opacity:0;scale:.9;filter:blur(2px);
+  transition:opacity 160ms var(--sn-ease),scale 200ms var(--sn-ease),filter 160ms var(--sn-ease);}
+.snav-i.act .snav-mini{opacity:1;scale:1;filter:none;}
+.snav-i.open .snav-mini{opacity:0;scale:.86;filter:blur(3px);transition-duration:110ms;}
+.snav-mini .num{font-size:10.5px;font-weight:500;}
+.snav-mini .m{font-size:9.5px;color:var(--sn-mut);}
+.snav-acc{position:absolute;right:var(--ax,13.5px);top:var(--ay,30px);width:var(--aw,3px);height:var(--ah,3px);border-radius:3px;
+  background:var(--sn-accent);opacity:0;pointer-events:none;
+  transition:right var(--sn-mdur) var(--sn-mease),top var(--sn-mdur) var(--sn-mease),width var(--sn-mdur) var(--sn-mease),
+    height 160ms var(--sn-ease),opacity 160ms var(--sn-ease);}
+.snav-i.act .snav-acc{opacity:1;}
+.snav-i.open .snav-acc{opacity:var(--ao,1);}
+.snav-card{position:absolute;right:0;top:0;width:var(--sn-icard);padding:8px;pointer-events:none;}
+.snav-i.open .snav-card{pointer-events:auto;}
+.snav-card .snav-head,.snav-card li{opacity:0;transform:translateY(6px);filter:blur(3px);
+  transition:opacity 90ms var(--sn-ease),transform 90ms var(--sn-ease),filter 90ms var(--sn-ease);}
+.snav-i.open .snav-card .snav-head,.snav-i.open .snav-card li{opacity:1;transform:none;filter:none;
+  transition:opacity 220ms var(--sn-ease),transform 280ms var(--sn-ease),filter 220ms var(--sn-ease);
+  transition-delay:calc(var(--sn-mdur)*.28 + var(--d,0ms));}
 
 /* ---- ruler ---- */
 .snav-r{position:absolute;right:0;top:var(--sn-insetT);bottom:var(--sn-insetB);width:var(--sn-rhit);pointer-events:auto;cursor:pointer;touch-action:none;}
@@ -137,12 +170,30 @@
   display:flex;flex-direction:column;max-height:calc(100% - var(--sn-pbottom) - var(--sn-ph) - 24px);
   transform:translate(-50%,8px) scale(.96);transform-origin:50% 100%;
   box-shadow:0 18px 44px rgba(0,0,0,var(--sn-shadow)),0 2px 6px rgba(0,0,0,calc(var(--sn-shadow)*.6));
-  transition:opacity var(--sn-swap) var(--sn-ease),transform var(--sn-dur) var(--sn-ease);}
+  transition:opacity var(--sn-swap) var(--sn-ease),transform var(--sn-mdur) var(--sn-mease);}
 .snav-sheet.open{opacity:1;transform:translate(-50%,0) scale(1);pointer-events:auto;}
 
 @media (prefers-reduced-motion:reduce){
   .snav *{transition-property:opacity!important;}
 }`;
+
+  /* A spring as a CSS easing: simulate a damped spring (SwiftUI's
+     duration / bounce parameters) and sample it into linear(). Bounce 0
+     is critically damped - no overshoot; .2 overshoots by a hair. The
+     returned ms is the time it takes to settle, which is the duration the
+     transition needs so the curve is not cut short. */
+  function springEase(bounce, ms) {
+    const d = Math.max(.08, ms / 1000), k = Math.pow(2 * Math.PI / d, 2), c = 4 * Math.PI * (1 - bounce) / d;
+    let x = 0, v = 0, t = 0, last = 0; const dt = 1 / 600, pts = [0];
+    while (t < 4 * d) {
+      v += (-k * (x - 1) - c * v) * dt; x += v * dt; t += dt;
+      if (t - last >= d / 28) { pts.push(x); last = t; }
+      if (t > d * .4 && Math.abs(x - 1) < .002 && Math.abs(v) < .02) break;
+    }
+    pts.push(1);
+    return { ease: `linear(${pts.map(p => +p.toFixed(4)).join(',')})`, ms: Math.round(t * 1000) };
+  }
+  const CHECK = '<svg viewBox="0 0 256 256"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z"/></svg>';
 
   let styled = false;
   const injectCSS = () => {
@@ -167,6 +218,8 @@
     const root = opts.root || document.body;
     const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const dur = reduce ? 0 : cfg.dur, swapMs = reduce ? 0 : cfg.swap;
+    /* size changes (the island's morph, the sheet) ride the spring */
+    const sp = cfg.spring && !reduce ? springEase(cfg.bounce, cfg.dur) : { ease: EASE[cfg.ease] || EASE['out-quint'], ms: dur };
     const doc = sc.ownerDocument || document;
 
     /* sections: the page's own, named by their label */
@@ -174,7 +227,12 @@
       .map(el => ({ el, label: (el.dataset.label || el.querySelector('.sec-label, h2')?.textContent || '').trim() }))
       .filter(s => s.label);
     const words = el => +el.dataset.words || (el.textContent.trim().match(/\S+/g) || []).length;
-    secs.forEach(s => { s.words = words(s.el); });
+    secs.forEach(s => {
+      s.words = words(s.el);
+      /* the section's own headline: the sentence that sums it up */
+      s.head = (s.el.querySelector('h2')?.textContent || '').replace(/\s+/g, ' ').trim();
+    });
+    const seen = secs.map(() => false);
     if (!secs.length) return null;
 
     const box = h('div', 'snav' + (win ? ' fixed' : ''));
@@ -183,7 +241,7 @@
       '--sn-bg': cfg.bg, '--sn-fg': cfg.fg, '--sn-accent': cfg.accent, '--sn-rest': cfg.rest,
       '--sn-mut': `color-mix(in srgb, ${cfg.fg} 58%, transparent)`, '--sn-font': cfg.font + 'px',
       '--sn-edge': cfg.edge + 'px', '--sn-insetT': cfg.insetT + 'px', '--sn-insetB': cfg.insetB + 'px', '--sn-ease': EASE[cfg.ease] || EASE['out-quint'],
-      '--sn-dur': dur + 'ms', '--sn-swap': swapMs + 'ms', '--sn-shadow': cfg.shadow, '--sn-row': cfg.iRow + 'px',
+      '--sn-dur': dur + 'ms', '--sn-swap': swapMs + 'ms', '--sn-mdur': sp.ms + 'ms', '--sn-mease': sp.ease, '--sn-shadow': cfg.shadow, '--sn-row': cfg.iRow + 'px',
       '--sn-irest': cfg.iRest + 'px', '--sn-irestA': cfg.iRestA, '--sn-iw': cfg.iW + 'px', '--sn-irad': cfg.iRad + 'px', '--sn-icard': cfg.iCardW + 'px',
       '--sn-rminor': cfg.rMinor + 'px', '--sn-rmajor': cfg.rMajor + 'px', '--sn-rthick': cfg.rThick + 'px', '--sn-rtickA': cfg.rTickA,
       '--sn-rmajorA': cfg.rMajorA, '--sn-rlabbg': cfg.rLabBg, '--sn-rmag': cfg.rMag + 'px', '--sn-rhit': cfg.rHit + 'px', '--sn-rind': cfg.rInd + 'px',
@@ -232,8 +290,6 @@
       st.left = w / cfg.wpm;
       return st;
     }
-    const minsText = m => m < .5 ? 'done' : Math.max(1, Math.round(m)) + 'm';
-    const minsLong = m => m < .5 ? 'done' : Math.max(1, Math.round(m)) + ' min left';
     /* -1 is the top of the page, above the first section */
     const jump = i => {
       const top = i < 0 ? 0 : Math.max(0, secs[Math.min(i, secs.length - 1)].top - cfg.offset);
@@ -247,16 +303,57 @@
       el.animate([{ opacity: 0, transform: `translateY(${dir * 6}px)`, filter: 'blur(2px)' }, { opacity: 1, transform: 'none', filter: 'blur(0)' }],
         { duration: swapMs, easing: EASE[cfg.ease] || EASE['out-quint'] });
     };
+    /* digits roll, one slot per character: only the characters that change
+       move, in the direction you are reading */
+    const rollOne = (slot, ch, dir) => {
+      if (slot.dataset.v === ch) return;
+      const old = slot.lastElementChild; slot.dataset.v = ch;
+      const n = document.createElement('span'); n.textContent = ch; slot.append(n);
+      if (!old || !swapMs || !dir) { if (old) old.remove(); return; }
+      const o = { duration: swapMs, easing: EASE[cfg.ease] || EASE['out-quint'] };
+      old.animate([{ transform: 'none', opacity: 1, filter: 'blur(0)' }, { transform: `translateY(${-dir * 80}%)`, opacity: 0, filter: 'blur(1.5px)' }], o).onfinish = () => old.remove();
+      n.animate([{ transform: `translateY(${dir * 80}%)`, opacity: 0, filter: 'blur(1.5px)' }, { transform: 'none', opacity: 1, filter: 'blur(0)' }], o);
+    };
+    const roll = (el, text, dir) => {
+      text = String(text);
+      if (el.dataset.v === text) return;
+      const fresh = !el.dataset.v || el.children.length !== text.length;
+      if (fresh) { el.innerHTML = ''; [...text].forEach(() => { const sl = document.createElement('span'); sl.className = 'roll'; el.append(sl); }); }
+      el.dataset.v = text;
+      [...text].forEach((ch, j) => rollOne(el.children[j], ch, fresh ? 0 : dir));
+    };
 
+    const mins = w => { const m = w / cfg.wpm; return m < .75 ? '<1m' : Math.round(m) + 'm'; };
     function rowsHTML() {
-      return secs.map((s, j) => `<li><button class="snav-row" data-i="${j}" type="button"><span class="num">${pad(j + 1)}</span><span>${esc(s.label)}</span>` +
-        `<span class="t num">${cfg.minutes ? Math.max(1, Math.round(s.words / cfg.wpm)) + 'm' : ''}</span><i class="bar"></i></button></li>`).join('');
+      return secs.map((s, j) => `<li style="--d:${Math.min(j, 10) * 18}ms"><button class="snav-row" data-i="${j}" type="button">` +
+        `<span class="num">${pad(j + 1)}</span><span class="lab"><b>${esc(s.label)}</b>${cfg.headlines && s.head ? `<small>${esc(s.head)}</small>` : ''}</span>` +
+        `<span class="meta num"></span><i class="track"></i><i class="bar"></i></button></li>`).join('');
     }
     function syncRows(list) {
+      secs.forEach((s, j) => { if (j < st.i || (j === st.i && st.sp > .85)) seen[j] = true; });
       list.querySelectorAll('.snav-row').forEach((b, j) => {
-        const on = !st.pre && j === st.i; b.classList.toggle('on', on);
+        const on = !st.pre && j === st.i; b.classList.toggle('on', on); b.classList.toggle('seen', seen[j] && !on);
         if (on) { b.setAttribute('aria-current', 'location'); b.style.setProperty('--p', st.sp.toFixed(3)); } else b.removeAttribute('aria-current');
+        const m = b.querySelector('.meta'); let html = '';
+        if (cfg.rowMeta === 'state') html = on ? Math.round(st.sp * 100) + '%' : seen[j] ? CHECK : '';
+        else if (cfg.rowMeta === 'progress') html = (on ? Math.round(st.sp * 100) : seen[j] ? 100 : 0) + '%';
+        else if (cfg.rowMeta === 'time') html = mins(secs[j].words);
+        if (m.innerHTML !== html) m.innerHTML = html;
+        b.setAttribute('aria-label', `${secs[j].label}${seen[j] ? ', read' : ''}${on ? ', current section' : ''}`);
       });
+    }
+    /* the header: where you are and how far, in the words chosen */
+    const headParts = () => {
+      const count = `Section <b class="rolls h-c"></b> of ${pad(secs.length)}`, page = `<b class="rolls h-p"></b> read`, time = `<b class="h-t"></b> left`;
+      return { 'count-page': [count, page], 'page-time': [page, time], 'count-time': [count, time] }[cfg.head] || null;
+    };
+    const headHTML = () => { const p = headParts(); return p ? `<div class="snav-head"><span>${p[0]}</span><span>${p[1]}</span></div>` : ''; };
+    function syncHead(el, dir) {
+      if (!el) return;
+      const c = el.querySelector('.h-c'), p = el.querySelector('.h-p'), t = el.querySelector('.h-t');
+      if (c) roll(c, pad(st.pre ? 0 : st.i + 1), dir);
+      if (p) roll(p, Math.round(st.p * 100) + '%', dir);
+      if (t) t.textContent = st.left < .75 ? 'under a minute' : Math.round(st.left) + ' min';
     }
 
     const off = []; // teardown
@@ -266,23 +363,57 @@
     /* ================= island ================= */
     if (cfg.style === 'island') {
       const hit = h('div', 'snav-hit'); box.append(hit);
-      const isl = h('div', 'snav-i'); isl.tabIndex = 0; isl.setAttribute('aria-label', 'Sections - open the list');
-      const mini = h('div', 'snav-mini', `<b class="num">01</b><i class="dot"></i><i class="t num"></i>`);
-      const card = h('div', 'snav-card', `<div class="snav-head"><span><b class="pc num">0%</b> read</span><span class="lft"></span></div><ol class="snav-rows">${rowsHTML()}</ol>`);
-      isl.append(mini, card); box.append(isl);
-      const numEl = mini.querySelector('.num'), tEl = mini.querySelector('.t'), dot = mini.querySelector('.dot');
-      const pcEl = card.querySelector('.pc'), lftEl = card.querySelector('.lft'), list = card.querySelector('.snav-rows');
-      let act = false, open = false, hov = false, idleT, openT, closeT, lastI = -1, oh = 0;
+      const isl = h('div', 'snav-i'); isl.tabIndex = 0; isl.setAttribute('aria-label', 'Sections - open the list'); isl.setAttribute('aria-expanded', 'false');
+      const mini = h('div', 'snav-mini', `<b class="num rolls"></b><i class="m num rolls"></i>`);
+      const acc = h('i', 'snav-acc');
+      const card = h('div', 'snav-card', `${headHTML()}<ol class="snav-rows">${rowsHTML()}</ol>`);
+      isl.append(card, mini, acc); box.append(isl);
+      const numEl = mini.querySelector('.num'), mEl = mini.querySelector('.m'), list = card.querySelector('.snav-rows'), head = card.querySelector('.snav-head');
+      let act = false, open = false, hov = false, idleT, openT, closeT, lastI = -1, oh = 0, hh = 60;
+      let lastY = sc.scrollTop, lastT = performance.now(), calmT;
       const trackH = () => G.viewH - cfg.insetT - cfg.insetB;
       const thumbH = () => clamp(G.viewH / G.contentH * trackH(), 28, cfg.iMaxH);
-      const glide = () => { isl.classList.add('glide'); clearTimeout(isl._g); isl._g = setTimeout(() => isl.classList.remove('glide'), dur + 40); };
+      /* opening rides the full spring; closing is quicker, as exits should be */
+      const glide = closing => {
+        isl.style.setProperty('--sn-mdur', Math.round(sp.ms * (closing ? .72 : 1)) + 'ms');
+        isl.classList.add('glide'); clearTimeout(isl._g);
+        isl._g = setTimeout(() => { isl.classList.remove('glide'); isl.style.removeProperty('--sn-mdur'); }, sp.ms + 60);
+      };
+      const metric = () => cfg.miniMeta === 'page' ? Math.round(st.p * 100) + '' : cfg.miniMeta === 'count' ? '/' + pad(secs.length)
+        : cfg.miniMeta === 'time' ? (st.left < .75 ? '<1' : Math.round(st.left) + 'm') : '';
+      /* the accent: a dot in the compact pill that grows into a line as the
+         section is read, and in the card becomes the progress line under
+         the current section - one element, so it travels between the two */
+      function placeAcc() {
+        if (open) {
+          const row = list.querySelector('.snav-row.on');
+          if (!row || st.pre) { isl.style.setProperty('--ao', 0); return; }
+          /* measured from the row's list item: while the rows ease in, their
+             transform makes each item the row's offset parent, so the row's own
+             offsetTop reads 0 - the item's offset is stable throughout */
+          const top = row.parentElement.offsetTop - list.scrollTop + row.offsetHeight - 5;
+          const inView = top > list.offsetTop && top < list.offsetTop + list.clientHeight + 4;
+          const span = row.offsetWidth - 46 - 12, w = Math.max(3, span * st.sp);
+          isl.style.setProperty('--ao', inView ? 1 : 0);
+          isl.style.setProperty('--ay', top + 'px'); isl.style.setProperty('--ah', '2px');
+          isl.style.setProperty('--aw', w.toFixed(1) + 'px');
+          isl.style.setProperty('--ax', (cfg.iCardW - 8 - 46 - w).toFixed(1) + 'px');
+        } else {
+          const showM = cfg.miniMeta !== 'none' && hh >= 64;
+          const y0 = 30, y1 = hh - 10 - (showM ? 18 : 2), L = Math.max(3, y1 - y0);
+          isl.style.setProperty('--ay', y0 + 'px'); isl.style.setProperty('--aw', '3px');
+          isl.style.setProperty('--ah', (3 + (L - 3) * st.sp).toFixed(1) + 'px');
+          isl.style.setProperty('--ax', (cfg.iW / 2 - 1.5) + 'px');
+          mEl.style.display = showM ? '' : 'none';
+        }
+      }
       function place() {
-        const tH = trackH(); let hh = thumbH();
+        const tH = trackH(); hh = thumbH();
         if (act && !open) hh = Math.max(cfg.iMinH, hh);
         let y;
         if (open) {
           /* a long contents list scrolls inside the card rather than leaving the screen */
-          list.style.maxHeight = Math.max(80, tH - 52) + 'px';
+          list.style.maxHeight = Math.max(80, tH - (head ? head.offsetHeight : 0) - 16) + 'px';
           oh = Math.min(card.offsetHeight, tH);
           const c = cfg.insetT + st.p * (tH - thumbH()) + thumbH() / 2;
           y = clamp(c - oh / 2, cfg.insetT, cfg.insetT + tH - oh);
@@ -290,32 +421,59 @@
         } else y = cfg.insetT + st.p * (tH - hh);
         isl.style.setProperty('--sn-h', hh + 'px');
         isl.style.transform = `translateY(${y.toFixed(1)}px)`;
-        mini.querySelector('.t').style.display = cfg.minutes && hh >= 64 ? '' : 'none';
-        dot.style.display = hh >= 92 ? '' : 'none';
+        placeAcc();
       }
       function setAct(v) { if (act === v) return; act = v; isl.classList.toggle('act', v); place(); }
+      /* the open height has to exist before the class flips, or the browser
+         resolves it as auto for a frame - and auto does not animate */
+      function prepOpen() {
+        list.style.maxHeight = Math.max(80, trackH() - (head ? head.offsetHeight : 0) - 16) + 'px';
+        oh = Math.min(card.offsetHeight, trackH());
+        isl.style.setProperty('--sn-oh', oh + 'px');
+      }
       function setOpen(v) {
-        if (open === v) return; open = v; glide();
+        if (open === v) return;
+        if (v) prepOpen();
+        open = v; glide(!v);
+        isl.classList.remove('hint');
         isl.classList.toggle('open', v); isl.setAttribute('aria-expanded', String(v));
-        if (v) setAct(true);
+        if (v) { setAct(true); isl.style.scale = ''; }
         place();
+        if (v) { const on = list.querySelector('.snav-row.on'); if (on) list.scrollTop = Math.max(0, on.offsetTop - list.clientHeight / 2 + on.offsetHeight / 2); placeAcc(); }
         if (!v && !hov) wake();
       }
       function wake() { setAct(true); clearTimeout(idleT); idleT = setTimeout(() => { if (!hov && !open) setAct(false); }, cfg.idle); }
       function render() {
         read();
-        if (st.i !== lastI) {
-          swap(numEl, pad(st.i + 1), lastI < 0 ? 0 : (st.i > lastI ? 1 : -1));
-          lastI = st.i;
-        }
-        tEl.textContent = minsText(st.left);
-        pcEl.textContent = Math.round(st.p * 100) + '%';
-        lftEl.textContent = cfg.minutes ? minsLong(st.left) : '';
+        const dir = lastI < 0 ? 0 : (st.i > lastI ? 1 : st.i < lastI ? -1 : st.dir);
+        roll(numEl, pad(st.i + 1), lastI < 0 ? 0 : (st.i !== lastI ? (st.i > lastI ? 1 : -1) : 0));
+        lastI = st.i;
+        roll(mEl, metric(), dir);
+        syncHead(head, dir);
         syncRows(list);
         place();
       }
-      on(isl, 'pointerenter', e => { if (e.pointerType !== 'mouse') return; hov = true; clearTimeout(closeT); setAct(true); openT = setTimeout(() => { if (!drag) setOpen(true); }, cfg.iOpen); });
-      on(isl, 'pointerleave', e => { if (e.pointerType !== 'mouse' || drag) return; hov = false; clearTimeout(openT); closeT = setTimeout(() => setOpen(false), cfg.iClose); });
+      /* scroll speed stretches the compact pill a touch, and it settles back
+         on the spring - the squash of a living thing, not a bar */
+      function stretch() {
+        /* never while dragging: under a finger the thumb must not deform */
+        if (!cfg.stretch || reduce || open || drag) { isl.style.scale = ''; return; }
+        const now = performance.now(), v = (sc.scrollTop - lastY) / Math.max(8, now - lastT);
+        lastY = sc.scrollTop; lastT = now;
+        const k = clamp(Math.abs(v) * cfg.stretch * .07, 0, .32 * cfg.stretch);   /* default peaks near 11% */
+        isl.style.scale = `${(1 - k * .3).toFixed(3)} ${(1 + k).toFixed(3)}`;
+        clearTimeout(calmT); calmT = setTimeout(() => { isl.style.scale = ''; }, 90);
+      }
+      on(isl, 'pointerenter', e => {
+        if (e.pointerType !== 'mouse') return; hov = true; clearTimeout(closeT); setAct(true);
+        if (cfg.hint && !open) isl.classList.add('hint');
+        openT = setTimeout(() => { if (!drag) setOpen(true); }, cfg.iOpen);
+      });
+      on(isl, 'pointerleave', e => {
+        if (e.pointerType !== 'mouse' || drag) return; hov = false; clearTimeout(openT); isl.classList.remove('hint');
+        closeT = setTimeout(() => setOpen(false), cfg.iClose);
+      });
+      on(list, 'scroll', () => { if (open) placeAcc(); }, { passive: true });
       /* the thumb drags like a scrollbar's; a press that does not move opens
          the card on touch (mouse opens on hover) */
       let drag = null;
@@ -329,7 +487,7 @@
         if (!drag) return;
         const dy = (e.clientY - drag.y0) / G.k;
         if (!drag.moved && Math.abs(dy) < 3) return;
-        drag.moved = true; isl.classList.add('drag');
+        drag.moved = true; isl.classList.add('drag'); isl.classList.remove('hint');
         const span = Math.max(1, trackH() - Math.max(cfg.iMinH, thumbH()));
         sc.scrollTo({ top: clamp(drag.s0 + dy / span * G.max, 0, G.max), behavior: 'instant' });
       });
@@ -347,8 +505,13 @@
         if (e.pointerType !== 'mouse') setOpen(!open);
       });
       on(isl, 'keydown', e => {
-        if (e.key === 'Enter' || e.key === ' ') { if (!e.target.closest('.snav-row')) { e.preventDefault(); setOpen(!open); if (open) list.querySelector('.on')?.focus(); } }
+        if (e.key === 'Enter' || e.key === ' ') { if (!e.target.closest('.snav-row')) { e.preventDefault(); setOpen(!open); if (open) (list.querySelector('.on') || list.querySelector('.snav-row'))?.focus(); } }
         if (e.key === 'Escape') { setOpen(false); isl.focus(); }
+        const r = e.target.closest?.('.snav-row');
+        if (r && /Arrow(Up|Down)/.test(e.key)) {
+          e.preventDefault(); const rows = [...list.querySelectorAll('.snav-row')], j = rows.indexOf(r) + (e.key === 'ArrowDown' ? 1 : -1);
+          rows[clamp(j, 0, rows.length - 1)].focus();
+        }
       });
       on(isl, 'focusout', e => { if (!isl.contains(e.relatedTarget)) setOpen(false); });
       on(hit, 'pointerenter', () => { wake(); });
@@ -359,7 +522,7 @@
         sc.scrollTo({ top: f * G.max, behavior: cfg.smooth && !reduce ? 'smooth' : 'instant' });
       });
       on(doc, 'pointerdown', e => { if (open && !isl.contains(e.target)) setOpen(false); });
-      api = { render, onScroll() { if (!open) wake(); render(); } };
+      api = { render, onScroll() { if (!open) wake(); stretch(); render(); } };
     }
 
     /* ================= ruler ================= */
@@ -448,7 +611,7 @@
         `<span class="snav-pl"><span></span></span></button>` +
         (cfg.pArrows ? `<i class="snav-pd"></i><button class="snav-pa" data-d="-1" type="button" aria-label="Previous section">${CHEV.up}</button>` +
           `<button class="snav-pa" data-d="1" type="button" aria-label="Next section">${CHEV.down}</button>` : '');
-      const sheet = h('div', 'snav-sheet', `<div class="snav-head"><span><b class="pc num">0%</b> read</span><span class="lft"></span></div><ol class="snav-rows">${rowsHTML()}</ol>`);
+      const sheet = h('div', 'snav-sheet', `${headHTML()}<ol class="snav-rows">${rowsHTML()}</ol>`);
       box.append(sheet, pill);
       const main = pill.querySelector('.snav-pm'), ix = pill.querySelector('.ix'), lab = pill.querySelector('.snav-pl'), labIn = lab.firstChild;
       const fl = pill.querySelector('.fl'), list = sheet.querySelector('.snav-rows');
@@ -467,15 +630,14 @@
           const text = secs[st.i].label;
           meas.textContent = text; lab.style.width = Math.ceil(meas.getBoundingClientRect().width / G.k) + 'px';
           swap(labIn, esc(text), d);
-          if (ix) swap(ix, pad(st.i + 1), d);
+          if (ix) roll(ix, pad(st.i + 1), d);
           lastI = st.i;
           if (prev) prev.disabled = st.i === 0 && sc.scrollTop <= secs[0].top - cfg.offset + 24;
           if (next) next.disabled = st.i === secs.length - 1;
         }
         const p = cfg.pRingMode === 'section' ? st.sp : st.p;
         fl.setAttribute('stroke-dashoffset', (C * (1 - p)).toFixed(2));
-        sheet.querySelector('.pc').textContent = Math.round(st.p * 100) + '%';
-        sheet.querySelector('.lft').textContent = cfg.minutes ? minsLong(st.left) : '';
+        syncHead(sheet.querySelector('.snav-head'), st.dir);
         syncRows(list);
       }
       on(main, 'click', () => setOpen(!open));
@@ -519,7 +681,7 @@
     measure(); api.render();
 
     return {
-      el: box, sections: secs,
+      el: box, sections: secs, state: st,
       destroy() { off.forEach(f => f()); ro.disconnect(); box.remove(); barStyle && barStyle.remove(); }
     };
   }
