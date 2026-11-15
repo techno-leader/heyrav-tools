@@ -161,13 +161,21 @@ const Kit = (() => {
           custom.addEventListener('change', () => commit(c.k));
           const pk = h('label', { class: 'sw-b pick', title: 'custom', html: '<i></i>' }, custom);
           box.append(pk);
-          r.append(h('div', { class: 'row-top' }, h('span', { class: 'lbl' }, c.label ?? c.k), h('span', { class: 'val' })), box);
+          // the value as text you can type into: #f4e1c8, f4e1c8 or #fec all work
+          const hexIn = h('input', { class: 'hex', type: 'text', spellcheck: 'false', autocomplete: 'off', 'aria-label': (c.label ?? c.k) + ' hex', maxlength: 7 });
+          const parse = v => { v = v.trim().replace(/^#/, ''); if (/^[0-9a-f]{3}$/i.test(v)) v = v.replace(/./g, ch => ch + ch); return /^[0-9a-f]{6}$/i.test(v) ? '#' + v.toLowerCase() : null; };
+          hexIn.addEventListener('input', () => { const v = parse(hexIn.value); hexIn.classList.toggle('bad', !v && hexIn.value.trim() !== ''); if (v) set(c.k, v); });
+          hexIn.addEventListener('change', () => { if (parse(hexIn.value)) commit(c.k); hexIn.classList.remove('bad'); hexIn.value = S[c.k]; });
+          hexIn.addEventListener('keydown', e => { if (e.key === 'Enter') hexIn.blur(); if (e.key === 'Escape') { hexIn.value = S[c.k]; hexIn.blur(); } });
+          r.append(h('div', { class: 'row-top' }, h('span', { class: 'lbl' }, c.label ?? c.k), hexIn), box);
           r._sync = () => {
             let hit = false;
             box.querySelectorAll('button').forEach(b => { const on = b.dataset.v === S[c.k]; hit ||= on; b.setAttribute('aria-pressed', String(on)); });
             pk.querySelector('i').style.background = hit ? '' : S[c.k];
+            // open the picker on the colour in use, not on black
+            if (/^#[0-9a-f]{6}$/i.test(S[c.k]) && document.activeElement !== custom) custom.value = S[c.k];
             pk.setAttribute('aria-pressed', String(!hit));
-            r.querySelector('.val').textContent = hit ? '' : S[c.k];
+            if (document.activeElement !== hexIn) { hexIn.value = S[c.k]; hexIn.classList.remove('bad'); }
           };
           break;
         }
@@ -212,6 +220,8 @@ const Kit = (() => {
         r._sync && r._sync();
         r.hidden = c.type === 'hidden' || (c.when ? !c.when(S) : false);
       });
+      // a group whose every control is switched off by the current state goes too
+      rail.querySelectorAll('.grp').forEach(g => { g.hidden = ![...g.querySelectorAll('.grp-b > .row')].some(r => !r.hidden); });
       document.querySelectorAll('[data-preset]').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.preset === api.preset)));
       undoBtn && (undoBtn.disabled = hi <= 0);
       redoBtn && (redoBtn.disabled = hi >= hist.length - 1);

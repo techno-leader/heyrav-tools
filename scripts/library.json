@@ -121,6 +121,27 @@
    }
   },
   {
+   "g": "tools",
+   "file": "tools/light.html",
+   "title": "Window Light",
+   "date": "2026-11-15",
+   "note": "Light falling across the site through a window, a jharokha, a forest canopy or blinds - it follows the time of day, from dawn rose to blue moonlight.",
+   "cap": {
+    "clip": "stage",
+    "state": {
+     "pattern": "jharokha",
+     "time": "manual",
+     "hour": 16.5,
+     "leaves": 0.3,
+     "depth": 0.5,
+     "view": [
+      1440,
+      900
+     ]
+    }
+   }
+  },
+  {
    "g": "hero",
    "file": "hero-2026-07-05-flower.html",
    "title": "Flower",

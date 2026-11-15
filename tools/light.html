@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Window Light - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script src="window-light.js"></script>
+<script>
+/* Window Light - the light that falls over heyrav.in, on a bench. The cast
+   (window, jharokha, canopy, blinds) is rendered by the same shader the site
+   loads, over a stand-in page, so every setting here is what a visitor sees.
+   Side by side shows a desktop and a phone at once: sizes follow the
+   viewport, so the phone gets its own smaller cast, not a crop. */
+
+const VIEWS = [['fill','fill the stage'],['both','desktop + phone'],[[1440,900],'1440 × 900 desktop'],[[1280,800],'1280 × 800 laptop'],[[820,1180],'820 × 1180 tablet'],[[390,844],'390 × 844 phone']];
+// surfaces the light can land on: the site's own papers, then walls from the references
+const BGS = [['#ffffff','paper'],['#f5f5f5','wash'],['#ece4d8','limestone'],['#e3c9a6','sandstone'],['#c9a093','rose stone'],['#b0623f','terracotta'],['#181818','ink'],['#10182b','night']];
+const lum = hex => { const n = parseInt(hex.slice(1), 16); return (.2126 * (n >> 16 & 255) + .7152 * (n >> 8 & 255) + .0722 * (n & 255)) / 255; };
+const isDark = S => lum(S.bg) < .4;   // the same test the site makes on its own background
+const tones = (bg, dark) => dark
+  ? { bg, ink:'#fafafa', ink3:'rgba(255,255,255,.6)', line:'rgba(255,255,255,.12)', card:'rgba(255,255,255,.06)' }
+  : { bg, ink:'#161616', ink3:'rgba(0,0,0,.55)', line:'rgba(0,0,0,.09)', card:'rgba(0,0,0,.04)' };
+const fmtHour = h => { h = ((h % 24) + 24) % 24; const m = Math.round(h * 60) % 1440; return String(Math.floor(m / 60)).padStart(2,'0') + ':' + String(m % 60).padStart(2,'0'); };
+
+/* one WebGL canvas per preview slot - sharing one between the desktop and the
+   phone resized its drawing buffer twice a frame, which is slow and flickers */
+const slots = {};
+const slot = id => slots[id] || (slots[id] = (c => ({ c, e: WindowLight.create(c) }))(document.createElement('canvas')));
+const engine = slot('main').e;
+let readout = null;
+
+/* ---- a stand-in heyrav.in page: header, the hero line, two case cards ---- */
+function page(ctx, x, y, w, h, S) {
+  const P = tones(S.bg, isDark(S));
+  ctx.fillStyle = P.bg; ctx.fillRect(x, y, w, h);
+  if (!S.content) return;
+  const phone = w < 600, pad = phone ? 20 : 32;
+  ctx.textBaseline = 'alphabetic';
+  ctx.fillStyle = P.ink; ctx.font = '700 22px Onest, sans-serif'; ctx.fillText('R', x + pad, y + 36);
+  ctx.strokeStyle = P.line; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x, y + 56.5); ctx.lineTo(x + w, y + 56.5); ctx.stroke();
+  if (phone) { ctx.fillRect(x + w - pad - 18, y + 24, 18, 1.5); ctx.fillRect(x + w - pad - 18, y + 31, 18, 1.5); }
+  else { ctx.font = '400 13px Onest, sans-serif'; ctx.fillStyle = P.ink3; ['Resume','About','Work'].reduce((r, s) => { const tw = ctx.measureText(s).width; ctx.fillText(s, x + r - tw, y + 33); return r - tw - 28; }, w - pad); }
+  const fs = Math.max(30, Math.min(64, w * .045)), cy = y + h * (phone ? .3 : .36);
+  ctx.textAlign = 'center'; ctx.fillStyle = P.ink;
+  ctx.font = `500 ${fs}px Onest, sans-serif`;
+  const lines = phone ? ['Hi, I’m Ravindra.', 'I make designs', 'that convert.'] : ['Hi, I’m Ravindra.', 'I make designs that', 'convert.'];
+  lines.forEach((l, i) => ctx.fillText(l, x + w / 2, cy + i * fs * 1.08));
+  ctx.font = `400 ${phone ? 14 : 16}px Onest, sans-serif`; ctx.fillStyle = P.ink3;
+  ctx.fillText(phone ? '2+ years designing for performance' : '2+ years exp. designing for performance marketing  ·  IIT Eng. Grad.', x + w / 2, cy + fs * 3.24 + 10);
+  ctx.textAlign = 'left';
+  // case cards
+  const top = cy + fs * 3.24 + (phone ? 56 : 80), gap = 20, n = phone ? 1 : 2;
+  const cw = (w - pad * 2 - gap * (n - 1)) / n, ch = Math.min(h - (top - y) - pad, phone ? 300 : 340);
+  if (ch < 60) return;
+  for (let i = 0; i < n; i++) {
+    const cx = x + pad + i * (cw + gap);
+    ctx.fillStyle = P.card; ctx.beginPath(); ctx.roundRect(cx, top, cw, ch * .62, 14); ctx.fill();
+    ctx.fillStyle = P.ink; ctx.font = '500 18px Onest, sans-serif'; ctx.fillText(['ViewRyt - a redesign for 3X conversion', 'Dentomate - killing the WhatsApp tax'][i], cx, top + ch * .62 + 30, cw);
+    ctx.fillStyle = P.line; [0, 1].forEach(j => ctx.fillRect(cx, top + ch * .62 + 46 + j * 16, cw * (j ? .6 : .9), 7));
+  }
+}
+
+/* one viewport: the page, then the light over it */
+function view(ctx, x, y, w, h, t, S, id = 'main') {
+  const dark = isDark(S);
+  page(ctx, x, y, w, h, S);
+  const sl = slot(id);
+  if (!sl.e || !S.on) return null;
+  const k = sl.e.draw(S, t, w, h, dark);
+  ctx.save();
+  ctx.globalCompositeOperation = dark ? 'screen' : 'multiply';
+  ctx.imageSmoothingQuality = 'high';
+  ctx.drawImage(sl.c, x, y, w, h);
+  ctx.restore();
+  return k;
+}
+
+function frame(ctx, W, H, t, S) {
+  let k;
+  if (S.view === 'both') {
+    ctx.fillStyle = '#efefef'; ctx.fillRect(0, 0, W, H);
+    const clip = (x, y, w, h, r, f) => { ctx.save(); ctx.beginPath(); ctx.roundRect(x, y, w, h, r); ctx.clip(); f(); ctx.restore();
+      ctx.strokeStyle = 'rgba(0,0,0,.12)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.roundRect(x + .5, y + .5, w - 1, h - 1, r); ctx.stroke(); };
+    clip(40, 40, 1440, 900, 12, () => { k = view(ctx, 40, 40, 1440, 900, t, S); });
+    clip(1540, 68, 390, 844, 44, () => view(ctx, 1540, 68, 390, 844, t, S, 'phone'));
+    ctx.fillStyle = '#8a8a8a'; ctx.font = '400 14px Onest, sans-serif';
+    ctx.fillText('1440 × 900', 40, 970); ctx.fillText('390 × 844', 1540, 970);
+  } else k = view(ctx, 0, 0, W, H, t, S);
+  // only touch the DOM when the minute changes, not every frame
+  const txt = k && `${fmtHour(k.hour)}  ·  ${k.phase}`;
+  if (txt && readout && readout.textContent !== txt) readout.textContent = txt;
+}
+
+function siteConfig(S) {
+  const out = {};
+  for (const key in WindowLight.DEF) if (key in S && JSON.stringify(S[key]) !== JSON.stringify(WindowLight.DEF[key])) out[key] = S[key];
+  return `<script>window.windowLightConfig = ${JSON.stringify(out, null, 2)};<\/script>\n<script src="assets/window-light.js" data-mount defer><\/script>`;
+}
+
+const D = WindowLight.DEF;
+const J = S => S.pattern === 'jharokha';
+const T = Kit.tool({
+  title: 'Window Light', slug: 'heyrav-window-light',
+  lede: 'Light falling across the site through a window, a jharokha, a forest canopy or blinds - clear or through stained glass. It follows the time of day: direction, length and colour all move with the sun.',
+  size: S => S.view === 'both' ? [1970, 1000] : S.view,
+  presets: {
+    Recording: {},
+    Jharokha: { pattern:'jharokha', time:'manual', hour:10.5, x:.6, y:.42 },
+    'Golden jali': { pattern:'jharokha', time:'manual', hour:17.6, leaves:.35, x:.55, y:.45, depth:.5, bloom:.3, grain:.25 },
+    Cathedral: { pattern:'jharokha', time:'manual', hour:16.8, arch:'pointed', rise:.34, cusps:0, openings:3, gap:.06, jh:.6, jali:'lattice', lattice:1.5, hole:1.15,
+      glass:'stained', sat:.9, disp:.35, bloom:.35, grain:.35, grainScale:70, soft:.8, depth:.62, tint:.15, size:.85, x:.5, y:.45 },
+    'Rainbow wall': { pattern:'jharokha', time:'manual', hour:9.25, arch:'round', rise:.2, cusps:5, openings:2, gap:.1, jali:'hex', lattice:1.3,
+      glass:'rainbow', band:2.2, sat:.85, disp:.3, bloom:.3, grain:.4, warp:.4, soft:.9, depth:.6, tint:.1, x:.5, y:.45 },
+    'Light shafts': { pattern:'jharokha', time:'manual', hour:17.4, bg:'#181818', glass:'stained', sat:.75, shafts:.85, shaftLen:1.4, bloom:.4, disp:.25, depth:.95, x:.5, y:.55 },
+    Canopy: { pattern:'canopy', time:'manual', hour:8.5, density:.55, depth:.38 },
+    Blinds: { pattern:'blinds', time:'manual', hour:16.75, slats:14, x:.58, y:.45 },
+    Moonlight: { pattern:'jharokha', time:'manual', hour:22, bg:'#181818', depth:.7 },
+    'A day': { pattern:'jharokha', time:'cycle', hour:5, cycle:40 },
+    // saved looks, kept for the site's style switcher (portfolio assets/window-light-styles.js)
+    'Mono canopy': { pattern:'canopy', hour:9.25, palette:'mono', sun:'#fff6e8', depth:.55, tint:.82, soft:.4, size:1.45, turn:-7, x:.49, y:.58,
+      wind:.7, leaves:.15, density:.39, slats:11, arch:'flat', jw:.265, jh:.57, rise:.32, cusps:2, cusp:.042, frame:.032, openings:3, gap:.055,
+      jali:'hex', lattice:1.35, hole:1.1, jrot:15, glass:'rainbow', sat:.79, hue:.01, band:1.25, glassC:'#e8336f',
+      disp:.16, bloom:.25, shafts:.52, shaftLen:1.65, grain:.41, grainScale:106, warp:.48, flicker:.24 },
+    'Stained canopy': { pattern:'canopy', hour:9.25, palette:'custom', sun:'#fff6e8', depth:.38, tint:.76, soft:.36, size:1.35, turn:-18, x:.28, y:.21,
+      wind:1.75, leaves:.02, density:.87, slats:26, arch:'flat', jw:.265, jh:.57, rise:.32, cusps:2, cusp:.042, frame:.032, openings:3, gap:.055,
+      jali:'hex', lattice:1.35, hole:1.1, jrot:15, glass:'stained', sat:.91, hue:.43, glassC:'#2fbf71',
+      disp:.38, bloom:.23, shafts:.16, shaftLen:1.2, grain:.11, grainScale:91, warp:.3, flicker:.25 },
+    'Hex jharokha': { pattern:'jharokha', hour:9.25, palette:'custom', sun:'#fff6e8', shade:'#9a9a9a', depth:.18, tint:.52, soft:.92, size:1.2, turn:-14, x:.4, y:.47,
+      wind:1.9, leaves:.5, density:.87, slats:26, arch:'round', jw:.215, jh:.37, rise:.51, cusps:3, cusp:.042, frame:.015, openings:2, gap:.095,
+      jali:'hex', lattice:2.55, hole:1.02, jrot:33, sat:.79, hue:.42, glassC:'#2fbf71',
+      disp:.43, bloom:.23, shafts:.1, shaftLen:1.25, grain:.03, grainScale:53, warp:.04, flicker:.3 },
+  },
+  groups: [
+    { name: 'preview', controls: [
+      { k:'view', type:'select', label:'viewport', value:'both', options:VIEWS, rand:false },
+      { k:'bg', type:'color', label:'background', value:'#ffffff', options:BGS, rand:false,
+        help:'Pick a surface or type any hex. Dark backgrounds take the light as glow instead of shade - the site decides the same way.' },
+      { k:'content', type:'toggle', label:'show the page', value:true, rand:false, help:'Off leaves the bare surface, to judge the light alone.' },
+      { k:'on', type:'toggle', label:'light on', value:true, rand:false },
+      { k:'res', type:'range', label:'render scale', min:.2, max:1, step:.05, value:D.res, adv:true, rand:false, fmt:v=>Math.round(v*100)+'%', help:'The light is soft, so the site renders it at half size.' },
+    ]},
+    { name: 'cast', controls: [
+      { k:'pattern', type:'seg', label:'through', value:D.pattern, options:[['window','window'],['jharokha','jharokha'],['canopy','canopy'],['blinds','blinds']] },
+      { k:'size', type:'range', label:'size', min:.4, max:2.5, step:.05, value:D.size, rand:[.7,1.6], fmt:v=>Math.round(v*100)+'%', help:'Measured against the viewport, so a phone gets a smaller cast that still fits.' },
+      { k:'x', type:'range', label:'across', min:-.2, max:1.2, step:.01, value:D.x, rand:[.2,.8], fmt:v=>Math.round(v*100)+'%' },
+      { k:'y', type:'range', label:'down', min:-.2, max:1.2, step:.01, value:D.y, rand:[.2,.7], fmt:v=>Math.round(v*100)+'%' },
+      { k:'density', type:'range', label:'leaf density', min:0, max:1, step:.01, value:D.density, when:S=>S.pattern==='window'||S.pattern==='canopy' },
+      { k:'slats', type:'range', label:'slats', min:4, max:30, step:1, value:D.slats, when:S=>S.pattern==='blinds' },
+      { k:'leaves', type:'range', label:'leaves outside', min:0, max:1, step:.01, value:D.leaves, when:S=>S.pattern==='jharokha'||S.pattern==='blinds', rand:[0,.5], help:'A tree between the sun and the opening.' },
+      { k:'turn', type:'range', label:'turn', min:-90, max:90, step:1, value:D.turn, unit:'°', adv:true, rand:[-20,20], help:'Added to the sun’s own direction.' },
+    ]},
+    { name: 'jharokha - arch', controls: [
+      { k:'arch', type:'seg', label:'arch', value:D.arch, options:[['pointed','pointed'],['round','round'],['flat','flat']], when:J },
+      { k:'jw', type:'range', label:'width', min:.08, max:.45, step:.005, value:D.jw, when:J, rand:[.14,.28] },
+      { k:'jh', type:'range', label:'height', min:.1, max:1, step:.01, value:D.jh, when:J, rand:[.3,.7], help:'From the sill up to where the arch springs.' },
+      { k:'rise', type:'range', label:'arch rise', min:.05, max:.6, step:.005, value:D.rise, when:S=>S.pattern==='jharokha'&&S.arch!=='flat', rand:[.15,.4], help:'A pointed arch never rises less than it is wide.' },
+      { k:'cusps', type:'range', label:'cusps', min:0, max:8, step:1, value:D.cusps, when:S=>S.pattern==='jharokha'&&S.arch!=='flat', rand:[0,6], help:'Lobes along each side of the arch. 0 is a plain arch.' },
+      { k:'cusp', type:'range', label:'cusp size', min:.015, max:.09, step:.001, value:D.cusp, when:S=>S.pattern==='jharokha'&&S.arch!=='flat'&&S.cusps>0, rand:[.03,.06] },
+      { k:'frame', type:'range', label:'stone frame', min:0, max:.08, step:.001, value:D.frame, when:J, rand:[.008,.035], help:'Solid stone between the arch and the jali.' },
+      { k:'openings', type:'range', label:'openings', min:1, max:5, step:1, value:D.openings, when:J, rand:[1,3] },
+      { k:'gap', type:'range', label:'pillar', min:0, max:.3, step:.005, value:D.gap, when:S=>S.pattern==='jharokha'&&S.openings>1, rand:[.03,.12] },
+      { k:'sill', type:'toggle', label:'sill with gaps', value:D.sill, when:J },
+    ]},
+    { name: 'jharokha - jali', controls: [
+      { k:'jali', type:'seg', label:'pattern', value:D.jali, options:[['stars','stars'],['hex','hex'],['circles','circles'],['lattice','lattice'],['open','open']], when:J },
+      { k:'lattice', type:'range', label:'cell size', min:.4, max:3, step:.05, value:D.lattice, when:S=>S.pattern==='jharokha'&&S.jali!=='open', fmt:v=>Math.round(v*100)+'%', rand:[.7,1.8] },
+      { k:'hole', type:'range', label:'openness', min:.3, max:1.25, step:.01, value:D.hole, when:S=>S.pattern==='jharokha'&&S.jali!=='open', rand:[.7,1.15], help:'How much of each cell is open. Higher leaves thinner stone ribs.' },
+      { k:'jrot', type:'range', label:'pattern turn', min:0, max:90, step:1, value:D.jrot, unit:'°', when:S=>S.pattern==='jharokha'&&S.jali!=='open', rand:[0,45] },
+    ]},
+    { name: 'glass', controls: [
+      { k:'glass', type:'seg', label:'glass', value:D.glass, options:[['clear','clear'],['stained','stained'],['rainbow','rainbow'],['tinted','tinted']],
+        help:'Stained gives each pane a jewel colour; rainbow runs spectral bands across the cast.' },
+      { k:'sat', type:'range', label:'colour strength', min:0, max:1, step:.01, value:D.sat, when:S=>S.glass!=='clear', rand:[.5,1] },
+      { k:'hue', type:'range', label:'hue shift', min:0, max:1, step:.01, value:D.hue, when:S=>S.glass==='stained'||S.glass==='rainbow', fmt:v=>Math.round(v*360)+'°' },
+      { k:'band', type:'range', label:'band size', min:.2, max:6, step:.05, value:D.band, when:S=>S.glass==='rainbow', rand:[.8,3], help:'Bands per viewport unit - higher is tighter.' },
+      { k:'glassC', type:'color', label:'tint', value:D.glassC, when:S=>S.glass==='tinted', options:[['#ff7a45','amber'],['#3d6bff','cobalt'],['#e8336f','rose'],['#2fbf71','emerald']] },
+    ]},
+    { name: 'light', controls: [
+      { k:'disp', type:'range', label:'dispersion', min:0, max:1.5, step:.01, value:D.disp, rand:[0,.6], help:'Red, green and blue land apart, so edges fringe into rainbows.' },
+      { k:'bloom', type:'range', label:'bloom', min:0, max:1, step:.01, value:D.bloom, rand:[0,.5], help:'A soft halo round every bright patch.' },
+      { k:'shafts', type:'range', label:'shafts', min:0, max:1, step:.01, value:D.shafts, rand:[0,.6], help:'Beams through the air, back toward the sun. Strongest on a dark page.' },
+      { k:'shaftLen', type:'range', label:'shaft length', min:.3, max:3, step:.05, value:D.shaftLen, when:S=>S.shafts>0, rand:[.6,2] },
+      { k:'grain', type:'range', label:'stone texture', min:0, max:1, step:.01, value:D.grain, rand:[0,.5], help:'The light picks up the grain of what it lands on.' },
+      { k:'grainScale', type:'range', label:'texture scale', min:10, max:200, step:1, value:D.grainScale, when:S=>S.grain>0, rand:[30,120] },
+      { k:'warp', type:'range', label:'uneven wall', min:0, max:1.5, step:.01, value:D.warp, rand:[0,.6], help:'Bends the cast as if the wall were not flat.' },
+      { k:'flicker', type:'range', label:'passing clouds', min:0, max:1, step:.01, value:D.flicker, rand:[0,.5] },
+    ]},
+    { name: 'time of day', controls: [
+      { type:'custom', render: () => (readout = Kit.h('p', { class:'help', style:'font-variant-numeric:tabular-nums;color:var(--ink,#161616)' }, '')) },
+      { k:'time', type:'seg', label:'clock', value:D.time, options:[['live','my clock'],['manual','set'],['cycle','day cycle']], rand:false,
+        help:'My clock follows the time where the page is open - that is what the site does.' },
+      { k:'hour', type:'range', label:'hour', min:0, max:24, step:.25, value:D.hour, fmt:fmtHour, when:S=>S.time!=='live', rand:[5,22] },
+      { k:'cycle', type:'range', label:'day length', min:10, max:240, step:5, value:D.cycle, unit:'s', when:S=>S.time==='cycle', rand:false },
+    ]},
+    { name: 'colour', controls: [
+      { k:'palette', type:'seg', label:'palette', value:D.palette, options:[['natural','sky'],['mono','mono'],['custom','custom']],
+        help:'Sky moves through dawn rose, morning gold, white noon, amber evening and blue moonlight.' },
+      { k:'sun', type:'color', label:'light', value:D.sun, when:S=>S.palette==='custom', options:[['#ffd9a0','morning'],['#ffb75e','amber'],['#ff8e6a','sunset'],['#fff6e8','noon']] },
+      { k:'shade', type:'color', label:'shade', value:D.shade, when:S=>S.palette==='custom', options:[['#a3b0c8','sky'],['#9088b0','lilac'],['#55618f','night'],['#9a9a9a','grey']] },
+      { k:'depth', type:'range', label:'strength', min:0, max:1, step:.01, value:D.depth, rand:[.25,.6] },
+      { k:'tint', type:'range', label:'warmth in the light', min:0, max:1, step:.01, value:D.tint, rand:[.3,.9], help:'How much the sun colours the paper it lands on.' },
+    ]},
+    { name: 'motion', controls: [
+      { k:'wind', type:'range', label:'wind', min:0, max:3, step:.05, value:D.wind, rand:[.3,1.8] },
+      { k:'soft', type:'range', label:'softness', min:0, max:1.5, step:.01, value:D.soft, rand:[.2,1], help:'How far the opening is from the page: further is softer.' },
+    ]},
+    { name: 'export', controls: [
+      { type:'button', label:'Copy for the site', primary:true, run: api => api.copy(siteConfig(api.S), 'site snippet copied') },
+      { type:'buttons', buttons:[
+        { label:'PNG @2x', run: api => api.png(2) },
+        { label:'Record 6s', run: api => api.record(6) },
+      ]},
+      { type:'button', label:'Copy link to this state', run: api => api.link() },
+      { type:'note', text:'Copy for the site gives the two script tags with only the settings that differ from the defaults.' },
+    ]},
+  ],
+  draw: frame,
+});
+// a day cycle starts from the hour it is set to
+T.on(k => { if (T.S.time === 'cycle' && (k === 'time' || k === 'hour' || k === 'preset' || k === 'cycle')) T.clock.t = 0; });
+if (!engine) Kit.toast('this browser has no WebGL - the light cannot render');
+document.fonts.ready.then(() => T.draw());
+</script>
+</body>
+</html>
