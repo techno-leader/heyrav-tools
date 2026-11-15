@@ -142,6 +142,19 @@
    }
   },
   {
+   "g": "tools",
+   "file": "tools/scroll-nav.html",
+   "title": "Scroll Nav",
+   "date": "2026-11-15",
+   "note": "Three ways through a long case study from the edge of the screen - an island that is the scrollbar, a ruler of sections, a chapter pill - every size, colour and timing exposed.",
+   "cap": {
+    "clip": "stage",
+    "state": {
+     "demo": false
+    }
+   }
+  },
+  {
    "g": "hero",
    "file": "hero-2026-07-05-flower.html",
    "title": "Flower",

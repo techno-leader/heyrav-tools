@@ -82,7 +82,11 @@ const Kit = (() => {
       const box = h('div', { class: 'presets', role: 'group', 'aria-label': 'Presets' });
       Object.keys(cfg.presets).forEach(name => box.append(h('button', {
         class: 'chip', type: 'button', 'data-preset': name,
-        onclick: () => { Object.assign(S, clone(defaults), clone(cfg.presets[name])); api.preset = name; commit('preset'); }
+        onclick: () => {
+          // controls marked keep (the preview's own settings) survive a preset
+          const kept = {}; ctrls.forEach(c => { if (c.keep && c.k) kept[c.k] = S[c.k]; });
+          Object.assign(S, clone(defaults), kept, clone(cfg.presets[name])); api.preset = name; commit('preset');
+        }
       }, name)));
       rail.append(box);
     }
@@ -297,8 +301,13 @@ const Kit = (() => {
 
     const ctx = canvas.getContext('2d');
     const view = { W: 0, H: 0, scale: 1, dpr: 1 };
+    /* a change of artboard size re-lays the board out - before this only a
+       window resize did, so the size menu waited for the next resize */
+    let lastSize = null;
+    api.on(() => { if (!view.W || !cfg.size) return; const k = JSON.stringify(cfg.size(S)); if (k !== lastSize) layout(); });
     function layout() {
       const size = (cfg.size ? cfg.size(S) : 'fill');
+      lastSize = JSON.stringify(size);
       const fill = size === 'fill';
       board.classList.toggle('fill', fill);
       const pad = getComputedStyle(wrap);

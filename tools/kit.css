@@ -76,7 +76,7 @@ body:has(> .tool){overflow:hidden;}
 .row-top{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:24px;}
 .row-top label,.lbl{color:var(--ink-2);}
 .val{font-family:var(--mono);font-size:var(--t-label);color:var(--ink-3);font-variant-numeric:tabular-nums;}
-.hex{width:8ch;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--paper);
+.hex{width:calc(7ch + 14px);box-sizing:content-box;padding:3px 6px;border:1px solid var(--line);border-radius:6px;background:var(--paper);
   font-family:var(--mono);font-size:var(--t-label);color:var(--ink-2);text-align:right;text-transform:lowercase;}
 .hex:focus{outline:0;border-color:var(--ink-3);color:var(--ink);}
 .hex.bad{border-color:#d9534f;color:#d9534f;}

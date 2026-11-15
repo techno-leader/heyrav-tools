@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Scroll Nav - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+<style>
+  .board canvas{display:none;}
+  .board{overflow:hidden;}
+  /* the artboard is laid out at real pixels, then scaled to fit */
+  .art{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden;background:var(--pg-bg,#fff);font-family:Onest,system-ui,sans-serif;color:#161616;}
+  .pg{position:absolute;inset:0;overflow-y:auto;scrollbar-width:none;overscroll-behavior:contain;}
+  .pg::-webkit-scrollbar{display:none;}
+  .pg-nav{position:sticky;top:0;z-index:5;display:flex;justify-content:space-between;align-items:center;height:56px;padding:0 32px;
+    background:color-mix(in srgb,var(--pg-bg,#fff) 94%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.4);backdrop-filter:blur(12px) saturate(1.4);border-bottom:1px solid rgba(0,0,0,.06);font-size:13px;color:#6e6e6e;}
+  .pg-nav b{font-size:20px;color:#161616;font-weight:700;}
+  .pg-nav span{display:flex;gap:28px;}
+  .pg-wrap{max-width:1080px;margin:0 auto;padding:0 44px;}
+  .pg-hero{padding:120px 0 72px;}
+  .pg-hero h1{font-size:60px;line-height:1.05;letter-spacing:-.035em;font-weight:450;max-width:14ch;margin:0 0 28px;}
+  .pg-hero h1 em{font-family:Georgia,serif;font-style:italic;font-weight:400;}
+  .ln{display:block;height:12px;border-radius:6px;background:rgba(0,0,0,.08);margin:12px 0;}
+  .pg-facts{display:grid;grid-template-columns:repeat(3,1fr);gap:24px;border-top:1px solid rgba(0,0,0,.08);padding-top:28px;margin-top:44px;}
+  .pg-facts i{display:block;height:9px;width:46px;border-radius:4px;background:rgba(0,0,0,.1);margin-bottom:12px;}
+  .pg-facts .ln{margin:0;height:14px;background:rgba(0,0,0,.14);}
+  .pg section{padding:76px 0;border-top:1px solid rgba(0,0,0,.06);}
+  .sec-label{font-family:ui-monospace,Menlo,monospace;font-size:12px;letter-spacing:.14em;text-transform:uppercase;color:#767676;margin-bottom:22px;}
+  .pg h2{font-size:38px;line-height:1.1;letter-spacing:-.025em;font-weight:450;margin:0 0 20px;max-width:18ch;}
+  .cols{display:grid;grid-template-columns:1fr 1fr;gap:48px;align-items:start;}
+  .ph{border-radius:16px;background:rgba(0,0,0,.05);margin:22px 0;}
+  .pg-foot{padding:120px 0 160px;text-align:center;color:#767676;font-size:14px;}
+  .art.phone .pg-nav{padding:0 20px;} .art.phone .pg-nav span{display:none;}
+  .art.phone .pg-wrap{padding:0 22px;} .art.phone .pg-hero{padding:72px 0 48px;} .art.phone .pg-hero h1{font-size:40px;}
+  .art.phone .cols{grid-template-columns:1fr;gap:8px;} .art.phone .pg h2{font-size:30px;} .art.phone .pg section{padding:52px 0;}
+  .art.phone .pg-facts{grid-template-columns:1fr;}
+</style>
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script src="scroll-nav.js"></script>
+<script>
+/* Scroll Nav - three ways to move through a long case study without the
+   scrollbar: an island that is the thumb, a ruler of sections, a chapter
+   pill. The preview is a stand-in case page built from the real section
+   names; the nav on it is scroll-nav.js itself, so every setting here is
+   what the site would run. Scroll the page, hover the edge, press J / K. */
+
+const CASES = {
+  viewryt: { title: 'Same copy. Same product. <em>Different design.</em>', secs: [
+    ['The Product', 'Strong product, right audience.', 180, 2, 360],
+    ['The Problem', 'The old pages converted below 1.5%.', 240, 3, 0],
+    ['Principles', 'Four rules for the redesign, copy untouched.', 320, 4, 280],
+    ['Improvements', 'Four principles that did the heavy lifting.', 260, 3, 420],
+    ['The Redesign', 'The page, walked through.', 520, 5, 900],
+    ['Results', 'From losing money on every visit to profitable.', 200, 2, 220],
+    ['Aftermath', 'What happened to the product.', 140, 2, 0]] },
+  dentomate: { title: 'The patient who <em>never came back.</em>', secs: [
+    ['The Problem', 'Paper registers lose patients.', 220, 3, 300],
+    ['Research', 'Thirty-four clinics, one complaint.', 360, 4, 380],
+    ['What clinics use today', 'Six workarounds. None does all three.', 300, 3, 520],
+    ['How it was built', 'Founder, designer, engineer.', 420, 5, 640],
+    ['The Product', 'Records, WhatsApp, reminders.', 380, 4, 760],
+    ['Results', 'Live in 34 clinics.', 180, 2, 240]] },
+  irbs: { title: "Booking a room shouldn't feel like <em>filing a petition.</em>", secs: [
+    ['The Problem', 'Rooms booked on paper and phone calls.', 200, 3, 0],
+    ['Context', 'A campus of 7,000+ students.', 160, 2, 320],
+    ['Root Cause', 'Nobody could see who held a room.', 240, 3, 0],
+    ['Research', 'Eleven interviews, three findings.', 360, 4, 420],
+    ['The Solution', 'Inside the app students already open.', 300, 3, 560],
+    ['Design & Testing', 'Three steps to a booked room.', 420, 4, 700],
+    ['Impact', 'Live since September 2023.', 180, 2, 200]] }
+};
+
+let art, pg, nav, builtFor = '', dragging = false, userAt = 0;
+
+function buildPage(S) {
+  const c = CASES[S.case];
+  const lines = n => Array.from({ length: n }, (_, i) => `<span class="ln" style="width:${[96, 88, 92, 74, 85, 60][i % 6]}%"></span>`).join('');
+  pg.innerHTML = `<div class="doc"><div class="pg-nav"><b>R</b><span><i>Work</i><i>About</i><i>Resume</i></span></div>
+    <header class="pg-hero"><div class="pg-wrap"><h1>${c.title}</h1>${lines(3)}
+      <div class="pg-facts"><div><i></i><span class="ln" style="width:80%"></span></div><div><i></i><span class="ln" style="width:70%"></span></div><div><i></i><span class="ln" style="width:60%"></span></div></div></div></header>
+    ${c.secs.map(([label, h2, words, paras, img]) => `<section data-words="${words}"><div class="pg-wrap"><div class="sec-label">${label.replace(/&/g, '&amp;')}</div>
+      <div class="cols"><h2>${h2}</h2><div>${lines(paras * 2)}</div></div>${img ? `<div class="ph" style="height:${img}px"></div>` : ''}</div></section>`).join('')}
+    <footer class="pg-foot">End of the case</footer></div>`;
+  builtFor = S.case;
+}
+
+function mountNav(S) {
+  const keep = pg.scrollTop;
+  nav && nav.destroy();
+  nav = ScrollNav.mount({ scroller: pg, root: art, config: S });
+  pg.scrollTop = keep;
+}
+
+function frame(ctx, W, H, t, S) {
+  // the demo scroll: down the page and back, paused while you are using it
+  if (!S.demo || !pg || dragging || performance.now() - userAt < 2500) return;
+  const max = pg.scrollHeight - pg.clientHeight;
+  if (max <= 0) return;
+  const period = S.demoSec;
+  const u = (t % period) / period, tri = u < .5 ? u * 2 : 2 - u * 2;
+  const e = tri * tri * (3 - 2 * tri);
+  pg.scrollTop = e * max;
+}
+
+function siteConfig(S) {
+  const out = {};
+  for (const k in ScrollNav.DEF) if (k in S && JSON.stringify(S[k]) !== JSON.stringify(ScrollNav.DEF[k])) out[k] = S[k];
+  return `<script>window.scrollNavConfig = ${JSON.stringify(out, null, 2)};<\/script>\n<script src="assets/scroll-nav.js" data-mount defer><\/script>`;
+}
+
+const D = ScrollNav.DEF;
+const isI = S => S.style === 'island', isR = S => S.style === 'ruler', isP = S => S.style === 'pill';
+const EASES = [['out-quint', 'ease out (quint)'], ['drawer', 'drawer (.32,.72,0,1)'], ['snappy', 'snappy'], ['out-back', 'out, slight overshoot'], ['in-out', 'in-out (on-screen moves)']];
+const INK = [['#161616', 'ink'], ['#ffffff', 'paper'], ['#0d1b4c', 'night'], ['#3d6bff', 'cobalt']];
+const FG = [['#ffffff', 'paper'], ['#161616', 'ink'], ['#bbfff0', 'mint']];
+const ACC = [['#bbfff0', 'mint'], ['#ffffff', 'paper'], ['#ff7a45', 'amber'], ['#3d6bff', 'cobalt']];
+
+const T = Kit.tool({
+  title: 'Scroll Nav', slug: 'heyrav-scroll-nav', static: false,
+  lede: 'Three ways to move through a long case study from the edge of the screen: an island that is the scrollbar, a ruler of sections, a chapter pill. Scroll the page, hover the edge, press J / K.',
+  size: S => S.view,
+  presets: {
+    Island: {},
+    'Island, quiet': { iRestA: .12, iW: 26, iMinH: 64, idle: 700, shadow: .1 },
+    'Island, paper': { bg: '#ffffff', fg: '#161616', accent: '#3d6bff', rest: '#161616', shadow: .22 },
+    Ruler: { style: 'ruler' },
+    'Ruler, fine': { style: 'ruler', rGap: 5, rMinor: 4, rMajor: 10, rThick: 1, rMag: 22, rRadius: 56 },
+    Pill: { style: 'pill' },
+    'Pill, section ring': { style: 'pill', pRingMode: 'section', pTuck: false },
+    'Pill, phone': { style: 'pill', view: [390, 844], pBottom: 16, pSheetW: 358 },
+  },
+  groups: [
+    { name: 'preview', controls: [
+      { k: 'view', keep: true, type: 'select', label: 'viewport', value: [1440, 900], rand: false, options: [[[1440, 900], '1440 × 900 desktop'], [[1280, 800], '1280 × 800 laptop'], [[390, 844], '390 × 844 phone']] },
+      { k: 'case', keep: true, type: 'seg', label: 'case', value: 'viewryt', rand: false, options: [['viewryt', 'ViewRyt'], ['dentomate', 'Dentomate'], ['irbs', 'IRBS']] },
+      { k: 'demo', keep: true, type: 'toggle', label: 'demo scroll', value: true, rand: false, help: 'Scrolls the page down and back while you watch. Touch the page and it waits.' },
+      { k: 'demoSec', keep: true, type: 'range', label: 'demo length', min: 6, max: 60, step: 1, value: 22, unit: 's', when: S => S.demo, rand: false },
+      { k: 'pgBg', keep: true, type: 'color', label: 'page', value: '#ffffff', rand: false, options: [['#ffffff', 'paper'], ['#f5f5f5', 'wash'], ['#ece4d8', 'limestone']] },
+    ]},
+    { name: 'style', controls: [
+      { k: 'style', type: 'seg', label: 'navigation', value: D.style, options: [['island', 'island'], ['ruler', 'ruler'], ['pill', 'pill']],
+        help: 'Island: the scrollbar thumb, alive. Ruler: every section on the edge. Pill: chapters at the bottom, best on phones.' },
+    ]},
+    { name: 'look', controls: [
+      { k: 'bg', type: 'color', label: 'surface', value: D.bg, options: INK, help: 'The island, the tip, the pill and their cards.' },
+      { k: 'fg', type: 'color', label: 'text', value: D.fg, options: FG, rand: S => S.bg === '#ffffff' ? '#161616' : '#ffffff' },
+      { k: 'accent', type: 'color', label: 'accent', value: D.accent, options: ACC, help: 'The current section: its number, its progress, the ring.' },
+      { k: 'rest', type: 'color', label: 'resting ink', value: D.rest, rand: S => Math.random() < .5 ? '#161616' : '#6e6e6e', options: [['#161616', 'ink'], ['#6e6e6e', 'ink 3'], ['#ffffff', 'paper']], help: 'The resting thumb and the ruler ticks.' },
+      { k: 'font', type: 'range', label: 'type size', min: 10, max: 16, step: .5, value: D.font, unit: 'px', rand: [11, 13.5] },
+      { k: 'shadow', type: 'range', label: 'shadow', min: 0, max: .4, step: .01, value: D.shadow, rand: [.08, .24] },
+      { k: 'edge', type: 'range', label: 'edge gap', min: 0, max: 32, step: 1, value: D.edge, unit: 'px', when: S => !isP(S), rand: [4, 16] },
+      { k: 'insetT', type: 'range', label: 'track top', min: 0, max: 160, step: 1, value: D.insetT, unit: 'px', when: S => !isP(S), help: 'Clear of the site nav, which is 56px tall.', rand: false },
+      { k: 'insetB', type: 'range', label: 'track bottom', min: 0, max: 120, step: 1, value: D.insetB, unit: 'px', when: S => !isP(S), rand: false },
+      { k: 'hideBar', type: 'toggle', label: 'replace the native scrollbar', value: D.hideBar, when: S => !isP(S), rand: false, help: 'On the site the island or the ruler becomes the scrollbar. The island drags like one.' },
+    ]},
+    { name: 'island', controls: [
+      { k: 'iRest', type: 'range', label: 'resting width', min: 2, max: 12, step: .5, value: D.iRest, unit: 'px', when: isI, rand: [3, 6] },
+      { k: 'iRestA', type: 'range', label: 'resting opacity', min: 0, max: 1, step: .01, value: D.iRestA, when: isI, rand: [.12, .4] },
+      { k: 'iW', type: 'range', label: 'awake width', min: 18, max: 48, step: 1, value: D.iW, unit: 'px', when: isI, rand: [24, 36] },
+      { k: 'iMinH', type: 'range', label: 'awake min height', min: 40, max: 160, step: 1, value: D.iMinH, unit: 'px', when: isI, help: 'Tall enough to hold the number and the time left.', rand: [64, 100] },
+      { k: 'iMaxH', type: 'range', label: 'thumb max height', min: 60, max: 320, step: 1, value: D.iMaxH, unit: 'px', when: isI, rand: [120, 220] },
+      { k: 'iRad', type: 'range', label: 'corner radius', min: 2, max: 24, step: 1, value: D.iRad, unit: 'px', when: isI, rand: [10, 18] },
+      { k: 'iCardW', type: 'range', label: 'card width', min: 200, max: 380, step: 2, value: D.iCardW, unit: 'px', when: isI, rand: [240, 320] },
+      { k: 'iRow', type: 'range', label: 'row height', min: 26, max: 48, step: 1, value: D.iRow, unit: 'px', when: isI, rand: [30, 40] },
+      { k: 'iOpen', type: 'range', label: 'hover to open', min: 0, max: 500, step: 10, value: D.iOpen, unit: 'ms', when: isI, help: 'A short wait, so passing the edge does not throw the card open.', rand: [60, 200] },
+      { k: 'iClose', type: 'range', label: 'grace to close', min: 0, max: 800, step: 10, value: D.iClose, unit: 'ms', when: isI, rand: [160, 400] },
+    ]},
+    { name: 'ruler', controls: [
+      { k: 'rGap', type: 'range', label: 'tick spacing', min: 3, max: 24, step: 1, value: D.rGap, unit: 'px', when: isR, rand: [5, 12] },
+      { k: 'rMinor', type: 'range', label: 'tick length', min: 2, max: 16, step: .5, value: D.rMinor, unit: 'px', when: isR, rand: [3, 8] },
+      { k: 'rMajor', type: 'range', label: 'section tick', min: 4, max: 28, step: .5, value: D.rMajor, unit: 'px', when: isR, rand: [8, 18] },
+      { k: 'rThick', type: 'range', label: 'tick weight', min: .5, max: 4, step: .25, value: D.rThick, unit: 'px', when: isR, rand: [1, 2] },
+      { k: 'rTickA', type: 'range', label: 'tick opacity', min: .04, max: 1, step: .01, value: D.rTickA, when: isR, rand: [.08, .3] },
+      { k: 'rMajorA', type: 'range', label: 'section opacity', min: .1, max: 1, step: .01, value: D.rMajorA, when: isR, rand: [.3, .7] },
+      { k: 'rMag', type: 'range', label: 'magnify by', min: 0, max: 48, step: 1, value: D.rMag, unit: 'px', when: isR, help: 'How much longer a tick grows right under the pointer.', rand: [10, 30] },
+      { k: 'rRadius', type: 'range', label: 'magnify reach', min: 20, max: 200, step: 2, value: D.rRadius, unit: 'px', when: isR, rand: [50, 110] },
+      { k: 'rHit', type: 'range', label: 'hover zone', min: 24, max: 140, step: 2, value: D.rHit, unit: 'px', when: isR, rand: [40, 80] },
+      { k: 'rInd', type: 'range', label: 'marker length', min: 8, max: 48, step: 1, value: D.rInd, unit: 'px', when: isR, rand: [16, 32] },
+      { k: 'rLabBg', type: 'color', label: 'label backing', value: D.rLabBg, when: isR, rand: false, options: [['#ffffff', 'paper'], ['#f5f5f5', 'wash'], ['#161616', 'ink']], help: 'Behind the magnified names, so they read over text. Match the page.' },
+      { k: 'rSnap', type: 'toggle', label: 'snap clicks to sections', value: D.rSnap, when: isR },
+      { k: 'rTip', type: 'toggle', label: 'name the section while scrolling', value: D.rTip, when: isR },
+    ]},
+    { name: 'pill', controls: [
+      { k: 'pBottom', type: 'range', label: 'from bottom', min: 4, max: 80, step: 1, value: D.pBottom, unit: 'px', when: isP, rand: [12, 32] },
+      { k: 'pH', type: 'range', label: 'height', min: 34, max: 64, step: 1, value: D.pH, unit: 'px', when: isP, rand: [40, 50] },
+      { k: 'pRing', type: 'range', label: 'ring size', min: 12, max: 30, step: 1, value: D.pRing, unit: 'px', when: isP, rand: [16, 22] },
+      { k: 'pRingMode', type: 'seg', label: 'ring shows', value: D.pRingMode, options: [['page', 'whole case'], ['section', 'this section']], when: isP },
+      { k: 'pArrows', type: 'toggle', label: 'previous / next', value: D.pArrows, when: isP },
+      { k: 'pTuck', type: 'toggle', label: 'tuck away scrolling down', value: D.pTuck, when: isP },
+      { k: 'pSheetW', type: 'range', label: 'sheet width', min: 240, max: 420, step: 2, value: D.pSheetW, unit: 'px', when: isP, rand: [280, 340] },
+      { k: 'pRow', type: 'range', label: 'sheet row', min: 28, max: 52, step: 1, value: D.pRow, unit: 'px', when: isP, rand: [32, 42] },
+    ]},
+    { name: 'motion', controls: [
+      { k: 'ease', type: 'select', label: 'easing', value: D.ease, options: EASES, rand: ['out-quint', 'drawer', 'snappy'] },
+      { k: 'dur', type: 'range', label: 'morph', min: 0, max: 600, step: 10, value: D.dur, unit: 'ms', rand: [180, 340], help: 'Size and shape changes. UI motion stays under 300ms to feel immediate.' },
+      { k: 'swap', type: 'range', label: 'swap', min: 0, max: 400, step: 10, value: D.swap, unit: 'ms', rand: [120, 240], help: 'A new section name sliding in, the way you are scrolling.' },
+      { k: 'idle', type: 'range', label: 'rests after', min: 200, max: 4000, step: 50, value: D.idle, unit: 'ms', rand: [700, 1600] },
+    ]},
+    { name: 'behaviour', controls: [
+      { k: 'numbers', type: 'toggle', label: 'section numbers', value: D.numbers },
+      { k: 'minutes', type: 'toggle', label: 'time left', value: D.minutes },
+      { k: 'wpm', type: 'range', label: 'reading speed', min: 120, max: 400, step: 10, value: D.wpm, unit: ' wpm', when: S => S.minutes, rand: false, help: 'A recruiter skims - a higher speed gives a fairer time left.' },
+      { k: 'offset', type: 'range', label: 'jump lands below', min: 0, max: 160, step: 2, value: D.offset, unit: 'px', rand: false, help: 'Room for the site nav above a section you jump to.' },
+      { k: 'smooth', type: 'toggle', label: 'smooth jumps', value: D.smooth },
+      { k: 'keys', type: 'toggle', label: 'J / K between sections', value: D.keys, rand: false },
+    ]},
+    { name: 'export', controls: [
+      { type: 'button', label: 'Copy for the site', primary: true, run: api => api.copy(siteConfig(api.S), 'site snippet copied') },
+      { type: 'button', label: 'Copy link to this state', run: api => api.link() },
+      { type: 'note', text: 'The snippet is the two script tags with only the settings that differ from the defaults. The case pages already mark their sections, so nothing else changes.' },
+    ]},
+  ],
+  draw: frame,
+  onResize: (W, H, S) => {
+    if (!art) {
+      art = Kit.h('div', { class: 'art' }); pg = Kit.h('div', { class: 'pg' }); art.append(pg); T.board.append(art);
+      const touch = () => { userAt = performance.now(); };
+      ['wheel', 'pointerdown', 'touchstart', 'keydown'].forEach(e => art.addEventListener(e, touch, { passive: true }));
+      art.addEventListener('pointerover', touch);
+    }
+    Object.assign(art.style, { width: W + 'px', height: H + 'px', transform: `scale(${T.view.scale})` });
+    art.classList.toggle('phone', W < 600);
+    art.style.setProperty('--pg-bg', S.pgBg);
+    if (builtFor !== S.case) buildPage(S);
+    mountNav(S);
+  },
+});
+T.on((k, S) => {
+  if (!art || k === 'demo' || k === 'demoSec') return;   // the first layout builds everything
+  art.style.setProperty('--pg-bg', S.pgBg);
+  if (builtFor !== S.case) { buildPage(S); pg.scrollTop = 0; }
+  mountNav(S);
+});
+</script>
+</body>
+</html>
