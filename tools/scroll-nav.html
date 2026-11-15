@@ -10,7 +10,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="kit.css">
+<link rel="stylesheet" href="kit.css?v=b7e2e0c138">
 <style>
   .board canvas{display:none;}
   .board{overflow:hidden;}
@@ -53,8 +53,8 @@
   <aside class="rail" aria-label="Controls"></aside>
   <main class="stage"></main>
 </div>
-<script src="kit.js"></script>
-<script src="scroll-nav.js"></script>
+<script src="kit.js?v=254cce0697"></script>
+<script src="scroll-nav.js?v=75521cb0a3"></script>
 <script>
 /* Scroll Nav - three ways to move through a long case study without the
    scrollbar: an island that is the thumb, a ruler of sections, a chapter
@@ -239,7 +239,7 @@ const T = Kit.tool({
     ]},
     { name: 'what it says', controls: [
       { k: 'miniMeta', type: 'seg', label: 'compact island', value: D.miniMeta, when: isI, options: [['page', '% of page'], ['count', 'of total'], ['time', 'time'], ['none', 'nothing']],
-        help: 'Under the section number while you scroll. The accent line between them is how far through this section you are.' },
+        help: 'Under the section number while you scroll. The dot between them travels to the current section when the card opens.' },
       { k: 'head', type: 'select', label: 'card header', value: D.head, when: S => !isR(S), options: [['count-page', 'Section 3 of 7 · 42% read'], ['page-time', '42% read · 5 min left'], ['count-time', 'Section 3 of 7 · 5 min left'], ['off', 'no header']] },
       { k: 'rowMeta', type: 'seg', label: 'each section', value: D.rowMeta, when: S => !isR(S), options: [['state', 'read ✓'], ['progress', '%'], ['time', 'time'], ['none', 'nothing']],
         help: 'Read ✓ ticks off what has been scrolled past and shows the % of the current one - for a skimmer, what is left matters more than minutes.' },

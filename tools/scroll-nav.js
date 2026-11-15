@@ -83,9 +83,9 @@
 
 /* ---- island ----
    minimal: a thin thumb. compact: the black pill, number on top, the
-   accent in the middle growing with the section, the metric below.
-   expanded: the same pill grown into the card - the number stays top
-   left, the accent travels to the progress line under the section. */
+   accent dot in the middle, the metric below. expanded: the same pill
+   grown into the card - the dot travels to sit before the current
+   section's metric. */
 .snav-hit{position:absolute;top:0;bottom:0;right:0;width:22px;pointer-events:auto;cursor:pointer;}
 .snav-i{position:absolute;right:var(--sn-edge);top:0;width:var(--sn-irest);height:var(--sn-h,60px);
   border-radius:var(--sn-irad);background:color-mix(in srgb,var(--sn-rest) calc(var(--sn-irestA)*100%),transparent);
