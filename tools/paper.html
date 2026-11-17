@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Paper Pixel Bench - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css?v=b7e2e0c138">
+<style>
+  /* the bench's own rail parts: palette, piece list, number grid */
+  .pal{display:flex;flex-wrap:wrap;gap:6px;}
+  .pal .pc{position:relative;width:34px;height:34px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--c,#fff);padding:0;}
+  .pal .pc[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px;}
+  .pal .pc b{position:absolute;right:2px;bottom:1px;font:600 10px/1 var(--mono);color:#fff;text-shadow:0 0 2px #000,0 0 1px #000;}
+  .pal .pc.erase{background:repeating-conic-gradient(#e9e9e9 0 25%,#fff 0 50%) 0 0/10px 10px;}
+  .pal .pc.add{background:var(--wash);font:500 18px/1 var(--sans);color:var(--ink-2);}
+  .pal-edit{display:flex;gap:8px;align-items:center;margin-top:8px;}
+  .pal-edit input[type=color]{width:40px;height:30px;border:1px solid var(--line);border-radius:var(--r-xs);padding:0;background:none;}
+  .plist{display:grid;gap:4px;max-height:220px;overflow:auto;}
+  .plist button{display:flex;justify-content:space-between;gap:8px;text-align:left;padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--paper);font:inherit;font-size:13px;color:var(--ink);}
+  .plist button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink);}
+  .plist button small{opacity:.6;font-family:var(--mono);font-size:11px;}
+  .nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
+  .nums label{display:grid;gap:3px;font-size:11px;color:var(--mut);}
+  .nums input,.nums select{width:100%;min-width:0;padding:6px 7px;border:1px solid var(--line);border-radius:var(--r-xs);font:inherit;font-size:13px;color:var(--ink);background:var(--paper);}
+  .nums .wide{grid-column:span 3;}
+  .nums .two{grid-column:span 2;}
+  .ptools{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
+  .ptools .btn{flex:1 1 auto;}
+</style>
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="kit.js?v=254cce0697"></script>
+<script src="paper-pixel.js?v=89454f1826"></script>
+<script src="paper-assets.js?v=6dbcb65179"></script>
+<script>
+/* Paper Pixel Bench - draw a pixel grid for each piece of a plant or prop,
+   fold the pieces round a stem, and watch it unfold as card. The engine here
+   is the one the Paper Pixel world loads, so what is drawn here is what the
+   site shows. Export the JSON (or the link) to plant it on a page. */
+
+const PP = window.PaperPixel, LIB = window.PaperPixelAssets;
+const clone = o => JSON.parse(JSON.stringify(o));
+let eng = null; try { eng = PP.create(THREE, { preserve: false }); } catch (e) { console.error(e); }
+const BG = [['#ffffff','paper'],['#f6f3ec','cream'],['#efe9dc','kraft light'],['#1b1a17','ink'],['#a3daff','sky'],['#111638','night']];
+const ROLES = [['','none'],['petal','petal - opens on a bloom'],['seed','seed - blows away'],['flap','flap - folds open and shut']];
+const GROWS = [['stem','stem - rises'],['fold','fold - opens from flat'],['scale','scale - pops'],['none','none']];
+
+/* ---- a random plant, for R ---- */
+function randomPlant() {
+  const r = Math.random, pick = a => a[Math.floor(r() * a.length)];
+  const greens = [['#8fcf6a','#4f9a3f','#2f6b2c'],['#a8d39a','#5f9d63','#3a6b44'],['#a9c66a','#6f8f36','#46622a']];
+  const blooms = [['#f25a52','#c93a4c','#d867a2'],['#f7a0b8','#dd6d92','#b46cc4'],['#ffcf4a','#e8a020','#f08a3c'],['#8fb8ff','#5b7fe0','#9b7ae8'],['#ffffff','#e9e4f2','#f2b8c6']];
+  const g = pick(greens), b = pick(blooms), H = 16 + Math.floor(r() * 16);
+  const palette = [g[0], g[1], g[2], b[0], b[1], b[2]];
+  const stem = []; let x = 1;
+  for (let y = 0; y < H; y++) { if (y > 2 && y % (5 + Math.floor(r() * 4)) === 0) x = Math.max(0, Math.min(2, x + (r() < .5 ? -1 : 1))); stem.push(x); }
+  const stemRows = []; for (let y = H - 1; y >= 0; y--) { const row = ['.', '.', '.', '.']; row[stem[y]] = '1'; row[stem[y] + 1] = r() < .15 ? '3' : '2'; stemRows.push(row.join('')); }
+  const leaf = len => { const rows = []; const hgt = Math.ceil(len * .8) + 3; for (let yy = 0; yy < hgt; yy++) rows.push('.'.repeat(len).split('')); for (let i = 0; i < len; i++) { const w = Math.max(1, Math.round(3 * Math.sin(Math.PI * Math.min(1, .12 + i / (len - 1) * .95)))); const y0 = Math.round(i * .8); for (let k = 0; k < w; k++) { const yy = hgt - 1 - (y0 + k - Math.floor((w - 1) / 2) + 1); if (rows[yy]) rows[yy][i] = k === Math.floor(w / 2) && i > 0 && i < len - 2 ? '2' : '1'; } } return rows.map(r2 => r2.join('')); };
+  const kind = pick(['cup', 'star', 'drop']);
+  const head = kind === 'cup' ? ['4...4...4', '44.444.44', '444444444', '544444445', '.5544455.', '..65556..', '...666...']
+    : kind === 'star' ? ['...4...', '..444..', '4444444', '.44544.', '4444444', '..444..', '...4...']
+    : ['..44..', '.4444.', '444444', '445544', '.4554.', '..66..'];
+  const lw = 7 + Math.floor(r() * 5);
+  return { v: 1, name: 'Wild ' + pick(['bloom', 'stalk', 'bud', 'sprig', 'flower']), kind: 'plant', tilt: 24, palette, pieces: [
+    PP.piece({ name: 'stem', rows: stemRows, ax: stem[0] + 1, grow: 'stem', dur: .7 }),
+    PP.piece({ name: 'leaf', rows: leaf(lw), ax: 0, ay: 1, y: 3 + Math.floor(r() * 4), ry: Math.round(35 + r() * 25), grow: 'fold', delay: .35, flex: 1 }),
+    PP.piece({ name: 'leaf', rows: leaf(lw - 2).map(row => [...row].reverse().join('')), ax: lw - 3, ay: 1, y: 6 + Math.floor(r() * 5), ry: Math.round(-30 - r() * 25), grow: 'fold', delay: .45, flex: 1 }),
+    PP.piece({ name: 'head', rows: head, ax: Math.floor(head[0].length / 2), x: stem[H - 1] - 1, y: H, repeat: kind === 'star' ? 2 : 3, step: kind === 'star' ? 90 : 60, grow: 'fold', delay: .55, flex: .3, role: 'petal' }),
+  ] };
+}
+
+/* ---- state helpers ---- */
+const A = S => S.asset;
+const P = S => A(S).pieces[Math.min(S.sel, A(S).pieces.length - 1)] || null;
+function editAsset(api, fn, commit = true) { const a = clone(api.S.asset); fn(a); api.set('asset', a); if (commit) api.commit('asset'); }
+function editPiece(api, fn, commit = true) { editAsset(api, a => { const i = Math.min(api.S.sel, a.pieces.length - 1); if (i >= 0) a.pieces[i] = fn(PP.piece(a.pieces[i])); }, commit); }
+
+/* ---- model cache ---- */
+let mKey = '', model = null, unfoldAt = 0, bloomAt = -9, blowAt = -9, shakeAt = -9;
+function getModel(S) {
+  const k = JSON.stringify(S.asset);
+  if (k !== mKey && eng) { if (model) eng.dispose(model); model = eng.model(S.asset); mKey = k; }
+  return model;
+}
+
+/* ---- layout of the stage: grid on one side, the folded piece on the other ---- */
+let L = null;
+function layout(W, H, S) {
+  const side = S.view === 'split' && W >= 720, stack = S.view === 'split' && W < 720;
+  H -= 76; // the dock floats over the bottom of the stage
+  const gridR = S.view === 'preview' ? null : side ? { x: 0, y: 0, w: W * .46, h: H } : stack ? { x: 0, y: 0, w: W, h: H * .45 } : { x: 0, y: 0, w: W, h: H };
+  const prevR = S.view === 'grid' ? null : side ? { x: W * .46, y: 0, w: W * .54, h: H } : stack ? { x: 0, y: H * .45, w: W, h: H * .55 } : { x: 0, y: 0, w: W, h: H };
+  return { gridR, prevR };
+}
+let hover = null, kcur = { x: 0, y: 0 };
+function gridGeom(S) {
+  const p = P(S); if (!p || !L.gridR) return null;
+  const { w, h } = PP.size(p), R = L.gridR, pad = 44;
+  const c = Math.max(4, Math.floor(Math.min((R.w - pad * 2) / Math.max(w, 1), (R.h - pad * 2 - 30) / Math.max(h, 1), 36)));
+  return { p, w, h, c, x0: R.x + (R.w - c * w) / 2, y0: R.y + (R.h - c * h) / 2 + 6 };
+}
+
+function drawGrid(ctx, S, t) {
+  const G = gridGeom(S); if (!G) return;
+  const { p, w, h, c, x0, y0 } = G, pal = A(S).palette, dark = isDark(S.bg);
+  ctx.save();
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const ch = (p.rows[y] || '')[x] || '.', k = PP.CH.indexOf(ch);
+    if (k >= 0) { ctx.fillStyle = pal[k] || '#f0f'; ctx.fillRect(x0 + x * c, y0 + y * c, c, c); }
+    else { ctx.fillStyle = ((x + y) & 1) ? (dark ? 'rgba(255,255,255,.05)' : 'rgba(0,0,0,.035)') : (dark ? 'rgba(255,255,255,.02)' : 'rgba(0,0,0,.012)'); ctx.fillRect(x0 + x * c, y0 + y * c, c, c); }
+  }
+  ctx.strokeStyle = dark ? 'rgba(255,255,255,.08)' : 'rgba(0,0,0,.07)'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  for (let x = 0; x <= w; x++) { ctx.moveTo(x0 + x * c + .5, y0); ctx.lineTo(x0 + x * c + .5, y0 + h * c); }
+  for (let y = 0; y <= h; y++) { ctx.moveTo(x0, y0 + y * c + .5); ctx.lineTo(x0 + w * c, y0 + y * c + .5); }
+  ctx.stroke();
+  // the pivot: where the piece hinges and stands
+  const ax = p.ax == null ? Math.floor(w / 2) : p.ax, ay = p.ay || 0;
+  const px = x0 + (ax + .5) * c, py = y0 + (h - 1 - ay + .5) * c;
+  ctx.strokeStyle = '#e8472f'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.moveTo(px - c * .6, py); ctx.lineTo(px + c * .6, py); ctx.moveTo(px, py - c * .6); ctx.lineTo(px, py + c * .6); ctx.stroke();
+  ctx.beginPath(); ctx.arc(px, py, c * .32, 0, Math.PI * 2); ctx.stroke();
+  if (S.mirror) { ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(232,71,47,.6)'; ctx.beginPath(); ctx.moveTo(px, y0 - 8); ctx.lineTo(px, y0 + h * c + 8); ctx.stroke(); ctx.setLineDash([]); }
+  const hc = hover || (document.activeElement === T.canvas ? kcur : null);
+  if (hc && hc.x >= 0 && hc.y >= 0 && hc.x < w && hc.y < h) { ctx.strokeStyle = dark ? '#fff' : '#161616'; ctx.lineWidth = 2; ctx.strokeRect(x0 + hc.x * c + 1, y0 + hc.y * c + 1, c - 2, c - 2); }
+  ctx.fillStyle = dark ? 'rgba(255,255,255,.62)' : 'rgba(0,0,0,.55)'; ctx.font = '500 12px Onest, sans-serif'; ctx.textAlign = 'center';
+  ctx.fillText(`${p.name || 'piece'}  ·  ${w} × ${h}  ·  ${S.brush}${S.mirror ? ' · mirrored' : ''}`, L.gridR.x + L.gridR.w / 2, y0 + h * c + 24);
+  ctx.restore();
+}
+const isDark = hex => { const n = parseInt(hex.slice(1), 16); return (.2126 * (n >> 16 & 255) + .7152 * (n >> 8 & 255) + .0722 * (n & 255)) / 255 < .4; };
+
+function drawPreview(ctx, S, t) {
+  const R = L.prevR; if (!R || !eng) return;
+  const m = getModel(S); if (!m) return;
+  const k = T.view.scale * T.view.dpr, b = eng.bounds(m);
+  const fit = Math.min((R.w - 40) / b.w, (R.h - 60) / b.h);
+  const u = Math.max(1, S.zoom === 0 ? fit : S.zoom);
+  const prog = S.unfold ? Math.min(1, (t - unfoldAt) / 1.5) : 1;
+  const st = { u: u * k, w: R.w * k, h: R.h * k, x: R.x, y: R.y, dw: R.w, dh: R.h, base: ((R.h - b.h * u) / 2 + b.base * u) / u, prog, t: S.sway ? t : 0, sway: S.sway ? 1 : 0, still: !S.sway && prog >= 1,
+    yaw: S.yaw + (S.spin ? t * S.spin * 30 : 0), tilt: S.tilt, bloom: Math.max(0, 1 - (t - bloomAt) * .6), blow: t - blowAt < 2.6 ? (t - blowAt) * .45 : 0, flap: S.flap / 100, shake: Math.max(0, 1 - (t - shakeAt) * 1.4), flat: !S.light, clear: false };
+  ctx.save();
+  if (S.shadow && 'filter' in ctx) ctx.filter = `drop-shadow(${5}px ${9}px ${5}px rgba(52,38,22,.18)) drop-shadow(1px 2px 1px rgba(52,38,22,.14))`;
+  eng.draw(m, ctx, st);
+  ctx.restore();
+  // the ground line the piece stands on
+  const gy = R.y + R.h - st.base * u;
+  ctx.strokeStyle = isDark(S.bg) ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.1)'; ctx.beginPath(); ctx.moveTo(R.x + 24, gy + .5); ctx.lineTo(R.x + R.w - 24, gy + .5); ctx.stroke();
+}
+
+/* ---- painting ---- */
+let stroke = false;
+function cellAt(S, x, y) { const G = gridGeom(S); if (!G) return null; const cx = Math.floor((x - G.x0) / G.c), cy = Math.floor((y - G.y0) / G.c); return { x: cx, y: cy, inside: cx >= 0 && cy >= 0 && cx < G.w && cy < G.h, G }; }
+function paintAt(S, cx, cy) {
+  const p = P(S); if (!p) return;
+  const ch = S.brush === 'erase' ? '.' : PP.CH[S.ink] || '1';
+  if (S.brush === 'pick') { const k = PP.CH.indexOf((p.rows[cy] || '')[cx]); if (k >= 0) { T.set('ink', k); T.set('brush', 'paint'); } return; }
+  editPiece(T, q => {
+    if (S.brush === 'fill') return PP.fill(q, cx, cy, ch);
+    q = PP.setCell(q, cx, cy, ch);
+    if (S.mirror) { const ax = q.ax == null ? Math.floor(PP.size(q).w / 2) : q.ax; q = PP.setCell(q, 2 * ax - cx, cy, ch); }
+    return q;
+  }, false);
+}
+let dragYaw = null;
+addEventListener('pointerup', () => { if (stroke) { stroke = false; T.commit('asset'); } if (dragYaw) { dragYaw = null; T.commit('yaw'); } });
+
+/* ---- the tool ---- */
+const PRESETS = {};
+for (const k in LIB) PRESETS[LIB[k].name] = { asset: LIB[k], sel: 0 };
+PRESETS['Blank'] = { asset: { v: 1, name: 'Untitled', kind: 'plant', tilt: 24, palette: ['#7cc35b', '#4f9a3f', '#f25a52', '#ffffff'], pieces: [PP.blankPiece(9, 14, 'piece')] }, sel: 0 };
+
+const T = Kit.tool({
+  title: 'Paper Pixel', slug: 'heyrav-paper-pixel',
+  lede: 'Plants and props for the Paper Pixel world: draw each piece on a pixel grid, fold the pieces round a stem, and they arrive as cut card.',
+  presets: PRESETS,
+  onRandom: S => { S.asset = randomPlant(); S.sel = 0; unfoldAt = T.clock.t; },
+  groups: [
+    { name: 'asset', controls: [
+      { k:'asset', type:'hidden', value: LIB.tulip },
+      { k:'sel', type:'hidden', value: 0 },
+      { type:'custom', render: api => {
+          const el = Kit.h('div', { class: 'nums' });
+          const name = Kit.h('input', { type: 'text', 'aria-label': 'asset name', spellcheck: 'false' });
+          name.addEventListener('change', () => editAsset(api, a => { a.name = name.value.trim() || 'Untitled'; }));
+          const kind = Kit.h('select', { 'aria-label': 'kind' }, ['plant', 'prop'].map(v => Kit.h('option', { value: v }, v)));
+          kind.addEventListener('change', () => editAsset(api, a => { a.kind = kind.value; }));
+          const tilt = Kit.h('input', { type: 'number', min: -10, max: 80, step: 1, 'aria-label': 'tilt' });
+          tilt.addEventListener('change', () => editAsset(api, a => { a.tilt = +tilt.value; }));
+          el.append(Kit.h('label', { class: 'wide' }, 'name', name), Kit.h('label', { class: 'two' }, 'kind', kind), Kit.h('label', {}, 'tilt °', tilt));
+          el._f = { name, kind, tilt }; return el;
+        }, sync: (S, el) => { const f = el._f, a = A(S); if (document.activeElement !== f.name) f.name.value = a.name || ''; f.kind.value = a.kind || 'plant'; if (document.activeElement !== f.tilt) f.tilt.value = a.tilt == null ? 24 : a.tilt; },
+        help: 'Tilt is how far the viewer looks down on it. Plants stand on a line on the page; props sit on it.' },
+    ]},
+    { name: 'palette', controls: [
+      { k:'ink', type:'hidden', value: 3 },
+      { type:'custom', render: api => {
+          const el = Kit.h('div'); const box = Kit.h('div', { class: 'pal', role: 'group', 'aria-label': 'palette' });
+          const pick = Kit.h('input', { type: 'color', 'aria-label': 'edit the chosen colour' });
+          const hex = Kit.h('input', { class: 'hex', type: 'text', maxlength: 7, 'aria-label': 'chosen colour hex', spellcheck: 'false' });
+          const del = Kit.h('button', { type: 'button', class: 'btn' }, 'Remove');
+          pick.addEventListener('input', () => editAsset(api, a => { a.palette[api.S.ink] = pick.value; }, false));
+          pick.addEventListener('change', () => api.commit('asset'));
+          hex.addEventListener('change', () => { const v = hex.value.trim().replace(/^#?/, '#'); if (/^#[0-9a-f]{6}$/i.test(v)) editAsset(api, a => { a.palette[api.S.ink] = v.toLowerCase(); }); });
+          del.addEventListener('click', () => {
+            const i = api.S.ink, a0 = api.S.asset; if (a0.palette.length < 2) return;
+            const used = a0.pieces.some(p => p.rows.some(r => r.includes(PP.CH[i])));
+            if (used) return api.toast('that colour is in use - paint over it first');
+            editAsset(api, a => { a.palette.splice(i, 1); a.pieces.forEach(p => { p.rows = p.rows.map(r => [...r].map(ch => { const k = PP.CH.indexOf(ch); return k > i ? PP.CH[k - 1] : ch; }).join('')); }); });
+            api.set('ink', Math.max(0, i - 1));
+          });
+          el.append(box, Kit.h('div', { class: 'pal-edit' }, pick, hex, del)); el._f = { box, pick, hex, del }; return el;
+        }, sync: (S, el) => {
+          const { box, pick, hex } = el._f, pal = A(S).palette; box.textContent = '';
+          pal.forEach((c, i) => box.append(Kit.h('button', { type: 'button', class: 'pc', style: `--c:${c}`, 'aria-label': `colour ${i + 1} ${c}`, 'aria-pressed': String(S.brush !== 'erase' && S.ink === i), onclick: () => { T.set('ink', i); if (S.brush === 'erase' || S.brush === 'pick') T.set('brush', 'paint'); } }, Kit.h('b', {}, PP.CH[i]))));
+          box.append(Kit.h('button', { type: 'button', class: 'pc erase', 'aria-label': 'eraser', 'aria-pressed': String(S.brush === 'erase'), onclick: () => T.set('brush', 'erase') }));
+          if (pal.length < PP.CH.length) box.append(Kit.h('button', { type: 'button', class: 'pc add', 'aria-label': 'add a colour', onclick: () => { editAsset(T, a => a.palette.push('#888888')); T.set('ink', A(T.S).palette.length - 1); } }, '+'));
+          const c = pal[S.ink] || '#000000'; if (document.activeElement !== pick) pick.value = c; if (document.activeElement !== hex) hex.value = c;
+        }, help: 'Keys 1-9 pick a colour, E the eraser.' },
+    ]},
+    { name: 'paint', controls: [
+      { k:'brush', type:'seg', label:'tool', value:'paint', options:[['paint','paint'],['erase','erase'],['fill','fill'],['pick','pick']], rand:false, help:'B paint · E erase · F fill · I pick. Arrows move a cell cursor on the grid, Enter paints.' },
+      { k:'mirror', type:'toggle', label:'mirror round the pivot', value:false, rand:false },
+    ]},
+    { name: 'pieces', controls: [
+      { type:'custom', render: api => {
+          const el = Kit.h('div'); const list = Kit.h('div', { class: 'plist', role: 'listbox', 'aria-label': 'pieces' });
+          const act = (label, fn) => Kit.h('button', { type: 'button', class: 'btn', onclick: fn }, label);
+          const tools = Kit.h('div', { class: 'ptools' },
+            act('Add', () => { editAsset(api, a => a.pieces.push(PP.blankPiece(9, 12, 'piece ' + (a.pieces.length + 1)))); api.set('sel', A(api.S).pieces.length - 1); }),
+            act('Copy', () => { const i = api.S.sel; editAsset(api, a => a.pieces.splice(i + 1, 0, Object.assign(clone(a.pieces[i]), { name: (a.pieces[i].name || 'piece') + ' copy' }))); api.set('sel', i + 1); }),
+            act('Up', () => { const i = api.S.sel; if (i < 1) return; editAsset(api, a => { const [p] = a.pieces.splice(i, 1); a.pieces.splice(i - 1, 0, p); }); api.set('sel', i - 1); }),
+            act('Down', () => { const i = api.S.sel; if (i >= A(api.S).pieces.length - 1) return; editAsset(api, a => { const [p] = a.pieces.splice(i, 1); a.pieces.splice(i + 1, 0, p); }); api.set('sel', i + 1); }),
+            act('Delete', () => { if (A(api.S).pieces.length < 2) return api.toast('an asset needs one piece'); const i = api.S.sel; editAsset(api, a => a.pieces.splice(i, 1)); api.set('sel', Math.max(0, i - 1)); }));
+          el.append(list, tools); el._f = { list }; return el;
+        }, sync: (S, el) => {
+          const { list } = el._f; list.textContent = '';
+          A(S).pieces.forEach((p, i) => { const { w, h } = PP.size(p); list.append(Kit.h('button', { type: 'button', role: 'option', 'aria-pressed': String(i === S.sel), 'aria-selected': String(i === S.sel), onclick: () => T.set('sel', i) }, Kit.h('span', {}, p.name || 'piece'), Kit.h('small', {}, `${w}×${h}${(p.repeat || 1) > 1 ? ' ×' + p.repeat : ''}`))); });
+        }, help: '[ and ] step through the pieces.' },
+    ]},
+    { name: 'piece', controls: [
+      { type:'custom', render: api => {
+          const el = Kit.h('div', { class: 'nums' }), F = {};
+          const num = (k, label, step = 1, cls) => { const i = Kit.h('input', { type: 'number', step, 'aria-label': label }); i.addEventListener('change', () => editPiece(api, q => Object.assign(q, { [k]: +i.value }))); F[k] = i; return Kit.h('label', { class: cls || null }, label, i); };
+          const sel = (k, label, opts, cls) => { const s = Kit.h('select', { 'aria-label': label }, opts.map(([v, l]) => Kit.h('option', { value: v }, l))); s.addEventListener('change', () => editPiece(api, q => Object.assign(q, { [k]: s.value }))); F[k] = s; return Kit.h('label', { class: cls || null }, label, s); };
+          const chk = (k, label) => { const c = Kit.h('input', { type: 'checkbox', 'aria-label': label }); c.addEventListener('change', () => editPiece(api, q => Object.assign(q, { [k]: c.checked }))); F[k] = c; return Kit.h('label', {}, label, c); };
+          const nm = Kit.h('input', { type: 'text', 'aria-label': 'piece name', spellcheck: 'false' }); nm.addEventListener('change', () => editPiece(api, q => Object.assign(q, { name: nm.value }))); F.name = nm;
+          const gw = Kit.h('input', { type: 'number', min: 1, max: 64, 'aria-label': 'grid width' }), gh = Kit.h('input', { type: 'number', min: 1, max: 64, 'aria-label': 'grid height' });
+          const rs = () => editPiece(api, q => PP.resize(q, Math.max(1, Math.min(64, +gw.value | 0)), Math.max(1, Math.min(64, +gh.value | 0))));
+          gw.addEventListener('change', rs); gh.addEventListener('change', rs); F.gw = gw; F.gh = gh;
+          el.append(Kit.h('label', { class: 'wide' }, 'name', nm),
+            Kit.h('label', {}, 'grid w', gw), Kit.h('label', {}, 'grid h', gh), num('depth', 'card', .05),
+            num('ax', 'pivot col'), num('ay', 'pivot row'), num('extrude', 'extrude'),
+            num('x', 'x'), num('y', 'y'), num('z', 'z'),
+            num('rx', 'tip °', 1), num('ry', 'turn °', 1), num('rz', 'lean °', 1),
+            num('repeat', 'copies'), num('step', 'apart °'), sel('order', 'order', [['XYZ', 'XYZ'], ['YXZ', 'YXZ']]),
+            chk('shell', 'hollow'), chk('open', 'open top'), num('rxc', 'shut °'),
+            sel('grow', 'arrives', GROWS, 'two'), num('delay', 'delay s', .05),
+            num('flex', 'sway', .1), sel('role', 'role', ROLES, 'two'));
+          el._f = F; return el;
+        }, sync: (S, el) => {
+          const F = el._f, p = P(S); if (!p) return; const q = PP.piece(p), { w, h } = PP.size(q);
+          for (const k in F) { const i = F[k]; if (document.activeElement === i) continue;
+            if (k === 'gw') i.value = w; else if (k === 'gh') i.value = h; else if (i.type === 'checkbox') i.checked = !!q[k];
+            else i.value = q[k] == null ? (k === 'ax' ? Math.floor(w / 2) : '') : q[k]; }
+        }, help: 'Pivot is the cell it hinges on (red cross). Turn spins it round the stem; tip folds it toward you; copies repeat it round the stem. Extrude makes a block (pots, boxes); hollow + open top make a container. Shut ° is where a flap folds to when closed.' },
+    ]},
+    { name: 'view', controls: [
+      { k:'view', type:'seg', label:'stage', value:'split', options:[['split','grid + card'],['grid','grid'],['preview','card']], rand:false },
+      { k:'bg', type:'color', label:'paper', value:'#ffffff', options:BG, rand:false },
+      { k:'zoom', type:'range', label:'cell size', min:0, max:24, value:0, fmt:v => v === 0 ? 'fit' : v + ' px', rand:false, help:'Fit fills the stage; the site shows plants at 3-7 px a cell.' },
+      { k:'yaw', type:'range', label:'turn', min:-180, max:180, value:-20, unit:'°', rand:false, help:'Drag the card to turn it too.' },
+      { k:'tilt', type:'range', label:'look down', min:-10, max:80, value:24, unit:'°', rand:false },
+      { k:'spin', type:'range', label:'turntable', min:0, max:2, step:.05, value:0, rand:false },
+      { k:'sway', type:'toggle', label:'sway', value:true, rand:false },
+      { k:'light', type:'toggle', label:'light and shade', value:true, rand:false },
+      { k:'shadow', type:'toggle', label:'shadow on the page', value:true, rand:false },
+      { k:'unfold', type:'toggle', label:'unfold on change', value:true, rand:false },
+      { k:'flap', type:'range', label:'flaps open', min:0, max:100, value:100, unit:'%', rand:false, when: S => A(S).pieces.some(p => p.role === 'flap') },
+      { type:'buttons', buttons:[
+        { label:'Unfold', run: api => { unfoldAt = api.clock.t; if (!api.clock.on) api.clock.start(); } },
+        { label:'Bloom', run: api => { bloomAt = api.clock.t; blowAt = api.clock.t; if (!api.clock.on) api.clock.start(); } },
+        { label:'Shake', run: api => { shakeAt = api.clock.t; if (!api.clock.on) api.clock.start(); } } ] },
+    ]},
+    { name: 'export', controls: [
+      { type:'buttons', buttons:[
+        { label:'Copy JSON', primary:true, run: api => api.copy(JSON.stringify(PP.tidy(A(api.S))), 'asset JSON copied') },
+        { label:'Copy link', run: api => api.link() } ] },
+      { type:'buttons', buttons:[
+        { label:'Copy for the site', run: api => { const a = PP.tidy(A(api.S)), key = (a.name || 'asset').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+            api.copy(`PaperPixelAssets[${JSON.stringify(key)}] = ${JSON.stringify(a)};`, 'site snippet copied'); } },
+        { label:'Download', run: api => { const a = PP.tidy(A(api.S)); api.download(new Blob([JSON.stringify(a, null, 1)], { type: 'application/json' }), (a.name || 'asset').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.paper.json'); api.toast('JSON saved'); } },
+        { label:'PNG', run: api => api.png(2, (A(api.S).name || 'asset').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png') } ] },
+      { type:'file', label:'open an asset', accept:'.json,application/json', prompt:'drop a .paper.json here', sub:'or click to choose',
+        onFile: async (f, api) => { try { const a = JSON.parse(await f.text()); if (!a.pieces || !a.palette) throw 0; api.set('asset', a); api.set('sel', 0); api.commit('asset'); unfoldAt = api.clock.t; api.toast('opened ' + (a.name || 'asset')); } catch { api.toast('that file is not a Paper Pixel asset'); } } },
+      { type:'note', text:'Copy JSON or the link to share a piece; the site reads the same JSON. Copy for the site gives a line that adds it to the asset library.' },
+    ]},
+  ],
+  onPointer: (ptr, kind, S) => {
+    const c = cellAt(S, ptr.x, ptr.y);
+    hover = c && c.inside ? { x: c.x, y: c.y } : null;
+    T.canvas.style.cursor = hover ? (S.brush === 'pick' ? 'copy' : 'crosshair') : (L && L.prevR && ptr.x >= L.prevR.x && ptr.y >= L.prevR.y ? 'grab' : '');
+    if (kind === 'down') {
+      if (hover) { stroke = true; paintAt(S, hover.x, hover.y); kcur = { ...hover }; }
+      else if (L && L.prevR && ptr.x >= L.prevR.x && ptr.y >= L.prevR.y) dragYaw = { x: ptr.x, yaw: S.yaw };
+    } else if (kind === 'move' && ptr.down) {
+      if (stroke && hover && S.brush !== 'fill') paintAt(S, hover.x, hover.y);
+      if (dragYaw) { let v = dragYaw.yaw + (ptr.x - dragYaw.x) * .6; v = ((v + 180) % 360 + 360) % 360 - 180; T.set('yaw', Math.round(v)); }
+    }
+  },
+  draw: (ctx, W, H, t, S) => {
+    L = layout(W, H, S);
+    ctx.fillStyle = S.bg; ctx.fillRect(0, 0, W, H);
+    if (L.gridR && L.prevR) { ctx.fillStyle = isDark(S.bg) ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.025)'; if (W >= 720) ctx.fillRect(L.gridR.x, 0, L.gridR.w, H); else ctx.fillRect(0, 0, W, L.gridR.h); }
+    drawGrid(ctx, S, t);
+    drawPreview(ctx, S, t);
+    if (!eng) { ctx.fillStyle = '#e8472f'; ctx.font = '500 14px Onest'; ctx.fillText('This browser could not start WebGL, so the folded view is off.', 24, H - 24); }
+  },
+});
+
+/* a new asset or a preset unfolds from flat */
+let lastName = '';
+T.on((k, S) => { if ((k === 'preset' || k === '*' || k === 'asset') && S.unfold) { const n = A(S).name + A(S).pieces.length; if (k !== 'asset' || n !== lastName) unfoldAt = T.clock.t; lastName = n; } if (S.sel >= A(S).pieces.length) S.sel = A(S).pieces.length - 1; });
+
+/* keyboard: colours, brushes, pieces, and a cell cursor */
+T.canvas.tabIndex = 0; T.canvas.setAttribute('aria-label', 'Paper Pixel grid and folded preview. Arrows move the cell cursor, Enter paints, Backspace erases.');
+addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+  const S = T.S, k = e.key;
+  if (/^[1-9]$/.test(k)) { const i = +k - 1; if (i < A(S).palette.length) { T.set('ink', i); if (S.brush !== 'fill') T.set('brush', 'paint'); } }
+  else if (k === 'e' || k === 'E') T.set('brush', 'erase');
+  else if (k === 'b' || k === 'B') T.set('brush', 'paint');
+  else if (k === 'f' || k === 'F') T.set('brush', 'fill');
+  else if (k === 'i' || k === 'I') T.set('brush', 'pick');
+  else if (k === 'm' || k === 'M') { T.set('mirror', !S.mirror); T.commit('mirror'); }
+  else if (k === '[') T.set('sel', Math.max(0, S.sel - 1));
+  else if (k === ']') T.set('sel', Math.min(A(S).pieces.length - 1, S.sel + 1));
+  else if (document.activeElement === T.canvas && /^Arrow/.test(k)) {
+    e.preventDefault(); const p = P(S), { w, h } = PP.size(p);
+    kcur.x = Math.max(0, Math.min(w - 1, kcur.x + (k === 'ArrowRight') - (k === 'ArrowLeft')));
+    kcur.y = Math.max(0, Math.min(h - 1, kcur.y + (k === 'ArrowDown') - (k === 'ArrowUp')));
+    T.draw();
+  }
+  else if (document.activeElement === T.canvas && (k === 'Enter' || k === 'Backspace' || k === 'Delete')) {
+    e.preventDefault(); const was = S.brush; if (k !== 'Enter') S.brush = 'erase'; paintAt(S, kcur.x, kcur.y); S.brush = was; T.commit('asset');
+  }
+});
+</script>
+</body>
+</html>

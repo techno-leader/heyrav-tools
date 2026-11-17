@@ -155,6 +155,21 @@
    }
   },
   {
+   "g": "tools",
+   "file": "tools/paper.html",
+   "title": "Paper Pixel",
+   "date": "2026-11-17",
+   "note": "Plants and props for the Paper Pixel world: paint each piece on a pixel grid, fold the pieces round a stem in 3D, watch them unfold as cut card, and export the JSON the site reads.",
+   "cap": {
+    "clip": "stage",
+    "state": {
+     "unfold": false,
+     "yaw": -28,
+     "sway": false
+    }
+   }
+  },
+  {
    "g": "hero",
    "file": "hero-2026-07-05-flower.html",
    "title": "Flower",
