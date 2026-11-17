@@ -102,7 +102,10 @@
           list.push([x, y, z, 1, k, shade]);
         }
       }
-      const m = new T3.InstancedMesh(BOX, MAT, Math.max(1, list.length));
+      // an empty piece (a fresh grid, or one erased clean) draws nothing - an
+      // InstancedMesh with no instances has no colour buffer and breaks the render
+      if (!list.length) return new T3.Object3D();
+      const m = new T3.InstancedMesh(BOX, MAT, list.length);
       const M = new T3.Matrix4(), col = new T3.Color();
       list.forEach(([x, y, z, d, k, shade], i) => {
         M.makeScale(1, 1, d); M.setPosition(x, y + 0.5, z);
@@ -112,7 +115,6 @@
         col.r *= j; col.g *= j; col.b *= j;
         m.setColorAt(i, col);
       });
-      if (!list.length) m.count = 0;
       m.frustumCulled = false;
       return m;
     }

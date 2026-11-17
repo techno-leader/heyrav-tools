@@ -365,7 +365,8 @@ const Kit = (() => {
       if (!clock.on) return;
       clock.t += Math.min(64, now - clock.last) / 1000 * clock.rate; clock.last = now;
       if (cost > 22 && (skip ^= 1)) { clock.raf = requestAnimationFrame(tick); return; }
-      const t0 = performance.now(); draw(); cost = cost * .9 + (performance.now() - t0) * .1;
+      // a frame that throws is logged and skipped - it must never stop the clock
+      const t0 = performance.now(); try { draw(); } catch (e) { console.error(e); } cost = cost * .9 + (performance.now() - t0) * .1;
       clock.raf = requestAnimationFrame(tick);
     }
     function draw() {
