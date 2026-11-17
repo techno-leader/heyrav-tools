@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Sprite Bench - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css?v=b7e2e0c138">
+<style>
+  .pal{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:4px;}
+  .pal button{position:relative;aspect-ratio:1;border-radius:6px;border:1px solid var(--line);background:var(--c);padding:0;}
+  .pal button[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px;}
+  .pal button b{position:absolute;right:2px;bottom:1px;font:600 9px/1 var(--mono);color:#fff;text-shadow:0 0 2px #000,0 0 1px #000;}
+  .pal .erase{background:repeating-conic-gradient(#e9e9e9 0 25%,#fff 0 50%) 0 0/8px 8px;}
+  .frames{display:flex;flex-wrap:wrap;gap:6px;}
+  .frames button.fr{width:52px;height:52px;padding:2px;border-radius:8px;border:1px solid var(--line);background:var(--wash);display:grid;place-items:center;}
+  .frames button.fr[aria-pressed="true"]{border-color:var(--ink);box-shadow:0 0 0 1px var(--ink);}
+  .frames canvas{image-rendering:pixelated;max-width:44px;max-height:44px;}
+  .ftools{display:flex;gap:4px;margin-top:8px;}
+  .ftools button{flex:1;min-height:32px;border:1px solid var(--line);border-radius:8px;background:var(--paper);font:inherit;font-size:12px;color:var(--ink-2);}
+  .sizes{display:grid;grid-template-columns:1fr 1fr;gap:6px;}
+  .sizes label{display:grid;gap:3px;font-size:11px;color:var(--mut);}
+  .sizes input{padding:6px 8px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:13px;}
+</style>
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js?v=96f7f68aa7"></script>
+<script src="pixel-sprites.js?v=320a6cdbc7"></script>
+<script>
+/* Sprite Bench - draw and animate the Pixel world's sprites. The palette,
+   the outline and the renderer are the ones system.heyrav.in loads, so a
+   sprite drawn here looks the same in the world. Every library sprite opens
+   as a preset; export the frames as JSON or as a line for the library. */
+const PS = window.PixelSprites, h = Kit.h, LETTERS = Object.keys(PS.PAL);
+const clone = o => JSON.parse(JSON.stringify(o));
+const PRESETS = {};
+PS.names().forEach(n => { PRESETS[n] = { spr: { name: n, frames: clone(PS.S[n]) }, fi: 0 }; });
+PRESETS['blank 16'] = { spr: { name: 'untitled', frames: [Array(16).fill('.'.repeat(16))] }, fi: 0 };
+const F = S => S.spr.frames[Math.min(S.fi, S.spr.frames.length - 1)];
+function edit(fn, commit = true) { const s = clone(T.S.spr); fn(s); T.set('spr', s); if (commit) T.commit('spr'); }
+const setCell = (rows, x, y, ch) => rows.map((r, j) => j === y ? r.slice(0, x) + ch + r.slice(x + 1) : r);
+function fill(rows, x, y, ch) { const g = rows.map(r => [...r]), from = g[y] && g[y][x]; if (from == null || from === ch) return rows; const st = [[x, y]]; while (st.length) { const [a, b] = st.pop(); if (!g[b] || g[b][a] !== from) continue; g[b][a] = ch; st.push([a + 1, b], [a - 1, b], [a, b + 1], [a, b - 1]); } return g.map(r => r.join('')); }
+
+let L = null, hover = null, stroke = false;
+function geo(S) {
+  const fr = F(S), w = Math.max(...fr.map(r => r.length)), hh = fr.length, R = L.grid;
+  const c = Math.max(4, Math.floor(Math.min((R.w - 60) / w, (R.h - 70) / hh, 40)));
+  return { fr, w, hh, c, x0: R.x + (R.w - c * w) / 2, y0: R.y + (R.h - c * hh) / 2 };
+}
+const T = Kit.tool({
+  title: 'Sprite Bench', slug: 'heyrav-sprites',
+  lede: 'Draw and animate the Pixel world’s characters, props and tiles, in its own palette, outline and renderer.',
+  presets: PRESETS,
+  onRandom: S => { const ns = PS.names(), n = ns[Math.floor(Math.random() * ns.length)]; S.spr = { name: n, frames: clone(PS.S[n]) }; S.fi = 0; },
+  groups: [
+    { name: 'sprite', controls: [
+      { k: 'spr', type: 'hidden', value: { name: 'kid', frames: clone(PS.S.kid) } },
+      { k: 'fi', type: 'hidden', value: 0 },
+      { type: 'custom', render: () => {
+          const el = h('div', { class: 'sizes' }), name = h('input', { type: 'text', spellcheck: 'false' }), w = h('input', { type: 'number', min: 1, max: 64 }), hh = h('input', { type: 'number', min: 1, max: 64 });
+          name.addEventListener('change', () => edit(s => { s.name = name.value.trim().replace(/[^\w-]/g, '') || 'untitled'; }));
+          const rs = () => edit(s => { const W = Math.max(1, Math.min(64, +w.value | 0)), H = Math.max(1, Math.min(64, +hh.value | 0)); s.frames = s.frames.map(fr => { const out = []; for (let j = 0; j < H; j++) out.push(((fr[j] || '') + '.'.repeat(W)).slice(0, W)); return out; }); });
+          w.addEventListener('change', rs); hh.addEventListener('change', rs);
+          el.append(h('label', { style: 'grid-column:span 2' }, 'name', name), h('label', {}, 'width', w), h('label', {}, 'height', hh)); el._f = { name, w, hh }; return el;
+        }, sync: (S, el) => { const f = el._f, fr = F(S); if (document.activeElement !== f.name) f.name.value = S.spr.name; f.w.value = Math.max(...fr.map(r => r.length)); f.hh.value = fr.length; } },
+    ]},
+    { name: 'frames', controls: [
+      { type: 'custom', render: () => {
+          const el = h('div'), list = h('div', { class: 'frames', role: 'listbox', 'aria-label': 'frames' });
+          const b = (t, fn) => h('button', { type: 'button', onclick: fn }, t);
+          el.append(list, h('div', { class: 'ftools' },
+            b('Add', () => { edit(s => { const fr = s.frames[T.S.fi]; s.frames.splice(T.S.fi + 1, 0, fr.map(r => '.'.repeat(r.length))); }); T.set('fi', T.S.fi + 1); }),
+            b('Duplicate', () => { edit(s => s.frames.splice(T.S.fi + 1, 0, clone(s.frames[T.S.fi]))); T.set('fi', T.S.fi + 1); }),
+            b('←', () => { const i = T.S.fi; if (i < 1) return; edit(s => { const [f] = s.frames.splice(i, 1); s.frames.splice(i - 1, 0, f); }); T.set('fi', i - 1); }),
+            b('→', () => { const i = T.S.fi; if (i >= T.S.spr.frames.length - 1) return; edit(s => { const [f] = s.frames.splice(i, 1); s.frames.splice(i + 1, 0, f); }); T.set('fi', i + 1); }),
+            b('Delete', () => { if (T.S.spr.frames.length < 2) return T.toast('a sprite needs one frame'); const i = T.S.fi; edit(s => s.frames.splice(i, 1)); T.set('fi', Math.max(0, i - 1)); })));
+          el._f = { list }; return el;
+        }, sync: (S, el) => { const { list } = el._f; list.textContent = ''; S.spr.frames.forEach((fr, i) => { const c = PS.render(fr, { outline: S.outline ? undefined : false }); c.style.width = c.width * 2 + 'px'; list.append(h('button', { type: 'button', class: 'fr', 'aria-label': 'frame ' + (i + 1), 'aria-pressed': String(i === S.fi), onclick: () => T.set('fi', i) }, c)); }); },
+        help: 'Frames play in order in the preview. , and . step through them.' },
+      { k: 'fps', type: 'range', label: 'speed', min: 1, max: 16, value: 6, unit: ' fps', rand: false },
+      { k: 'onion', type: 'toggle', label: 'show the previous frame faintly', value: true, rand: false },
+    ]},
+    { name: 'palette', controls: [
+      { k: 'ink', type: 'hidden', value: 'b' },
+      { type: 'custom', render: () => h('div', { class: 'pal', role: 'group', 'aria-label': 'palette' }),
+        sync: (S, el) => { el.textContent = ''; LETTERS.forEach(k => el.append(h('button', { type: 'button', style: `--c:${PS.PAL[k]}`, title: `${k} ${PS.PAL[k]}`, 'aria-label': `colour ${k}`, 'aria-pressed': String(S.brush !== 'erase' && S.ink === k), onclick: () => { T.set('ink', k); if (T.S.brush !== 'fill') T.set('brush', 'paint'); } }, h('b', {}, k)))); el.append(h('button', { type: 'button', class: 'erase', 'aria-label': 'eraser', 'aria-pressed': String(S.brush === 'erase'), onclick: () => T.set('brush', 'erase') })); },
+        help: 'The Pixel world’s palette. Scenery shifts to night colours with the theme.' },
+      { k: 'brush', type: 'seg', label: 'tool', value: 'paint', options: [['paint', 'paint'], ['erase', 'erase'], ['fill', 'fill'], ['pick', 'pick']], rand: false, help: 'B paint · E erase · F fill · I pick · M mirror.' },
+      { k: 'mirror', type: 'toggle', label: 'mirror left and right', value: false, rand: false },
+    ]},
+    { name: 'preview', controls: [
+      { k: 'scale', type: 'range', label: 'scale', min: 1, max: 12, value: 6, unit: '×', rand: false },
+      { k: 'outline', type: 'toggle', label: 'outline (as in the world)', value: true, rand: false },
+      { k: 'night', type: 'toggle', label: 'night colours', value: false, rand: false },
+      { k: 'bg', type: 'color', label: 'backdrop', value: '#a3daff', options: [['#a3daff', 'sky'], ['#fff7e1', 'cream'], ['#111638', 'night'], ['#ffffff', 'white']], rand: false },
+    ]},
+    { name: 'export', controls: [
+      { type: 'buttons', buttons: [
+        { label: 'Copy JSON', primary: true, run: api => api.copy(JSON.stringify(api.S.spr), 'sprite JSON copied') },
+        { label: 'Copy link', run: api => api.link() } ] },
+      { type: 'buttons', buttons: [
+        { label: 'Copy for the library', run: api => api.copy(`S.${api.S.spr.name} = ${JSON.stringify(api.S.spr.frames)};`, 'library line copied') },
+        { label: 'PNG strip', run: api => { const fr = api.S.spr.frames, cs = fr.map(f => PS.render(f, { outline: api.S.outline ? undefined : false, night: api.S.night })), k = api.S.scale, W = cs.reduce((a, c) => a + c.width * k + k, 0), H = Math.max(...cs.map(c => c.height)) * k, c = document.createElement('canvas'); c.width = W; c.height = H; const x = c.getContext('2d'); x.imageSmoothingEnabled = false; let px = 0; cs.forEach(s => { x.drawImage(s, px, 0, s.width * k, s.height * k); px += s.width * k + k; }); c.toBlob(b => api.download(b, api.S.spr.name + '.png')); } } ] },
+      { type: 'note', text: 'Send the JSON or the link to add a sprite to the Pixel world.' },
+    ]},
+  ],
+  onPointer: (ptr, kind, S) => {
+    if (!L) return; const G = geo(S), cx = Math.floor((ptr.x - G.x0) / G.c), cy = Math.floor((ptr.y - G.y0) / G.c);
+    hover = cx >= 0 && cy >= 0 && cx < G.w && cy < G.hh ? { x: cx, y: cy } : null;
+    T.canvas.style.cursor = hover ? 'crosshair' : '';
+    if (kind === 'down' && hover) { stroke = true; paint(S, hover.x, hover.y); }
+    else if (kind === 'move' && ptr.down && stroke && hover && S.brush !== 'fill') paint(S, hover.x, hover.y);
+  },
+  draw: (ctx, W, H, t, S) => {
+    H -= 76; const split = W >= 720;
+    L = { grid: split ? { x: 0, y: 0, w: W * .58, h: H } : { x: 0, y: 0, w: W, h: H * .6 }, prev: split ? { x: W * .58, y: 0, w: W * .42, h: H } : { x: 0, y: H * .6, w: W, h: H * .4 } };
+    ctx.fillStyle = '#f7f7f7'; ctx.fillRect(0, 0, W, H + 76);
+    const G = geo(S), fr = G.fr;
+    if (S.onion && S.spr.frames.length > 1) { const prev = S.spr.frames[(S.fi - 1 + S.spr.frames.length) % S.spr.frames.length]; ctx.globalAlpha = .22; prev.forEach((r, j) => [...r].forEach((ch, i) => { if (ch !== '.') { ctx.fillStyle = PS.PAL[ch] || '#f0f'; ctx.fillRect(G.x0 + i * G.c, G.y0 + j * G.c, G.c, G.c); } })); ctx.globalAlpha = 1; }
+    for (let j = 0; j < G.hh; j++) for (let i = 0; i < G.w; i++) { const ch = (fr[j] || '')[i] || '.'; if (ch !== '.') { ctx.fillStyle = (S.night && PS.NIGHT[ch]) || PS.PAL[ch] || '#f0f'; ctx.fillRect(G.x0 + i * G.c, G.y0 + j * G.c, G.c, G.c); } else if ((i + j) & 1) { ctx.fillStyle = 'rgba(0,0,0,.03)'; ctx.fillRect(G.x0 + i * G.c, G.y0 + j * G.c, G.c, G.c); } }
+    ctx.strokeStyle = 'rgba(0,0,0,.07)'; ctx.lineWidth = 1; ctx.beginPath();
+    for (let i = 0; i <= G.w; i++) { ctx.moveTo(G.x0 + i * G.c + .5, G.y0); ctx.lineTo(G.x0 + i * G.c + .5, G.y0 + G.hh * G.c); }
+    for (let j = 0; j <= G.hh; j++) { ctx.moveTo(G.x0, G.y0 + j * G.c + .5); ctx.lineTo(G.x0 + G.w * G.c, G.y0 + j * G.c + .5); } ctx.stroke();
+    if (S.mirror) { ctx.setLineDash([4, 4]); ctx.strokeStyle = 'rgba(232,71,47,.6)'; ctx.beginPath(); ctx.moveTo(G.x0 + G.w * G.c / 2, G.y0 - 8); ctx.lineTo(G.x0 + G.w * G.c / 2, G.y0 + G.hh * G.c + 8); ctx.stroke(); ctx.setLineDash([]); }
+    if (hover) { ctx.strokeStyle = '#161616'; ctx.lineWidth = 2; ctx.strokeRect(G.x0 + hover.x * G.c + 1, G.y0 + hover.y * G.c + 1, G.c - 2, G.c - 2); }
+    ctx.fillStyle = 'rgba(0,0,0,.5)'; ctx.font = '500 12px Onest, sans-serif'; ctx.textAlign = 'center';
+    ctx.fillText(`${S.spr.name} · frame ${S.fi + 1} of ${S.spr.frames.length} · ${G.w} × ${G.hh}`, L.grid.x + L.grid.w / 2, G.y0 + G.hh * G.c + 24);
+    const P = L.prev; ctx.fillStyle = S.bg; ctx.fillRect(P.x, P.y, P.w, P.h);
+    const n = S.spr.frames.length, f = n > 1 ? Math.floor(t * S.fps) % n : 0, c = PS.render(S.spr.frames[f], { outline: S.outline ? undefined : false, night: S.night });
+    const k = Math.min(S.scale, Math.floor((P.w - 40) / c.width), Math.floor((P.h - 40) / c.height)) || 1;
+    ctx.imageSmoothingEnabled = false; ctx.drawImage(c, P.x + (P.w - c.width * k) / 2, P.y + (P.h - c.height * k) / 2, c.width * k, c.height * k);
+    ctx.fillStyle = S.bg === '#111638' ? 'rgba(255,255,255,.6)' : 'rgba(0,0,0,.45)'; ctx.fillText(n > 1 ? `playing ${f + 1} / ${n}` : 'one frame', P.x + P.w / 2, P.y + P.h - 14);
+  },
+});
+function paint(S, x, y) {
+  const fr = F(S); let ch = S.brush === 'erase' ? '.' : S.ink;
+  if (S.brush === 'pick') { const k = (fr[y] || '')[x]; if (k && k !== '.') { T.set('ink', k); T.set('brush', 'paint'); } return; }
+  edit(s => { let rows = s.frames[S.fi]; if (S.brush === 'fill') rows = fill(rows, x, y, ch); else { rows = setCell(rows, x, y, ch); if (S.mirror) rows = setCell(rows, Math.max(...rows.map(r => r.length)) - 1 - x, y, ch); } s.frames[S.fi] = rows; }, false);
+}
+addEventListener('pointerup', () => { if (stroke) { stroke = false; T.commit('spr'); } });
+T.on((k, S) => { if (S.fi >= S.spr.frames.length) S.fi = S.spr.frames.length - 1; });
+addEventListener('keydown', e => {
+  if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
+  const k = e.key.toLowerCase(), S = T.S;
+  if (k === 'b') T.set('brush', 'paint'); else if (k === 'e') T.set('brush', 'erase'); else if (k === 'f') T.set('brush', 'fill'); else if (k === 'i') T.set('brush', 'pick');
+  else if (k === 'm') { T.set('mirror', !S.mirror); T.commit('mirror'); }
+  else if (k === ',') T.set('fi', (S.fi - 1 + S.spr.frames.length) % S.spr.frames.length); else if (k === '.') T.set('fi', (S.fi + 1) % S.spr.frames.length);
+});
+</script>
+</body>
+</html>

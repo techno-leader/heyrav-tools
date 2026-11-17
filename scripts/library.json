@@ -170,6 +170,16 @@
    }
   },
   {
+   "g": "tools",
+   "file": "tools/sprites.html",
+   "title": "Sprite Bench",
+   "date": "2026-11-18",
+   "note": "The Pixel world's characters, props and tiles: paint frames in its palette, see them play with the world's outline and night colours, and export the frames for the library.",
+   "cap": {
+    "clip": "stage"
+   }
+  },
+  {
    "g": "hero",
    "file": "hero-2026-07-05-flower.html",
    "title": "Flower",
