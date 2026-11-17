@@ -50,7 +50,7 @@
     const CAM = new T3.OrthographicCamera(-1, 1, 1, -1, -500, 500); CAM.position.z = 250;
     const BOX = new T3.BoxGeometry(1, 1, 1);
     const MAT = new T3.ShaderMaterial({
-      uniforms: { uL: { value: new T3.Vector3(-0.45, 0.72, 0.55).normalize() }, uLight: { value: 1 } },
+      uniforms: { uL: { value: new T3.Vector3(-0.45, 0.72, 0.55).normalize() }, uLight: { value: 1 }, uHi: { value: 0 } },
       vertexShader: `
         varying vec3 vC; varying vec3 vN; varying vec2 vP;
         void main(){
@@ -66,7 +66,7 @@
         }`,
       fragmentShader: `
         varying vec3 vC; varying vec3 vN; varying vec2 vP;
-        uniform vec3 uL; uniform float uLight;
+        uniform vec3 uL; uniform float uLight; uniform float uHi;
         float h(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
         float n(vec2 p){ vec2 i = floor(p), f = fract(p); f = f*f*(3.0-2.0*f);
           return mix(mix(h(i), h(i+vec2(1.0,0.0)), f.x), mix(h(i+vec2(0.0,1.0)), h(i+vec2(1.0,1.0)), f.x), f.y); }
@@ -79,9 +79,12 @@
           c *= 0.9 + 0.2 * w;
           c *= 0.955 + 0.08 * h(floor(gl_FragCoord.xy * 0.5));
           c = mix(c * 0.8, c, face);
+          c = mix(c, vec3(0.30, 0.52, 1.0), uHi * 0.28);
           gl_FragColor = vec4(c, 1.0);
         }`
     });
+    /* the selected piece, in a bench, is drawn tinted */
+    const MATH = MAT.clone(); MATH.uniforms.uHi.value = 1; MATH.uniforms.uL = MAT.uniforms.uL; MATH.uniforms.uLight = MAT.uniforms.uLight;
     let BW = 0, BH = 0;
 
     function meshOf(p, palette) {
@@ -133,10 +136,11 @@
         Rr = Math.max(Rr, r0 + Math.hypot(p.x, p.z)); Hh = Math.max(Hh, h0 + p.y); low = Math.min(low, l0 + p.y);
         for (let i = 0; i < n; i++) {
           const pivot = new T3.Object3D(); pivot.rotation.order = p.order || 'XYZ';
-          pivot.add(meshOf(p, pal));
+          const mesh = meshOf(p, pal); mesh.userData.pi = pi;
+          pivot.add(mesh);
           pivot.position.set(p.x, p.y, p.z);
           inner.add(pivot);
-          parts.push({ pivot, p, i, pi, seed: hash2(pi * 31 + i, 7) });
+          parts.push({ pivot, mesh, p, i, pi, seed: hash2(pi * 31 + i, 7) });
         }
       });
       return { asset, outer, inner, parts, R: Rr, H: Hh, low, tilt: (asset.tilt == null ? 24 : asset.tilt) * D2R };
@@ -164,6 +168,8 @@
         if (p.role === 'petal') { if (ry0) ry += Math.sign(Math.sin(ry0) || 1) * 0.25 * (st.bloom || 0); rx -= 0.2 * (st.bloom || 0); }
         if (p.role === 'flap') rx = lerp(p.rxc * D2R, p.rx * D2R, st.flap == null ? 1 : st.flap) + (st.shake ? Math.sin(t * 38 + i) * 0.25 * st.shake : 0);
         o.pivot.rotation.set(rx, ry + flap, p.rz * D2R + flap * 0.4);
+        if (o.mesh.isInstancedMesh) o.mesh.material = st.hi === o.pi ? MATH : MAT;
+        o.pivot.visible = !(st.hide && st.hide.has(o.pi));
         o.pivot.scale.set(Math.max(0.001, sx), Math.max(0.001, sy), Math.max(0.001, sx));
         if (p.role === 'seed') {
           const d = Math.max(0, (st.blow || 0) - o.seed * 0.4);
@@ -179,17 +185,25 @@
     /* draw into a 2D context: w x h device pixels at u pixels per cell, the
        model's base `base` cells above the bottom, placed at (x, y) and scaled
        to dw x dh in the context's own units */
-    function draw(m, ctx, st = {}) {
-      const W = Math.round(st.w || ctx.canvas.width), H = Math.round(st.h || ctx.canvas.height);
-      if (W < 1 || H < 1) return;
+    /* set the camera and pose for a w x h device-pixel box at u pixels per cell */
+    function frame(m, st, W, H) {
       if (W > BW || H > BH) { BW = Math.max(BW, W); BH = Math.max(BH, H); R.setSize(BW, BH, false); }
       const u = st.u || 4, hw = W / 2 / u, hh = H / 2 / u;
-      CAM.left = -hw; CAM.right = hw; CAM.top = hh; CAM.bottom = -hh; CAM.updateProjectionMatrix();
+      CAM.left = -hw; CAM.right = hw; CAM.top = hh; CAM.bottom = -hh; CAM.updateProjectionMatrix(); CAM.updateMatrixWorld();
       while (SCENE.children.length) SCENE.remove(SCENE.children[0]);
       SCENE.add(m.outer);
       m.outer.position.set((st.ox || 0), -hh + (st.base == null ? 4 : st.base), 0);
       MAT.uniforms.uLight.value = st.flat ? 0 : 1;
       pose(m, st);
+      m.outer.updateMatrixWorld(true);
+    }
+    /* draw into a 2D context: w x h device pixels at u pixels per cell, the
+       model's base `base` cells above the bottom, placed at (x, y) and scaled
+       to dw x dh in the context's own units */
+    function draw(m, ctx, st = {}) {
+      const W = Math.round(st.w || ctx.canvas.width), H = Math.round(st.h || ctx.canvas.height);
+      if (W < 1 || H < 1) return;
+      frame(m, st, W, H);
       R.setViewport(0, 0, W, H); R.setScissor(0, 0, W, H); R.setScissorTest(true);
       R.clear();
       R.render(SCENE, CAM);
@@ -197,8 +211,38 @@
       if (st.clear !== false) ctx.clearRect(st.x || 0, st.y || 0, dw, dh);
       ctx.drawImage(R.domElement, 0, BH - H, W, H, st.x || 0, st.y || 0, dw, dh);
     }
+    /* which piece is under (x, y), in device pixels of the same box; -1 for none */
+    const RAY = new T3.Raycaster(), NDC = new T3.Vector2();
+    function pick(m, st, x, y) {
+      const W = Math.round(st.w), H = Math.round(st.h);
+      frame(m, st, W, H);
+      NDC.set(x / W * 2 - 1, -(y / H * 2 - 1)); RAY.setFromCamera(NDC, CAM);
+      const hit = RAY.intersectObject(m.outer, true).find(h => h.object.visible && h.object.userData.pi != null);
+      return hit ? hit.object.userData.pi : -1;
+    }
+    /* where a piece's pivot and its move / turn handles fall on screen, in
+       device pixels: the plant's own x, y, z axes from the pivot, and a ring
+       round each axis of radius r cells */
+    function gizmo(m, st, pi, r = 6) {
+      const W = Math.round(st.w), H = Math.round(st.h);
+      frame(m, st, W, H);
+      const o = m.parts.find(q => q.pi === pi); if (!o) return null;
+      const V = T3.Vector3, inner = m.inner;
+      const scr = v => { const w = inner.localToWorld(v.clone()).project(CAM); return [(w.x + 1) / 2 * W, (1 - w.y) / 2 * H, w.z]; };
+      const P = new V(o.p.x, o.p.y, o.p.z), c = scr(P);
+      const AX = { x: new V(1, 0, 0), y: new V(0, 1, 0), z: new V(0, 0, 1) }, out = { o: c, ax: {}, ring: {}, toward: {} };
+      const view = new T3.Matrix3().setFromMatrix4(CAM.matrixWorldInverse).multiply(new T3.Matrix3().setFromMatrix4(inner.matrixWorld));
+      for (const k in AX) {
+        const e = scr(P.clone().add(AX[k])); out.ax[k] = [e[0] - c[0], e[1] - c[1]];
+        out.toward[k] = AX[k].clone().applyMatrix3(view).z > 0;
+        const a = AX[k], u = Math.abs(a.y) > 0.9 ? new V(1, 0, 0) : new V(0, 1, 0), b = new V().crossVectors(a, u).normalize(), d = new V().crossVectors(a, b).normalize(), pts = [];
+        for (let i = 0; i <= 48; i++) { const t = i / 48 * Math.PI * 2; const q = scr(P.clone().addScaledVector(b, Math.cos(t) * r).addScaledVector(d, Math.sin(t) * r)); pts.push([q[0], q[1]]); }
+        out.ring[k] = pts;
+      }
+      return out;
+    }
     function dispose(m) { m.outer.traverse(o => { if (o.isInstancedMesh) o.dispose && o.dispose(); }); }
-    return { model, pose, draw, bounds, dispose, renderer: R, lost: () => R.getContext().isContextLost() };
+    return { model, pose, draw, pick, gizmo, bounds, dispose, renderer: R, lost: () => R.getContext().isContextLost() };
   }
 
   /* ---- editing helpers for benches ---- */

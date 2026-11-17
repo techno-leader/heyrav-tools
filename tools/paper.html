@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="kit.css?v=b7e2e0c138">
 <style>
-  /* the bench's own rail parts: palette, piece list, number grid */
+  /* palette */
   .pal{display:flex;flex-wrap:wrap;gap:6px;}
   .pal .pc{position:relative;width:34px;height:34px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--c,#fff);padding:0;}
   .pal .pc[aria-pressed="true"]{outline:2px solid var(--ink);outline-offset:2px;}
@@ -21,17 +21,52 @@
   .pal .pc.add{background:var(--wash);font:500 18px/1 var(--sans);color:var(--ink-2);}
   .pal-edit{display:flex;gap:8px;align-items:center;margin-top:8px;}
   .pal-edit input[type=color]{width:40px;height:30px;border:1px solid var(--line);border-radius:var(--r-xs);padding:0;background:none;}
-  .plist{display:grid;gap:4px;max-height:220px;overflow:auto;}
-  .plist button{display:flex;justify-content:space-between;gap:8px;text-align:left;padding:7px 10px;border-radius:var(--r-sm);border:1px solid var(--line);background:var(--paper);font:inherit;font-size:13px;color:var(--ink);}
-  .plist button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink);}
-  .plist button small{opacity:.6;font-family:var(--mono);font-size:11px;}
-  .nums{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;}
-  .nums label{display:grid;gap:3px;font-size:11px;color:var(--mut);}
-  .nums input,.nums select{width:100%;min-width:0;padding:6px 7px;border:1px solid var(--line);border-radius:var(--r-xs);font:inherit;font-size:13px;color:var(--ink);background:var(--paper);}
-  .nums .wide{grid-column:span 3;}
-  .nums .two{grid-column:span 2;}
-  .ptools{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px;}
-  .ptools .btn{flex:1 1 auto;}
+
+  /* layers */
+  .layers{display:grid;gap:2px;max-height:240px;overflow:auto;}
+  .ly{display:grid;grid-template-columns:28px minmax(0,1fr) auto;align-items:center;min-height:34px;padding:0 8px 0 2px;border-radius:var(--r-sm);font-size:13px;color:var(--ink);cursor:default;user-select:none;}
+  .ly:hover{background:var(--wash);}
+  .ly[aria-selected="true"]{background:#e8f0ff;color:#123a8c;}
+  .ly .eye{width:26px;height:26px;padding:0;border:0;background:none;color:var(--ink-3);border-radius:var(--r-xs);display:grid;place-items:center;}
+  .ly .eye svg{width:15px;height:15px;fill:currentColor;}
+  .ly.off .nm{opacity:.4;}
+  .ly .nm{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .ly .nm input{width:100%;font:inherit;border:1px solid var(--ink);border-radius:4px;padding:2px 4px;}
+  .ly small{font:11px var(--mono);color:var(--mut);}
+  .ly[aria-selected="true"] small{color:#3b5fb0;}
+  .lytools{display:flex;gap:4px;margin-top:8px;}
+  .lytools button{flex:1;min-height:32px;padding:0 6px;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--paper);font:inherit;font-size:12px;color:var(--ink-2);}
+  @media (hover:hover) and (pointer:fine){.lytools button:hover{border-color:var(--ink-3);color:var(--ink);}}
+
+  /* the inspector: rows of scrub fields */
+  .insp{display:grid;gap:7px;}
+  .ish{margin:10px 0 2px;font-size:11px;font-weight:600;letter-spacing:.02em;color:var(--ink-3);}
+  .ish:first-child{margin-top:0;}
+  .ir{display:grid;grid-template-columns:62px minmax(0,1fr);align-items:center;gap:6px;}
+  .ir[hidden]{display:none;}
+  .ir > .il{font-size:12px;color:var(--mut);white-space:nowrap;}
+  .if{display:grid;grid-template-columns:repeat(var(--n,3),minmax(0,1fr));gap:4px;}
+  .sf{display:flex;align-items:center;height:30px;min-width:0;border-radius:6px;background:var(--wash);border:1px solid transparent;}
+  .sf:focus-within{border-color:var(--ink);background:var(--paper);}
+  .sf b{flex:none;align-self:stretch;display:grid;place-items:center;min-width:22px;padding:0 4px;font:600 11px/1 var(--mono);color:var(--ink-3);cursor:ew-resize;user-select:none;touch-action:none;border-radius:6px 0 0 6px;}
+  @media (hover:hover) and (pointer:fine){.sf b:hover{background:rgba(0,0,0,.05);}}
+  .sf input{flex:1;width:100%;min-width:0;height:100%;border:0;background:none;padding:0 6px 0 2px;font:13px var(--sans);color:var(--ink);font-variant-numeric:tabular-nums;}
+  .sf input:focus{outline:none;}
+  .sf select{flex:1;min-width:0;height:100%;border:0;background:none;font:13px var(--sans);color:var(--ink);padding:0 4px;}
+  .ir .seg{margin-top:0;}
+  .ir .seg button{min-height:30px;font-size:12px;}
+  .sw2{display:flex;gap:14px;}
+  .sw2 .tgl{min-height:30px;gap:8px;font-size:12px;color:var(--ink-2);}
+  .insp .hint{font-size:11.5px;line-height:1.45;color:var(--mut);margin-top:6px;}
+  body.scrubbing,body.scrubbing *{cursor:ew-resize!important;user-select:none!important;}
+
+  /* the viewport's own toolbar */
+  .vbar{position:absolute;top:12px;right:12px;z-index:2;display:flex;gap:6px;align-items:center;padding:4px;border-radius:12px;background:rgba(255,255,255,.92);box-shadow:0 1px 0 rgba(0,0,0,.04),0 6px 20px -10px rgba(0,0,0,.35);border:1px solid var(--line);}
+  .vbar button{display:flex;align-items:center;gap:6px;height:30px;padding:0 10px;border:0;border-radius:8px;background:none;font:inherit;font-size:12.5px;color:var(--ink-2);}
+  .vbar button[aria-pressed="true"]{background:var(--ink);color:var(--paper);}
+  .vbar kbd{font:10.5px var(--mono);opacity:.6;}
+  .vbar i{width:1px;height:18px;background:var(--line);}
+  @media (hover:hover) and (pointer:fine){.vbar button:not([aria-pressed="true"]):hover{background:var(--wash);color:var(--ink);}}
 </style>
 </head>
 <body>
@@ -41,20 +76,23 @@
 </div>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="kit.js?v=96f7f68aa7"></script>
-<script src="paper-pixel.js?v=2cc3457550"></script>
+<script src="paper-pixel.js?v=47ae0fac48"></script>
 <script src="paper-assets.js?v=6dbcb65179"></script>
 <script>
 /* Paper Pixel Bench - draw a pixel grid for each piece of a plant or prop,
-   fold the pieces round a stem, and watch it unfold as card. The engine here
-   is the one the Paper Pixel world loads, so what is drawn here is what the
-   site shows. Export the JSON (or the link) to plant it on a page. */
+   then place it in 3D the way a scene editor works: click a piece in the
+   view to select it, drag it or its handles to move and turn it, drag empty
+   space to orbit, scroll to zoom; every number in the inspector can be
+   dragged by its label. The engine is the one the Paper Pixel world loads,
+   so what is built here is what the site shows. */
 
-const PP = window.PaperPixel, LIB = window.PaperPixelAssets;
+const PP = window.PaperPixel, LIB = window.PaperPixelAssets, h = Kit.h;
 const clone = o => JSON.parse(JSON.stringify(o));
-let eng = null; try { eng = PP.create(THREE, { preserve: false }); } catch (e) { console.error(e); }
+let eng = null; try { eng = PP.create(THREE); } catch (e) { console.error(e); }
 const BG = [['#ffffff','paper'],['#f6f3ec','cream'],['#efe9dc','kraft light'],['#1b1a17','ink'],['#a3daff','sky'],['#111638','night']];
-const ROLES = [['','none'],['petal','petal - opens on a bloom'],['seed','seed - blows away'],['flap','flap - folds open and shut']];
-const GROWS = [['stem','stem - rises'],['fold','fold - opens from flat'],['scale','scale - pops'],['none','none']];
+const AXC = { x: '#e5484d', y: '#30a46c', z: '#3e63dd' };
+const EYE = '<svg viewBox="0 0 256 256"><path d="M247.31,124.76c-.35-.79-8.82-19.58-27.65-38.41C194.57,61.26,162.88,48,128,48S61.43,61.26,36.34,86.35C17.51,105.18,9,124,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208s66.57-13.26,91.66-38.34c18.83-18.83,27.3-37.61,27.65-38.4A8,8,0,0,0,247.31,124.76ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.47,133.47,0,0,1,25,128,133.33,133.33,0,0,1,48.07,97.25C70.33,75.19,97.22,64,128,64s57.67,11.19,79.93,33.25A133.46,133.46,0,0,1,231.05,128C223.84,141.46,192.43,192,128,192Zm0-112a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Z"/></svg>';
+const EYE_OFF = '<svg viewBox="0 0 256 256"><path d="M53.92,34.62A8,8,0,1,0,42.08,45.38L61.32,66.55C25,88.84,9.38,123.2,8.69,124.76a8,8,0,0,0,0,6.5c.35.79,8.82,19.57,27.65,38.4C61.43,194.74,93.12,208,128,208a127.11,127.11,0,0,0,52.07-10.83l22,24.21a8,8,0,1,0,11.84-10.76Zm47.33,75.84,41.67,45.85a32,32,0,0,1-41.67-45.85ZM128,192c-30.78,0-57.67-11.19-79.93-33.25A133.16,133.16,0,0,1,25,128c4.69-8.79,19.66-33.39,47.35-49.38l18,19.75a48,48,0,0,0,63.66,70l14.73,16.2A112,112,0,0,1,128,192Zm6-95.43a8,8,0,0,1,3-15.72,48.16,48.16,0,0,1,38.77,42.64,8,8,0,0,1-7.22,8.71,6.39,6.39,0,0,1-.75,0,8,8,0,0,1-8-7.26A32.09,32.09,0,0,0,134,96.57Zm113.28,34.69c-.42.94-10.55,23.37-33.36,43.8a8,8,0,1,1-10.67-11.92A132.77,132.77,0,0,0,231.05,128a133.15,133.15,0,0,0-23.12-30.77C185.67,75.19,158.78,64,128,64a118.37,118.37,0,0,0-19.36,1.57A8,8,0,1,1,106,49.79,134,134,0,0,1,128,48c34.88,0,66.57,13.26,91.66,38.35,18.83,18.83,27.3,37.62,27.65,38.41A8,8,0,0,1,247.31,131.26Z"/></svg>';
 
 /* ---- a random plant, for R ---- */
 function randomPlant() {
@@ -85,6 +123,10 @@ const A = S => S.asset;
 const P = S => A(S).pieces[Math.min(S.sel, A(S).pieces.length - 1)] || null;
 function editAsset(api, fn, commit = true) { const a = clone(api.S.asset); fn(a); api.set('asset', a); if (commit) api.commit('asset'); }
 function editPiece(api, fn, commit = true) { editAsset(api, a => { const i = Math.min(api.S.sel, a.pieces.length - 1); if (i >= 0) a.pieces[i] = fn(PP.piece(a.pieces[i])); }, commit); }
+const hidden = new Set();   // layers hidden in the view only - never saved
+let shift = false, alt = false;
+addEventListener('keydown', e => { shift = e.shiftKey; alt = e.altKey; });
+addEventListener('keyup', e => { shift = e.shiftKey; alt = e.altKey; });
 
 /* ---- model cache ---- */
 let mKey = '', model = null, unfoldAt = 0, bloomAt = -9, blowAt = -9, shakeAt = -9;
@@ -94,24 +136,25 @@ function getModel(S) {
   return model;
 }
 
-/* ---- layout of the stage: grid on one side, the folded piece on the other ---- */
+/* ---- the stage: grid on one side, the 3D view on the other ---- */
 let L = null;
 function layout(W, H, S) {
   const side = S.view === 'split' && W >= 720, stack = S.view === 'split' && W < 720;
   H -= 76; // the dock floats over the bottom of the stage
-  const gridR = S.view === 'preview' ? null : side ? { x: 0, y: 0, w: W * .46, h: H } : stack ? { x: 0, y: 0, w: W, h: H * .45 } : { x: 0, y: 0, w: W, h: H };
-  const prevR = S.view === 'grid' ? null : side ? { x: W * .46, y: 0, w: W * .54, h: H } : stack ? { x: 0, y: H * .45, w: W, h: H * .55 } : { x: 0, y: 0, w: W, h: H };
+  const gridR = S.view === 'preview' ? null : side ? { x: 0, y: 0, w: W * .4, h: H } : stack ? { x: 0, y: 0, w: W, h: H * .42 } : { x: 0, y: 0, w: W, h: H };
+  const prevR = S.view === 'grid' ? null : side ? { x: W * .4, y: 0, w: W * .6, h: H } : stack ? { x: 0, y: H * .42, w: W, h: H * .58 } : { x: 0, y: 0, w: W, h: H };
   return { gridR, prevR };
 }
 let hover = null, kcur = { x: 0, y: 0 };
 function gridGeom(S) {
-  const p = P(S); if (!p || !L.gridR) return null;
+  const p = P(S); if (!p || !L || !L.gridR) return null;
   const { w, h } = PP.size(p), R = L.gridR, pad = 44;
   const c = Math.max(4, Math.floor(Math.min((R.w - pad * 2) / Math.max(w, 1), (R.h - pad * 2 - 30) / Math.max(h, 1), 36)));
   return { p, w, h, c, x0: R.x + (R.w - c * w) / 2, y0: R.y + (R.h - c * h) / 2 + 6 };
 }
+const isDark = hex => { const n = parseInt(hex.slice(1), 16); return (.2126 * (n >> 16 & 255) + .7152 * (n >> 8 & 255) + .0722 * (n & 255)) / 255 < .4; };
 
-function drawGrid(ctx, S, t) {
+function drawGrid(ctx, S) {
   const G = gridGeom(S); if (!G) return;
   const { p, w, h, c, x0, y0 } = G, pal = A(S).palette, dark = isDark(S.bg);
   ctx.save();
@@ -125,7 +168,6 @@ function drawGrid(ctx, S, t) {
   for (let x = 0; x <= w; x++) { ctx.moveTo(x0 + x * c + .5, y0); ctx.lineTo(x0 + x * c + .5, y0 + h * c); }
   for (let y = 0; y <= h; y++) { ctx.moveTo(x0, y0 + y * c + .5); ctx.lineTo(x0 + w * c, y0 + y * c + .5); }
   ctx.stroke();
-  // the pivot: where the piece hinges and stands
   const ax = p.ax == null ? Math.floor(w / 2) : p.ax, ay = p.ay || 0;
   const px = x0 + (ax + .5) * c, py = y0 + (h - 1 - ay + .5) * c;
   ctx.strokeStyle = '#e8472f'; ctx.lineWidth = 1.5;
@@ -135,34 +177,151 @@ function drawGrid(ctx, S, t) {
   const hc = hover || (document.activeElement === T.canvas ? kcur : null);
   if (hc && hc.x >= 0 && hc.y >= 0 && hc.x < w && hc.y < h) { ctx.strokeStyle = dark ? '#fff' : '#161616'; ctx.lineWidth = 2; ctx.strokeRect(x0 + hc.x * c + 1, y0 + hc.y * c + 1, c - 2, c - 2); }
   ctx.fillStyle = dark ? 'rgba(255,255,255,.62)' : 'rgba(0,0,0,.55)'; ctx.font = '500 12px Onest, sans-serif'; ctx.textAlign = 'center';
-  ctx.fillText(`${p.name || 'piece'}  ·  ${w} × ${h}  ·  ${S.brush}${S.mirror ? ' · mirrored' : ''}`, L.gridR.x + L.gridR.w / 2, y0 + h * c + 24);
+  ctx.fillText(`${p.name || 'piece'}  ·  ${w} × ${h}  ·  ${S.brush}${S.mirror ? ' · mirrored' : ''}  ·  ⌥-click sets the pivot`, L.gridR.x + L.gridR.w / 2, y0 + h * c + 24);
   ctx.restore();
 }
-const isDark = hex => { const n = parseInt(hex.slice(1), 16); return (.2126 * (n >> 16 & 255) + .7152 * (n >> 8 & 255) + .0722 * (n & 255)) / 255 < .4; };
 
+/* ---- the 3D view ---- */
+let VS = null, fitU = 6;   // the last view state, for picking and handles
+function viewState(S, t) {
+  const R = L.prevR, m = getModel(S), k = T.view.scale * T.view.dpr, b = eng.bounds(m);
+  fitU = Math.max(1, Math.min((R.w - 40) / b.w, (R.h - 60) / b.h));
+  const u = S.zoom === 0 ? fitU : S.zoom;
+  const prog = S.unfold ? Math.min(1, (t - unfoldAt) / 1.5) : 1;
+  return { k, R, uCss: u, b, u: u * k, w: Math.round(R.w * k), h: Math.round(R.h * k), x: R.x, y: R.y, dw: R.w, dh: R.h,
+    base: ((R.h - b.h * u) / 2 + b.base * u) / u, prog, t: S.sway ? t : 0, sway: S.sway ? 1 : 0, still: !S.sway && prog >= 1,
+    yaw: S.yaw + (S.spin ? t * S.spin * 30 : 0), tilt: S.tilt, bloom: Math.max(0, 1 - (t - bloomAt) * .6), blow: t - blowAt < 2.6 ? (t - blowAt) * .45 : 0,
+    flap: S.flap / 100, shake: Math.max(0, 1 - (t - shakeAt) * 1.4), flat: !S.light, clear: false,
+    hi: A(S).pieces.length > 1 ? Math.min(S.sel, A(S).pieces.length - 1) : null, hide: hidden };
+}
+let GZ = null, hot = null, hoverPi = -1;   // handle geometry in stage units, the handle under the pointer
 function drawPreview(ctx, S, t) {
   const R = L.prevR; if (!R || !eng) return;
   const m = getModel(S); if (!m) return;
-  const k = T.view.scale * T.view.dpr, b = eng.bounds(m);
-  const fit = Math.min((R.w - 40) / b.w, (R.h - 60) / b.h);
-  const u = Math.max(1, S.zoom === 0 ? fit : S.zoom);
-  const prog = S.unfold ? Math.min(1, (t - unfoldAt) / 1.5) : 1;
-  const st = { u: u * k, w: R.w * k, h: R.h * k, x: R.x, y: R.y, dw: R.w, dh: R.h, base: ((R.h - b.h * u) / 2 + b.base * u) / u, prog, t: S.sway ? t : 0, sway: S.sway ? 1 : 0, still: !S.sway && prog >= 1,
-    yaw: S.yaw + (S.spin ? t * S.spin * 30 : 0), tilt: S.tilt, bloom: Math.max(0, 1 - (t - bloomAt) * .6), blow: t - blowAt < 2.6 ? (t - blowAt) * .45 : 0, flap: S.flap / 100, shake: Math.max(0, 1 - (t - shakeAt) * 1.4), flat: !S.light, clear: false };
+  const st = VS = viewState(S, t);
   ctx.save();
-  if (S.shadow && 'filter' in ctx) ctx.filter = `drop-shadow(${5}px ${9}px ${5}px rgba(52,38,22,.18)) drop-shadow(1px 2px 1px rgba(52,38,22,.14))`;
+  if (S.shadow && 'filter' in ctx) ctx.filter = 'drop-shadow(5px 9px 5px rgba(52,38,22,.18)) drop-shadow(1px 2px 1px rgba(52,38,22,.14))';
   eng.draw(m, ctx, st);
   ctx.restore();
-  // the ground line the piece stands on
-  const gy = R.y + R.h - st.base * u;
+  const gy = R.y + R.h - st.base * st.uCss;
   ctx.strokeStyle = isDark(S.bg) ? 'rgba(255,255,255,.14)' : 'rgba(0,0,0,.1)'; ctx.beginPath(); ctx.moveTo(R.x + 24, gy + .5); ctx.lineTo(R.x + R.w - 24, gy + .5); ctx.stroke();
+  drawGizmo(ctx, S, m, st);
+  ctx.fillStyle = isDark(S.bg) ? 'rgba(255,255,255,.5)' : 'rgba(0,0,0,.42)'; ctx.font = '500 11.5px Onest, sans-serif'; ctx.textAlign = 'left';
+  ctx.fillText('Click a piece to select · drag it or a handle · drag empty space to orbit · scroll to zoom · double-click to reset', R.x + 18, R.y + R.h - 14);
 }
+function drawGizmo(ctx, S, m, st) {
+  GZ = null;
+  if (!S.handles || st.hi == null && A(S).pieces.length > 1) return;
+  const pi = Math.min(S.sel, A(S).pieces.length - 1);
+  if (hidden.has(pi)) return;
+  const ringCells = 46 / st.uCss;
+  const g = eng.gizmo(m, st, pi, ringCells); if (!g) return;
+  const k = st.k, X = v => st.x + v / k, Y = v => st.y + v / k;
+  const o = [X(g.o[0]), Y(g.o[1])];
+  GZ = { o, mode: S.gmode, ax: {}, ring: {}, toward: g.toward, axDev: {}, k };
+  ctx.save(); ctx.lineCap = 'round';
+  if (S.gmode === 'move') {
+    for (const a of ['x', 'y', 'z']) {
+      const d = g.ax[a], len = Math.hypot(d[0], d[1]); GZ.axDev[a] = [d[0] / k, d[1] / k];
+      if (len < 1e-3) continue;
+      const L2 = 58, e = [o[0] + d[0] / len * L2, o[1] + d[1] / len * L2];
+      GZ.ax[a] = e;
+      const on = hot === a || (drag && drag.axis === a);
+      ctx.globalAlpha = .9; ctx.strokeStyle = '#fff'; ctx.lineWidth = on ? 6.5 : 5;
+      ctx.beginPath(); ctx.moveTo(o[0], o[1]); ctx.lineTo(e[0], e[1]); ctx.stroke();
+      ctx.strokeStyle = AXC[a]; ctx.fillStyle = AXC[a]; ctx.globalAlpha = on ? 1 : .9; ctx.lineWidth = on ? 3.5 : 2.2;
+      ctx.beginPath(); ctx.moveTo(o[0], o[1]); ctx.lineTo(e[0], e[1]); ctx.stroke();
+      const ang = Math.atan2(e[1] - o[1], e[0] - o[0]);
+      ctx.beginPath(); ctx.moveTo(e[0] + Math.cos(ang) * 9, e[1] + Math.sin(ang) * 9); ctx.lineTo(e[0] + Math.cos(ang + 2.5) * 7, e[1] + Math.sin(ang + 2.5) * 7); ctx.lineTo(e[0] + Math.cos(ang - 2.5) * 7, e[1] + Math.sin(ang - 2.5) * 7); ctx.closePath(); ctx.fill();
+    }
+    ctx.globalAlpha = 1; const on = hot === 'free' || (drag && drag.type === 'free');
+    ctx.fillStyle = '#fff'; ctx.strokeStyle = '#161616'; ctx.lineWidth = on ? 2.5 : 1.5;
+    ctx.beginPath(); ctx.rect(o[0] - 5, o[1] - 5, 10, 10); ctx.fill(); ctx.stroke();
+  } else {
+    for (const a of ['x', 'y', 'z']) {
+      const pts = g.ring[a].map(q => [X(q[0]), Y(q[1])]); GZ.ring[a] = pts;
+      const on = hot === a || (drag && drag.axis === a);
+      ctx.beginPath(); pts.forEach((q, i) => i ? ctx.lineTo(q[0], q[1]) : ctx.moveTo(q[0], q[1]));
+      ctx.strokeStyle = '#fff'; ctx.globalAlpha = .85; ctx.lineWidth = on ? 6.5 : 4.5; ctx.stroke();
+      ctx.strokeStyle = AXC[a]; ctx.globalAlpha = on ? 1 : .85; ctx.lineWidth = on ? 3.5 : 2; ctx.stroke();
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = '#161616'; ctx.beginPath(); ctx.arc(o[0], o[1], 3, 0, Math.PI * 2); ctx.fill();
+  }
+  ctx.restore();
+}
+const segDist = (p, a, b) => { const vx = b[0] - a[0], vy = b[1] - a[1], l = vx * vx + vy * vy || 1; const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * vx + (p[1] - a[1]) * vy) / l)); return Math.hypot(p[0] - a[0] - vx * t, p[1] - a[1] - vy * t); };
+function handleAt(x, y) {
+  if (!GZ) return null; const p = [x, y];
+  if (GZ.mode === 'move') {
+    if (Math.abs(x - GZ.o[0]) < 9 && Math.abs(y - GZ.o[1]) < 9) return 'free';
+    let best = null, bd = 8; for (const a in GZ.ax) { const d = segDist(p, GZ.o, GZ.ax[a]); if (d < bd) { bd = d; best = a; } } return best;
+  }
+  let best = null, bd = 7; for (const a in GZ.ring) { const r = GZ.ring[a]; for (let i = 1; i < r.length; i++) { const d = segDist(p, r[i - 1], r[i]); if (d < bd) { bd = d; best = a; } } } return best;
+}
+const inPrev = (x, y) => L && L.prevR && x >= L.prevR.x && y >= L.prevR.y && x <= L.prevR.x + L.prevR.w && y <= L.prevR.y + L.prevR.h;
+function pickAt(S, x, y) { if (!VS || !model) return -1; return eng.pick(model, VS, (x - VS.x) * VS.k, (y - VS.y) * VS.k); }
+
+/* ---- dragging in the view: a piece, a handle, or the view itself ---- */
+let drag = null;
+const snapOn = () => T.S.snap !== shift;
+const snapPos = v => snapOn() ? Math.round(v * 2) / 2 : Math.round(v * 100) / 100;
+const snapDeg = v => snapOn() ? Math.round(v / 15) * 15 : Math.round(v * 10) / 10;
+function startDrag(S, x, y) {
+  const hd = handleAt(x, y), p0 = P(S) && PP.piece(P(S));
+  if (hd && p0) {
+    drag = GZ.mode === 'move' ? { type: hd === 'free' ? 'free' : 'axis', axis: hd === 'free' ? null : hd, x, y, p0 }
+      : { type: 'ring', axis: hd, x, y, p0, a0: Math.atan2(y - GZ.o[1], x - GZ.o[0]), acc: 0 };
+    return;
+  }
+  const pi = pickAt(S, x, y);
+  if (pi >= 0) {
+    if (pi !== S.sel) { T.set('sel', pi); }
+    const p = PP.piece(A(T.S).pieces[pi]);
+    drag = S.gmode === 'move' ? { type: 'free', x, y, p0: p, pending: true } : { type: 'spin', x, y, p0: p };
+    return;
+  }
+  drag = { type: 'orbit', x, y, yaw0: S.yaw, tilt0: S.tilt };
+}
+function moveDrag(S, x, y) {
+  if (!drag) return;
+  const dx = x - drag.x, dy = y - drag.y;
+  if (drag.pending && Math.hypot(dx, dy) < 3) return; drag.pending = false;
+  if (drag.type === 'orbit') {
+    let yaw = drag.yaw0 + dx * .5; yaw = ((yaw + 180) % 360 + 360) % 360 - 180;
+    T.set('yaw', Math.round(yaw)); T.set('tilt', Math.round(Math.max(-10, Math.min(80, drag.tilt0 + dy * .3))));
+    return;
+  }
+  if (!GZ) return;
+  const q0 = drag.p0;
+  if (drag.type === 'free') {
+    // solve the drag as a mix of the plant's x and y axes on screen
+    const ex = GZ.axDev.x, ey = GZ.axDev.y; if (!ex || !ey) return;
+    const det = ex[0] * ey[1] - ex[1] * ey[0]; if (Math.abs(det) < 1e-6) return;
+    const a = (dx * ey[1] - dy * ey[0]) / det, b = (ex[0] * dy - ex[1] * dx) / det;
+    editPiece(T, q => Object.assign(q, { x: snapPos(q0.x + a), y: snapPos(q0.y + b) }), false);
+  } else if (drag.type === 'axis') {
+    const e = GZ.axDev[drag.axis], ll = e[0] * e[0] + e[1] * e[1]; if (ll < 1e-6) return;
+    const a = (dx * e[0] + dy * e[1]) / ll;
+    editPiece(T, q => Object.assign(q, { [drag.axis]: snapPos(q0[drag.axis] + a) }), false);
+  } else if (drag.type === 'ring') {
+    const ang = Math.atan2(y - GZ.o[1], x - GZ.o[0]); let d = ang - drag.a0; d = Math.atan2(Math.sin(d), Math.cos(d)); drag.a0 = ang; drag.acc += d;
+    const deg = drag.acc * 180 / Math.PI * (GZ.toward[drag.axis] ? -1 : 1), key = { x: 'rx', y: 'ry', z: 'rz' }[drag.axis];
+    editPiece(T, q => Object.assign(q, { [key]: snapDeg(q0[key] + deg) }), false);
+  } else if (drag.type === 'spin') {
+    editPiece(T, q => Object.assign(q, { ry: snapDeg(q0.ry + dx * .6) }), false);
+  }
+}
+addEventListener('pointerup', () => {
+  if (stroke) { stroke = false; T.commit('asset'); }
+  if (drag) { const was = drag; drag = null; if (!was.pending) T.commit(was.type === 'orbit' ? 'yaw' : 'asset'); }
+});
 
 /* ---- painting ---- */
 let stroke = false;
 function cellAt(S, x, y) { const G = gridGeom(S); if (!G) return null; const cx = Math.floor((x - G.x0) / G.c), cy = Math.floor((y - G.y0) / G.c); return { x: cx, y: cy, inside: cx >= 0 && cy >= 0 && cx < G.w && cy < G.h, G }; }
 function paintAt(S, cx, cy) {
   const p = P(S); if (!p) return;
+  if (alt) { const { h: gh } = PP.size(p); editPiece(T, q => Object.assign(q, { ax: cx, ay: gh - 1 - cy }), false); return; }
   const ch = S.brush === 'erase' ? '.' : PP.CH[S.ink] || '1';
   if (S.brush === 'pick') { const k = PP.CH.indexOf((p.rows[cy] || '')[cx]); if (k >= 0) { T.set('ink', k); T.set('brush', 'paint'); } return; }
   editPiece(T, q => {
@@ -172,8 +331,34 @@ function paintAt(S, cx, cy) {
     return q;
   }, false);
 }
-let dragYaw = null;
-addEventListener('pointerup', () => { if (stroke) { stroke = false; T.commit('asset'); } if (dragYaw) { dragYaw = null; T.commit('yaw'); } });
+
+/* ---- inspector fields: drag the label to scrub, type a value or a sum, arrows nudge ---- */
+const FIELDS = [];
+const num = s => { s = String(s).trim(); if (!/^[-+*/().\d\s]+$/.test(s)) return null; try { const v = Function('"use strict";return (' + s + ')')(); return isFinite(v) ? v : null; } catch { return null; } };
+function sfield(key, lbl, o = {}) {
+  const { step = 1, min = -Infinity, max = Infinity, dec = 2, col = '', title = '', get = q => q[key], set = (q, v) => Object.assign(q, { [key]: v }) } = o;
+  const inp = h('input', { type: 'text', inputmode: 'decimal', spellcheck: 'false', 'aria-label': title || key });
+  const b = h('b', { style: col ? `color:${col}` : null, title: (title ? title + ' - ' : '') + 'drag to change, Shift for ×10, ⌥ for fine' }, lbl);
+  const el = h('label', { class: 'sf' }, b, inp);
+  const cl = v => +Math.min(max, Math.max(min, v)).toFixed(dec);
+  const cur = () => +get(PP.piece(P(T.S))) || 0;
+  const put = (v, commit) => editPiece(T, q => set(q, cl(v)), commit);
+  let sd = null;
+  b.addEventListener('pointerdown', e => { e.preventDefault(); try { b.setPointerCapture(e.pointerId); } catch {} sd = { x: e.clientX, v: cur(), moved: false }; document.body.classList.add('scrubbing'); });
+  b.addEventListener('pointermove', e => { if (!sd) return; const dx = e.clientX - sd.x; if (Math.abs(dx) > 2) sd.moved = true; if (!sd.moved) return; put(sd.v + dx * step * .25 * (e.shiftKey ? 10 : e.altKey ? .1 : 1), false); });
+  const end = () => { if (!sd) return; const moved = sd.moved; sd = null; document.body.classList.remove('scrubbing'); if (moved) T.commit('asset'); else { inp.focus(); inp.select(); } };
+  b.addEventListener('pointerup', end); b.addEventListener('pointercancel', end);
+  inp.addEventListener('change', () => { const v = num(inp.value); if (v != null) put(v, true); else inp.value = cl(cur()); });
+  inp.addEventListener('keydown', e => {
+    if (e.key === 'ArrowUp' || e.key === 'ArrowDown') { e.preventDefault(); put(cur() + (e.key === 'ArrowUp' ? 1 : -1) * step * (e.shiftKey ? 10 : e.altKey ? .1 : 1), true); }
+    else if (e.key === 'Enter') inp.blur();
+    else if (e.key === 'Escape') { inp.value = cl(cur()); inp.blur(); }
+  });
+  FIELDS.push(S => { if (document.activeElement !== inp) inp.value = cl(+get(PP.piece(P(S))) || 0); });
+  return el;
+}
+const row = (label, ...kids) => h('div', { class: 'ir' }, h('span', { class: 'il' }, label), ...kids);
+const fields = (n, ...kids) => h('div', { class: 'if', style: `--n:${n}` }, ...kids);
 
 /* ---- the tool ---- */
 const PRESETS = {};
@@ -182,104 +367,132 @@ PRESETS['Blank'] = { asset: { v: 1, name: 'Untitled', kind: 'plant', tilt: 24, p
 
 const T = Kit.tool({
   title: 'Paper Pixel', slug: 'heyrav-paper-pixel',
-  lede: 'Plants and props for the Paper Pixel world: draw each piece on a pixel grid, fold the pieces round a stem, and they arrive as cut card.',
+  lede: 'Plants and props for the Paper Pixel world: draw each piece on a pixel grid, then place it in 3D - select, move and turn pieces right in the view.',
   presets: PRESETS,
-  onRandom: S => { S.asset = randomPlant(); S.sel = 0; unfoldAt = T.clock.t; },
+  onRandom: S => { S.asset = randomPlant(); S.sel = 0; hidden.clear(); unfoldAt = T.clock.t; },
   groups: [
-    { name: 'asset', controls: [
+    { name: 'layers', controls: [
       { k:'asset', type:'hidden', value: LIB.tulip },
       { k:'sel', type:'hidden', value: 0 },
+      { k:'gmode', type:'hidden', value: 'move' },
       { type:'custom', render: api => {
-          const el = Kit.h('div', { class: 'nums' });
-          const name = Kit.h('input', { type: 'text', 'aria-label': 'asset name', spellcheck: 'false' });
-          name.addEventListener('change', () => editAsset(api, a => { a.name = name.value.trim() || 'Untitled'; }));
-          const kind = Kit.h('select', { 'aria-label': 'kind' }, ['plant', 'prop'].map(v => Kit.h('option', { value: v }, v)));
-          kind.addEventListener('change', () => editAsset(api, a => { a.kind = kind.value; }));
-          const tilt = Kit.h('input', { type: 'number', min: -10, max: 80, step: 1, 'aria-label': 'tilt' });
-          tilt.addEventListener('change', () => editAsset(api, a => { a.tilt = +tilt.value; }));
-          el.append(Kit.h('label', { class: 'wide' }, 'name', name), Kit.h('label', { class: 'two' }, 'kind', kind), Kit.h('label', {}, 'tilt °', tilt));
-          el._f = { name, kind, tilt }; return el;
-        }, sync: (S, el) => { const f = el._f, a = A(S); if (document.activeElement !== f.name) f.name.value = a.name || ''; f.kind.value = a.kind || 'plant'; if (document.activeElement !== f.tilt) f.tilt.value = a.tilt == null ? 24 : a.tilt; },
-        help: 'Tilt is how far the viewer looks down on it. Plants stand on a line on the page; props sit on it.' },
+          const el = h('div'), list = h('div', { class: 'layers', role: 'listbox', 'aria-label': 'Pieces' });
+          const act = (label, title, fn) => h('button', { type: 'button', title, onclick: fn }, label);
+          el.append(list, h('div', { class: 'lytools' },
+            act('Add', 'Add an empty piece', () => { editAsset(api, a => a.pieces.push(PP.blankPiece(9, 12, 'piece ' + (a.pieces.length + 1)))); api.set('sel', A(api.S).pieces.length - 1); }),
+            act('Duplicate', 'Duplicate the selected piece', () => { const i = api.S.sel; editAsset(api, a => a.pieces.splice(i + 1, 0, Object.assign(clone(a.pieces[i]), { name: (a.pieces[i].name || 'piece') + ' copy' }))); api.set('sel', i + 1); }),
+            act('↑', 'Move up the list', () => { const i = api.S.sel; if (i < 1) return; editAsset(api, a => { const [p] = a.pieces.splice(i, 1); a.pieces.splice(i - 1, 0, p); }); api.set('sel', i - 1); }),
+            act('↓', 'Move down the list', () => { const i = api.S.sel; if (i >= A(api.S).pieces.length - 1) return; editAsset(api, a => { const [p] = a.pieces.splice(i, 1); a.pieces.splice(i + 1, 0, p); }); api.set('sel', i + 1); }),
+            act('Delete', 'Delete the selected piece', () => { if (A(api.S).pieces.length < 2) return api.toast('an asset needs one piece'); const i = api.S.sel; hidden.clear(); editAsset(api, a => a.pieces.splice(i, 1)); api.set('sel', Math.max(0, i - 1)); })));
+          el._f = { list }; return el;
+        }, sync: (S, el) => {
+          const { list } = el._f; if (list.querySelector('input')) return; list.textContent = '';
+          A(S).pieces.forEach((p, i) => {
+            const { w, h: hh } = PP.size(p), nm = h('span', { class: 'nm' }, p.name || 'piece');
+            const eye = h('button', { type: 'button', class: 'eye', 'aria-label': (hidden.has(i) ? 'Show ' : 'Hide ') + (p.name || 'piece'), html: hidden.has(i) ? EYE_OFF : EYE,
+              onclick: e => { e.stopPropagation(); hidden.has(i) ? hidden.delete(i) : hidden.add(i); T.set('sel', T.S.sel); } });
+            const r = h('div', { class: 'ly' + (hidden.has(i) ? ' off' : ''), role: 'option', 'aria-selected': String(i === S.sel), tabindex: i === S.sel ? 0 : -1,
+              onclick: () => T.set('sel', i),
+              ondblclick: () => { const inp = h('input', { value: p.name || '' }); nm.textContent = ''; nm.append(inp); inp.focus(); inp.select();
+                const done = ok => { if (ok && inp.value.trim()) editAsset(T, a => { a.pieces[i].name = inp.value.trim(); }); else T.set('sel', T.S.sel); };
+                inp.addEventListener('keydown', e => { if (e.key === 'Enter') inp.blur(); if (e.key === 'Escape') { inp.value = ''; inp.blur(); } });
+                inp.addEventListener('blur', () => { const v = inp.value; inp.remove(); done(!!v); }); },
+              onkeydown: e => { if (e.key === 'ArrowDown') T.set('sel', Math.min(A(T.S).pieces.length - 1, i + 1)); if (e.key === 'ArrowUp') T.set('sel', Math.max(0, i - 1)); } },
+              eye, nm, h('small', {}, `${w}×${hh}${(p.repeat || 1) > 1 ? ' ×' + p.repeat : ''}`));
+            list.append(r);
+          });
+        }, help: 'Click a piece here or in the view. Double-click to rename; the eye hides it while you work. [ and ] step through.' },
+    ]},
+    { name: 'piece', controls: [
+      { type:'custom', render: api => {
+          const el = h('div', { class: 'insp' }), F = {};
+          const gw = sfield('gw', 'W', { min: 1, max: 64, dec: 0, title: 'grid width', get: q => PP.size(q).w, set: (q, v) => PP.resize(q, v, PP.size(q).h) });
+          const gh = sfield('gh', 'H', { min: 1, max: 64, dec: 0, title: 'grid height', get: q => PP.size(q).h, set: (q, v) => PP.resize(q, PP.size(q).w, v) });
+          const nm = h('input', { type: 'text', spellcheck: 'false', 'aria-label': 'piece name' }); nm.addEventListener('change', () => editPiece(api, q => Object.assign(q, { name: nm.value.trim() || 'piece' }))); F.nm = nm;
+          const sel = (k, opts, title) => { const s = h('select', { 'aria-label': title }, opts.map(([v, l]) => h('option', { value: v }, l))); s.addEventListener('change', () => editPiece(api, q => Object.assign(q, { [k]: s.value }))); F[k] = s; return h('label', { class: 'sf' }, s); };
+          const tg = (k, label) => { const c = h('input', { type: 'checkbox' }); c.addEventListener('change', () => editPiece(api, q => Object.assign(q, { [k]: c.checked }))); F[k] = c; return h('label', { class: 'tgl' }, label, c, h('span', { class: 'sw' })); };
+          const grow = h('div', { class: 'seg', role: 'group', 'aria-label': 'arrives' }, [['stem', 'Rise'], ['fold', 'Unfold'], ['scale', 'Pop'], ['none', 'None']].map(([v, l]) => h('button', { type: 'button', 'data-v': v, onclick: () => editPiece(api, q => Object.assign(q, { grow: v })) }, l))); F.grow = grow;
+          const flapRow = row('Shut', fields(1, sfield('rxc', '°', { step: 1, dec: 1, title: 'where the flap folds to when shut' }))); F.flapRow = flapRow;
+          el.append(
+            h('div', { class: 'ish' }, 'Piece'),
+            row('Name', h('label', { class: 'sf' }, nm)),
+            row('Grid', fields(2, gw, gh)),
+            row('Pivot', fields(2, sfield('ax', 'C', { min: 0, max: 63, dec: 0, title: 'pivot column' }), sfield('ay', 'R', { min: 0, max: 63, dec: 0, title: 'pivot row' }))),
+            h('div', { class: 'ish' }, 'Transform'),
+            row('Position', fields(3, sfield('x', 'X', { step: .5, col: AXC.x, title: 'x, cells' }), sfield('y', 'Y', { step: .5, col: AXC.y, title: 'y, cells' }), sfield('z', 'Z', { step: .5, col: AXC.z, title: 'z, cells' }))),
+            row('Rotation', fields(3, sfield('rx', 'X', { col: AXC.x, dec: 1, title: 'tip toward you, degrees' }), sfield('ry', 'Y', { col: AXC.y, dec: 1, title: 'turn round the stem, degrees' }), sfield('rz', 'Z', { col: AXC.z, dec: 1, title: 'lean, degrees' }))),
+            row('Order', fields(1, sel('order', [['XYZ', 'X, Y, Z'], ['YXZ', 'Y, X, Z - side flaps']], 'rotation order'))),
+            h('div', { class: 'ish' }, 'Shape'),
+            row('Card', fields(2, sfield('depth', '▭', { step: .05, min: .05, max: 4, title: 'card thickness, cells' }), sfield('extrude', '▤', { min: 1, max: 32, dec: 0, title: 'extrude into a block, cells deep' }))),
+            row('', h('div', { class: 'sw2' }, tg('shell', 'Hollow'), tg('open', 'Open top'))),
+            h('div', { class: 'ish' }, 'Copies round the stem'),
+            row('Copies', fields(2, sfield('repeat', '×', { min: 1, max: 12, dec: 0, title: 'copies' }), sfield('step', '°', { title: 'degrees apart', dec: 1 }))),
+            h('div', { class: 'ish' }, 'Motion'),
+            row('Arrives', grow),
+            row('Timing', fields(2, sfield('delay', 'D', { step: .05, min: 0, max: 3, title: 'delay, seconds' }), sfield('flex', '∿', { step: .05, min: 0, max: 2, title: 'how much it sways' }))),
+            row('Role', fields(1, sel('role', [['', 'None'], ['petal', 'Petal - opens on a bloom'], ['seed', 'Seed - blows away'], ['flap', 'Flap - opens and shuts']], 'role'))),
+            flapRow,
+            h('p', { class: 'hint' }, 'Drag a field’s letter to scrub it (Shift ×10, ⌥ fine), or type a value or a sum. ↑ ↓ nudge.'));
+          el._f = F; return el;
+        }, sync: (S, el) => {
+          const F = el._f, p = P(S); if (!p) return; const q = PP.piece(p);
+          FIELDS.forEach(f => f(S));
+          if (document.activeElement !== F.nm) F.nm.value = q.name || '';
+          F.order.value = q.order || 'XYZ'; F.role.value = q.role || '';
+          F.shell.checked = !!q.shell; F.open.checked = !!q.open;
+          F.grow.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === q.grow)));
+          F.flapRow.hidden = q.role !== 'flap';
+        } },
     ]},
     { name: 'palette', controls: [
       { k:'ink', type:'hidden', value: 3 },
       { type:'custom', render: api => {
-          const el = Kit.h('div'); const box = Kit.h('div', { class: 'pal', role: 'group', 'aria-label': 'palette' });
-          const pick = Kit.h('input', { type: 'color', 'aria-label': 'edit the chosen colour' });
-          const hex = Kit.h('input', { class: 'hex', type: 'text', maxlength: 7, 'aria-label': 'chosen colour hex', spellcheck: 'false' });
-          const del = Kit.h('button', { type: 'button', class: 'btn' }, 'Remove');
+          const el = h('div'); const box = h('div', { class: 'pal', role: 'group', 'aria-label': 'palette' });
+          const pick = h('input', { type: 'color', 'aria-label': 'edit the chosen colour' });
+          const hex = h('input', { class: 'hex', type: 'text', maxlength: 7, 'aria-label': 'chosen colour hex', spellcheck: 'false' });
+          const del = h('button', { type: 'button', class: 'btn' }, 'Remove');
           pick.addEventListener('input', () => editAsset(api, a => { a.palette[api.S.ink] = pick.value; }, false));
           pick.addEventListener('change', () => api.commit('asset'));
           hex.addEventListener('change', () => { const v = hex.value.trim().replace(/^#?/, '#'); if (/^#[0-9a-f]{6}$/i.test(v)) editAsset(api, a => { a.palette[api.S.ink] = v.toLowerCase(); }); });
           del.addEventListener('click', () => {
             const i = api.S.ink, a0 = api.S.asset; if (a0.palette.length < 2) return;
-            const used = a0.pieces.some(p => p.rows.some(r => r.includes(PP.CH[i])));
-            if (used) return api.toast('that colour is in use - paint over it first');
+            if (a0.pieces.some(p => p.rows.some(r => r.includes(PP.CH[i])))) return api.toast('that colour is in use - paint over it first');
             editAsset(api, a => { a.palette.splice(i, 1); a.pieces.forEach(p => { p.rows = p.rows.map(r => [...r].map(ch => { const k = PP.CH.indexOf(ch); return k > i ? PP.CH[k - 1] : ch; }).join('')); }); });
             api.set('ink', Math.max(0, i - 1));
           });
-          el.append(box, Kit.h('div', { class: 'pal-edit' }, pick, hex, del)); el._f = { box, pick, hex, del }; return el;
+          el.append(box, h('div', { class: 'pal-edit' }, pick, hex, del)); el._f = { box, pick, hex }; return el;
         }, sync: (S, el) => {
           const { box, pick, hex } = el._f, pal = A(S).palette; box.textContent = '';
-          pal.forEach((c, i) => box.append(Kit.h('button', { type: 'button', class: 'pc', style: `--c:${c}`, 'aria-label': `colour ${i + 1} ${c}`, 'aria-pressed': String(S.brush !== 'erase' && S.ink === i), onclick: () => { T.set('ink', i); if (S.brush === 'erase' || S.brush === 'pick') T.set('brush', 'paint'); } }, Kit.h('b', {}, PP.CH[i]))));
-          box.append(Kit.h('button', { type: 'button', class: 'pc erase', 'aria-label': 'eraser', 'aria-pressed': String(S.brush === 'erase'), onclick: () => T.set('brush', 'erase') }));
-          if (pal.length < PP.CH.length) box.append(Kit.h('button', { type: 'button', class: 'pc add', 'aria-label': 'add a colour', onclick: () => { editAsset(T, a => a.palette.push('#888888')); T.set('ink', A(T.S).palette.length - 1); } }, '+'));
+          pal.forEach((c, i) => box.append(h('button', { type: 'button', class: 'pc', style: `--c:${c}`, 'aria-label': `colour ${i + 1} ${c}`, 'aria-pressed': String(S.brush !== 'erase' && S.ink === i), onclick: () => { T.set('ink', i); if (T.S.brush === 'erase' || T.S.brush === 'pick') T.set('brush', 'paint'); } }, h('b', {}, PP.CH[i]))));
+          box.append(h('button', { type: 'button', class: 'pc erase', 'aria-label': 'eraser', 'aria-pressed': String(S.brush === 'erase'), onclick: () => T.set('brush', 'erase') }));
+          if (pal.length < PP.CH.length) box.append(h('button', { type: 'button', class: 'pc add', 'aria-label': 'add a colour', onclick: () => { editAsset(T, a => a.palette.push('#888888')); T.set('ink', A(T.S).palette.length - 1); } }, '+'));
           const c = pal[S.ink] || '#000000'; if (document.activeElement !== pick) pick.value = c; if (document.activeElement !== hex) hex.value = c;
         }, help: 'Keys 1-9 pick a colour, E the eraser.' },
     ]},
     { name: 'paint', controls: [
-      { k:'brush', type:'seg', label:'tool', value:'paint', options:[['paint','paint'],['erase','erase'],['fill','fill'],['pick','pick']], rand:false, help:'B paint · E erase · F fill · I pick. Arrows move a cell cursor on the grid, Enter paints.' },
+      { k:'brush', type:'seg', label:'tool', value:'paint', options:[['paint','paint'],['erase','erase'],['fill','fill'],['pick','pick']], rand:false, help:'B paint · E erase · F fill · I pick · ⌥-click a cell to set the pivot. Arrows move a cell cursor on the grid, Enter paints.' },
       { k:'mirror', type:'toggle', label:'mirror round the pivot', value:false, rand:false },
     ]},
-    { name: 'pieces', controls: [
+    { name: 'asset', closed: true, controls: [
       { type:'custom', render: api => {
-          const el = Kit.h('div'); const list = Kit.h('div', { class: 'plist', role: 'listbox', 'aria-label': 'pieces' });
-          const act = (label, fn) => Kit.h('button', { type: 'button', class: 'btn', onclick: fn }, label);
-          const tools = Kit.h('div', { class: 'ptools' },
-            act('Add', () => { editAsset(api, a => a.pieces.push(PP.blankPiece(9, 12, 'piece ' + (a.pieces.length + 1)))); api.set('sel', A(api.S).pieces.length - 1); }),
-            act('Copy', () => { const i = api.S.sel; editAsset(api, a => a.pieces.splice(i + 1, 0, Object.assign(clone(a.pieces[i]), { name: (a.pieces[i].name || 'piece') + ' copy' }))); api.set('sel', i + 1); }),
-            act('Up', () => { const i = api.S.sel; if (i < 1) return; editAsset(api, a => { const [p] = a.pieces.splice(i, 1); a.pieces.splice(i - 1, 0, p); }); api.set('sel', i - 1); }),
-            act('Down', () => { const i = api.S.sel; if (i >= A(api.S).pieces.length - 1) return; editAsset(api, a => { const [p] = a.pieces.splice(i, 1); a.pieces.splice(i + 1, 0, p); }); api.set('sel', i + 1); }),
-            act('Delete', () => { if (A(api.S).pieces.length < 2) return api.toast('an asset needs one piece'); const i = api.S.sel; editAsset(api, a => a.pieces.splice(i, 1)); api.set('sel', Math.max(0, i - 1)); }));
-          el.append(list, tools); el._f = { list }; return el;
-        }, sync: (S, el) => {
-          const { list } = el._f; list.textContent = '';
-          A(S).pieces.forEach((p, i) => { const { w, h } = PP.size(p); list.append(Kit.h('button', { type: 'button', role: 'option', 'aria-pressed': String(i === S.sel), 'aria-selected': String(i === S.sel), onclick: () => T.set('sel', i) }, Kit.h('span', {}, p.name || 'piece'), Kit.h('small', {}, `${w}×${h}${(p.repeat || 1) > 1 ? ' ×' + p.repeat : ''}`))); });
-        }, help: '[ and ] step through the pieces.' },
-    ]},
-    { name: 'piece', controls: [
-      { type:'custom', render: api => {
-          const el = Kit.h('div', { class: 'nums' }), F = {};
-          const num = (k, label, step = 1, cls) => { const i = Kit.h('input', { type: 'number', step, 'aria-label': label }); i.addEventListener('change', () => editPiece(api, q => Object.assign(q, { [k]: +i.value }))); F[k] = i; return Kit.h('label', { class: cls || null }, label, i); };
-          const sel = (k, label, opts, cls) => { const s = Kit.h('select', { 'aria-label': label }, opts.map(([v, l]) => Kit.h('option', { value: v }, l))); s.addEventListener('change', () => editPiece(api, q => Object.assign(q, { [k]: s.value }))); F[k] = s; return Kit.h('label', { class: cls || null }, label, s); };
-          const chk = (k, label) => { const c = Kit.h('input', { type: 'checkbox', 'aria-label': label }); c.addEventListener('change', () => editPiece(api, q => Object.assign(q, { [k]: c.checked }))); F[k] = c; return Kit.h('label', {}, label, c); };
-          const nm = Kit.h('input', { type: 'text', 'aria-label': 'piece name', spellcheck: 'false' }); nm.addEventListener('change', () => editPiece(api, q => Object.assign(q, { name: nm.value }))); F.name = nm;
-          const gw = Kit.h('input', { type: 'number', min: 1, max: 64, 'aria-label': 'grid width' }), gh = Kit.h('input', { type: 'number', min: 1, max: 64, 'aria-label': 'grid height' });
-          const rs = () => editPiece(api, q => PP.resize(q, Math.max(1, Math.min(64, +gw.value | 0)), Math.max(1, Math.min(64, +gh.value | 0))));
-          gw.addEventListener('change', rs); gh.addEventListener('change', rs); F.gw = gw; F.gh = gh;
-          el.append(Kit.h('label', { class: 'wide' }, 'name', nm),
-            Kit.h('label', {}, 'grid w', gw), Kit.h('label', {}, 'grid h', gh), num('depth', 'card', .05),
-            num('ax', 'pivot col'), num('ay', 'pivot row'), num('extrude', 'extrude'),
-            num('x', 'x'), num('y', 'y'), num('z', 'z'),
-            num('rx', 'tip °', 1), num('ry', 'turn °', 1), num('rz', 'lean °', 1),
-            num('repeat', 'copies'), num('step', 'apart °'), sel('order', 'order', [['XYZ', 'XYZ'], ['YXZ', 'YXZ']]),
-            chk('shell', 'hollow'), chk('open', 'open top'), num('rxc', 'shut °'),
-            sel('grow', 'arrives', GROWS, 'two'), num('delay', 'delay s', .05),
-            num('flex', 'sway', .1), sel('role', 'role', ROLES, 'two'));
-          el._f = F; return el;
-        }, sync: (S, el) => {
-          const F = el._f, p = P(S); if (!p) return; const q = PP.piece(p), { w, h } = PP.size(q);
-          for (const k in F) { const i = F[k]; if (document.activeElement === i) continue;
-            if (k === 'gw') i.value = w; else if (k === 'gh') i.value = h; else if (i.type === 'checkbox') i.checked = !!q[k];
-            else i.value = q[k] == null ? (k === 'ax' ? Math.floor(w / 2) : '') : q[k]; }
-        }, help: 'Pivot is the cell it hinges on (red cross). Turn spins it round the stem; tip folds it toward you; copies repeat it round the stem. Extrude makes a block (pots, boxes); hollow + open top make a container. Shut ° is where a flap folds to when closed.' },
+          const el = h('div', { class: 'insp' });
+          const name = h('input', { type: 'text', spellcheck: 'false', 'aria-label': 'asset name' });
+          name.addEventListener('change', () => editAsset(api, a => { a.name = name.value.trim() || 'Untitled'; }));
+          const kind = h('div', { class: 'seg', role: 'group', 'aria-label': 'kind' }, ['plant', 'prop'].map(v => h('button', { type: 'button', 'data-v': v, onclick: () => editAsset(api, a => { a.kind = v; }) }, v)));
+          const tilt = h('input', { type: 'text', inputmode: 'decimal', 'aria-label': 'tilt' });
+          tilt.addEventListener('change', () => { const v = num(tilt.value); if (v != null) editAsset(api, a => { a.tilt = Math.max(-10, Math.min(80, v)); }); });
+          el.append(row('Name', h('label', { class: 'sf' }, name)), row('Kind', kind), row('Tilt', fields(1, h('label', { class: 'sf' }, h('b', {}, '°'), tilt))));
+          el._f = { name, kind, tilt }; return el;
+        }, sync: (S, el) => { const f = el._f, a = A(S); if (document.activeElement !== f.name) f.name.value = a.name || ''; f.kind.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', String(b.dataset.v === (a.kind || 'plant')))); if (document.activeElement !== f.tilt) f.tilt.value = a.tilt == null ? 24 : a.tilt; },
+        help: 'Tilt is how far the site looks down on it. Plants stand on a line on the page; props sit on it.' },
     ]},
     { name: 'view', controls: [
-      { k:'view', type:'seg', label:'stage', value:'split', options:[['split','grid + card'],['grid','grid'],['preview','card']], rand:false },
+      { k:'view', type:'seg', label:'stage', value:'split', options:[['split','grid + 3D'],['grid','grid'],['preview','3D']], rand:false },
+      { k:'snap', type:'toggle', label:'snap - half cells, 15°', value:true, rand:false, help:'Hold Shift while dragging to do the opposite.' },
+      { k:'handles', type:'toggle', label:'handles on the selected piece', value:true, rand:false },
       { k:'bg', type:'color', label:'paper', value:'#ffffff', options:BG, rand:false },
-      { k:'zoom', type:'range', label:'cell size', min:0, max:24, value:0, fmt:v => v === 0 ? 'fit' : v + ' px', rand:false, help:'Fit fills the stage; the site shows plants at 3-7 px a cell.' },
-      { k:'yaw', type:'range', label:'turn', min:-180, max:180, value:-20, unit:'°', rand:false, help:'Drag the card to turn it too.' },
+      { k:'zoom', type:'range', label:'cell size', min:0, max:48, step:.5, value:0, fmt:v => v === 0 ? 'fit' : v + ' px', rand:false, help:'Scroll over the view to zoom. The site shows plants at 3-7 px a cell.' },
+      { k:'yaw', type:'range', label:'orbit', min:-180, max:180, value:-20, unit:'°', rand:false },
       { k:'tilt', type:'range', label:'look down', min:-10, max:80, value:24, unit:'°', rand:false },
       { k:'spin', type:'range', label:'turntable', min:0, max:2, step:.05, value:0, rand:false },
       { k:'sway', type:'toggle', label:'sway', value:true, rand:false },
@@ -302,38 +515,75 @@ const T = Kit.tool({
         { label:'Download', run: api => { const a = PP.tidy(A(api.S)); api.download(new Blob([JSON.stringify(a, null, 1)], { type: 'application/json' }), (a.name || 'asset').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.paper.json'); api.toast('JSON saved'); } },
         { label:'PNG', run: api => api.png(2, (A(api.S).name || 'asset').toLowerCase().replace(/[^a-z0-9]+/g, '-') + '.png') } ] },
       { type:'file', label:'open an asset', accept:'.json,application/json', prompt:'drop a .paper.json here', sub:'or click to choose',
-        onFile: async (f, api) => { try { const a = JSON.parse(await f.text()); if (!a.pieces || !a.palette) throw 0; api.set('asset', a); api.set('sel', 0); api.commit('asset'); unfoldAt = api.clock.t; api.toast('opened ' + (a.name || 'asset')); } catch { api.toast('that file is not a Paper Pixel asset'); } } },
+        onFile: async (f, api) => { try { const a = JSON.parse(await f.text()); if (!a.pieces || !a.palette) throw 0; hidden.clear(); api.set('asset', a); api.set('sel', 0); api.commit('asset'); unfoldAt = api.clock.t; api.toast('opened ' + (a.name || 'asset')); } catch { api.toast('that file is not a Paper Pixel asset'); } } },
       { type:'note', text:'Copy JSON or the link to share a piece; the site reads the same JSON. Copy for the site gives a line that adds it to the asset library.' },
     ]},
   ],
   onPointer: (ptr, kind, S) => {
     const c = cellAt(S, ptr.x, ptr.y);
     hover = c && c.inside ? { x: c.x, y: c.y } : null;
-    T.canvas.style.cursor = hover ? (S.brush === 'pick' ? 'copy' : 'crosshair') : (L && L.prevR && ptr.x >= L.prevR.x && ptr.y >= L.prevR.y ? 'grab' : '');
     if (kind === 'down') {
       if (hover) { stroke = true; paintAt(S, hover.x, hover.y); kcur = { ...hover }; }
-      else if (L && L.prevR && ptr.x >= L.prevR.x && ptr.y >= L.prevR.y) dragYaw = { x: ptr.x, yaw: S.yaw };
-    } else if (kind === 'move' && ptr.down) {
-      if (stroke && hover && S.brush !== 'fill') paintAt(S, hover.x, hover.y);
-      if (dragYaw) { let v = dragYaw.yaw + (ptr.x - dragYaw.x) * .6; v = ((v + 180) % 360 + 360) % 360 - 180; T.set('yaw', Math.round(v)); }
+      else if (inPrev(ptr.x, ptr.y)) startDrag(S, ptr.x, ptr.y);
+    } else if (kind === 'move') {
+      if (ptr.down) {
+        if (stroke && hover && S.brush !== 'fill' && !alt) paintAt(S, hover.x, hover.y);
+        if (drag) moveDrag(S, ptr.x, ptr.y);
+      } else if (inPrev(ptr.x, ptr.y)) {
+        hot = handleAt(ptr.x, ptr.y);
+        hoverPi = hot ? -1 : pickAt(S, ptr.x, ptr.y);
+      } else { hot = null; hoverPi = -1; }
     }
+    T.canvas.style.cursor = hover ? (alt ? 'cell' : S.brush === 'pick' ? 'copy' : 'crosshair')
+      : drag ? (drag.type === 'orbit' ? 'grabbing' : 'move')
+      : hot ? (GZ && GZ.mode === 'rotate' ? 'alias' : 'move') : hoverPi >= 0 ? 'pointer' : inPrev(ptr.x, ptr.y) ? 'grab' : '';
   },
   draw: (ctx, W, H, t, S) => {
     L = layout(W, H, S);
     ctx.fillStyle = S.bg; ctx.fillRect(0, 0, W, H);
     if (L.gridR && L.prevR) { ctx.fillStyle = isDark(S.bg) ? 'rgba(255,255,255,.04)' : 'rgba(0,0,0,.025)'; if (W >= 720) ctx.fillRect(L.gridR.x, 0, L.gridR.w, H); else ctx.fillRect(0, 0, W, L.gridR.h); }
-    drawGrid(ctx, S, t);
+    drawGrid(ctx, S);
     drawPreview(ctx, S, t);
-    if (!eng) { ctx.fillStyle = '#e8472f'; ctx.font = '500 14px Onest'; ctx.fillText('This browser could not start WebGL, so the folded view is off.', 24, H - 24); }
+    if (!eng) { ctx.fillStyle = '#e8472f'; ctx.font = '500 14px Onest'; ctx.fillText('This browser could not start WebGL, so the 3D view is off.', 24, H - 24); }
   },
 });
 
 /* a new asset or a preset unfolds from flat */
 let lastName = '';
-T.on((k, S) => { if ((k === 'preset' || k === '*' || k === 'asset') && S.unfold) { const n = A(S).name + A(S).pieces.length; if (k !== 'asset' || n !== lastName) unfoldAt = T.clock.t; lastName = n; } if (S.sel >= A(S).pieces.length) S.sel = A(S).pieces.length - 1; });
+T.on((k, S) => {
+  if ((k === 'preset' || k === '*' || k === 'asset') && S.unfold) { const n = A(S).name + A(S).pieces.length; if (k !== 'asset' || n !== lastName) unfoldAt = T.clock.t; lastName = n; }
+  if (k === 'preset') hidden.clear();
+  if (S.sel >= A(S).pieces.length) S.sel = A(S).pieces.length - 1;
+  syncBar();
+});
 
-/* keyboard: colours, brushes, pieces, and a cell cursor */
-T.canvas.tabIndex = 0; T.canvas.setAttribute('aria-label', 'Paper Pixel grid and folded preview. Arrows move the cell cursor, Enter paints, Backspace erases.');
+/* the view's toolbar: move or rotate, snap, reset */
+const bar = h('div', { class: 'vbar', role: 'toolbar', 'aria-label': 'View tools' });
+const bMove = h('button', { type: 'button', title: 'Move pieces (G)', onclick: () => { T.set('gmode', 'move'); T.commit('gmode'); } }, 'Move', h('kbd', {}, 'G'));
+const bRot = h('button', { type: 'button', title: 'Rotate pieces (T)', onclick: () => { T.set('gmode', 'rotate'); T.commit('gmode'); } }, 'Rotate', h('kbd', {}, 'T'));
+const bSnap = h('button', { type: 'button', title: 'Snap to half cells and 15° (Shift inverts while dragging)', onclick: () => { T.set('snap', !T.S.snap); T.commit('snap'); } }, 'Snap');
+const bReset = h('button', { type: 'button', title: 'Reset the view (double-click empty space)', onclick: () => resetView() }, 'Reset view');
+bar.append(bMove, bRot, h('i'), bSnap, bReset);
+T.board.append(bar);
+function syncBar() { bMove.setAttribute('aria-pressed', String(T.S.gmode === 'move')); bRot.setAttribute('aria-pressed', String(T.S.gmode === 'rotate')); bSnap.setAttribute('aria-pressed', String(!!T.S.snap)); bar.hidden = T.S.view === 'grid'; }
+function resetView() { T.set('yaw', -20); T.set('tilt', 24); T.set('zoom', 0); T.commit('yaw'); }
+syncBar();
+
+/* scroll to zoom, double-click to reset */
+T.canvas.addEventListener('wheel', e => {
+  const r = T.canvas.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * T.view.W, y = (e.clientY - r.top) / r.height * T.view.H;
+  if (!inPrev(x, y)) return;
+  e.preventDefault();
+  const u = T.S.zoom === 0 ? fitU : T.S.zoom;
+  T.set('zoom', Math.round(Math.max(1, Math.min(48, u * Math.exp(-e.deltaY * .0015))) * 2) / 2);
+}, { passive: false });
+T.canvas.addEventListener('dblclick', e => {
+  const r = T.canvas.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * T.view.W, y = (e.clientY - r.top) / r.height * T.view.H;
+  if (inPrev(x, y) && pickAt(T.S, x, y) < 0 && !handleAt(x, y)) resetView();
+});
+
+/* keyboard: colours, brushes, handles, pieces, and a cell cursor */
+T.canvas.tabIndex = 0; T.canvas.setAttribute('aria-label', 'Paper Pixel grid and 3D view. Arrows move the cell cursor, Enter paints, Backspace erases.');
 addEventListener('keydown', e => {
   if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName) || e.metaKey || e.ctrlKey || e.altKey) return;
   const S = T.S, k = e.key;
@@ -343,12 +593,14 @@ addEventListener('keydown', e => {
   else if (k === 'f' || k === 'F') T.set('brush', 'fill');
   else if (k === 'i' || k === 'I') T.set('brush', 'pick');
   else if (k === 'm' || k === 'M') { T.set('mirror', !S.mirror); T.commit('mirror'); }
+  else if (k === 'g' || k === 'G') { T.set('gmode', 'move'); T.commit('gmode'); }
+  else if (k === 't' || k === 'T') { T.set('gmode', 'rotate'); T.commit('gmode'); }
   else if (k === '[') T.set('sel', Math.max(0, S.sel - 1));
   else if (k === ']') T.set('sel', Math.min(A(S).pieces.length - 1, S.sel + 1));
   else if (document.activeElement === T.canvas && /^Arrow/.test(k)) {
-    e.preventDefault(); const p = P(S), { w, h } = PP.size(p);
+    e.preventDefault(); const p = P(S), { w, h: hh } = PP.size(p);
     kcur.x = Math.max(0, Math.min(w - 1, kcur.x + (k === 'ArrowRight') - (k === 'ArrowLeft')));
-    kcur.y = Math.max(0, Math.min(h - 1, kcur.y + (k === 'ArrowDown') - (k === 'ArrowUp')));
+    kcur.y = Math.max(0, Math.min(hh - 1, kcur.y + (k === 'ArrowDown') - (k === 'ArrowUp')));
     T.draw();
   }
   else if (document.activeElement === T.canvas && (k === 'Enter' || k === 'Backspace' || k === 'Delete')) {
