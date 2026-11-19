@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Contour Kit - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script src="contour.js"></script>
+<script>
+/* Contour Kit - sea floors drawn by chart rules for the Sunken world: a
+   contour every interval, a heavier index contour every few lines with its
+   depth written along it, spot soundings in metres, depth tints in steps.
+   The terrain is generated, so nothing is copied from a real survey. The
+   strip preset is the section divider the world draws under headings. */
+
+let built = null, key = '';
+const INKS = { lagoon: ['#cfeff0', '#2b7f95', '#0b2c36'], night: ['#0b2a40', '#020b14', '#9ff0e2'], paper: ['#f4f1e8', '#b9c8c4', '#29434a'] };
+function frame(ctx, W, H, t, S) {
+  const [shallow, deep, ink] = INKS[S.palette], o = { ...S, shallow, deep, ink, halo: S.palette === 'night' ? '#06182a' : 'rgba(207,239,240,.9)', indexInk: S.palette === 'night' ? '#63f2d6' : ink, font: '"Martian Mono", ui-monospace, monospace', soundings: S.soundingsOn ? S.soundings : 0, labels: S.labelsOn, tint: S.tintOn };
+  const k = JSON.stringify([W, H, S]); if (k !== key) { built = Contour.build(W, H, o); key = k; }
+  ctx.fillStyle = shallow; ctx.fillRect(0, 0, W, H); o._built = built; Contour.draw(ctx, W, H, o);
+  // a scale bar and north arrow, as on any chart
+  ctx.save(); ctx.fillStyle = ink; ctx.strokeStyle = ink; ctx.globalAlpha = .8; ctx.font = '500 10px "Martian Mono", monospace';
+  ctx.fillRect(24, H - 34, 120, 3); ctx.clearRect(64, H - 34, 40, 3); ctx.strokeRect(24, H - 34, 120, 3); ctx.fillText('0', 22, H - 40); ctx.fillText(S.km + ' km', 128, H - 40);
+  ctx.beginPath(); ctx.moveTo(W - 30, 26); ctx.lineTo(W - 22, 48); ctx.lineTo(W - 30, 43); ctx.lineTo(W - 38, 48); ctx.closePath(); ctx.fill(); ctx.fillText('N', W - 34, 20);
+  ctx.fillText('Depths in metres · contour interval ' + S.interval + ' m', 24, H - 14); ctx.restore();
+}
+const T = Kit.tool({
+  slug: 'contour-kit', title: 'Contour Kit', static: true,
+  lede: 'Sea floors drawn by chart rules: contours, labelled index lines, spot soundings and depth tints. Generated terrain, real conventions.',
+  size: S => S.view === 'strip' ? [1440, 160] : S.view,
+  presets: {
+    'Shelf edge': { form: 'shelf', max: 3000, interval: 100, index: 5, rough: .5 },
+    'Seamount': { form: 'seamount', max: 4000, interval: 250, index: 4, rough: .35 },
+    'Trench': { form: 'trench', max: 8000, interval: 500, index: 4, rough: .4, palette: 'night' },
+    'Canyon': { form: 'canyon', max: 2500, interval: 100, index: 5, rough: .45 },
+    'Divider strip': { view: 'strip', form: 'shelf', max: 1200, interval: 50, index: 5, soundingsOn: false, rough: .6, scale: 5 },
+  },
+  groups: [
+    { name: 'sea floor', controls: [
+      { k: 'form', type: 'seg', label: 'form', value: 'shelf', options: [['shelf', 'shelf'], ['seamount', 'seamount'], ['trench', 'trench'], ['canyon', 'canyon'], ['plain', 'plain']] },
+      { k: 'max', type: 'range', label: 'deepest', min: 200, max: 11000, step: 100, value: 3000, unit: ' m', rand: [800, 6000] },
+      { k: 'rough', type: 'range', label: 'roughness', min: 0, max: 1.5, step: .01, value: .5, rand: [.2, .9] },
+      { k: 'scale', type: 'range', label: 'feature size', min: 1, max: 9, step: .1, value: 3, rand: [2, 6] },
+      { k: 'seed', type: 'range', label: 'seed', min: 1, max: 200, step: 1, value: 3 },
+    ]},
+    { name: 'chart', controls: [
+      { k: 'interval', type: 'select', label: 'contour interval', value: 100, options: [[20, '20 m'], [50, '50 m'], [100, '100 m'], [200, '200 m'], [250, '250 m'], [500, '500 m'], [1000, '1,000 m']], rand: false },
+      { k: 'index', type: 'range', label: 'index line every', min: 2, max: 10, step: 1, value: 5, rand: false },
+      { k: 'weight', type: 'range', label: 'line weight', min: .4, max: 2.5, step: .05, value: 1, rand: [.6, 1.4] },
+      { k: 'labelsOn', type: 'toggle', label: 'label index lines', value: true, rand: false },
+      { k: 'soundingsOn', type: 'toggle', label: 'spot soundings', value: true, rand: false },
+      { k: 'soundings', type: 'range', label: 'how many', min: 0, max: 60, step: 1, value: 18, when: S => S.soundingsOn },
+      { k: 'tintOn', type: 'toggle', label: 'depth tints', value: true, rand: false },
+      { k: 'km', type: 'range', label: 'scale bar', min: 1, max: 50, step: 1, value: 5, unit: ' km', rand: false },
+      { k: 'res', type: 'range', label: 'detail', min: 3, max: 12, step: 1, value: 5, rand: false, help: 'Grid cell size in pixels: smaller is finer and slower.' },
+    ]},
+    { name: 'look', controls: [
+      { k: 'palette', type: 'seg', label: 'palette', value: 'lagoon', options: [['lagoon', 'lagoon'], ['night', 'night'], ['paper', 'chart paper']] },
+      { k: 'view', type: 'select', label: 'artboard', value: 'fill', options: [['fill', 'fill the stage'], ['strip', 'divider strip 1440 × 160'], [[1200, 800], '1200 × 800'], [[800, 800], '800 × 800']], rand: false, keep: true },
+    ]},
+    { name: 'export', controls: [
+      { type: 'button', label: 'Download SVG', primary: true, run: api => { const [shallow, deep, ink] = INKS[api.S.palette]; api.download(new Blob([Contour.svg(api.view.W, api.view.H, { ...api.S, ink, soundings: api.S.soundingsOn ? api.S.soundings : 0 })], { type: 'image/svg+xml' }), 'contours.svg'); } },
+      { type: 'buttons', buttons: [{ label: 'PNG @2x', run: api => api.png(2) }, { label: 'Copy preset', run: api => api.copy(JSON.stringify((({ form, max, rough, scale, seed, interval, index }) => ({ form, max, rough, scale, seed, interval, index }))(api.S)), 'preset copied') }] },
+      { type: 'button', label: 'Copy link to this state', run: api => api.link() },
+    ]},
+  ],
+  draw: frame,
+});
+document.fonts.ready.then(() => T.draw());
+</script>
+</body>
+</html>

@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Sea Life - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script src="water-sea.js"></script>
+<script src="sea-life.js"></script>
+<script>
+/* Sea Life - the scene and creatures of the Sunken world, on a bench, over
+   the same water the world draws. Scroll the dive (or drag the gauge) and the
+   camera travels down a page of the set length: rocks and kelp in three
+   fogged planes, a bait ball near the surface, jellyfish and squid in the
+   twilight, an anglerfish below, the floor at the very bottom. Hover to part
+   the school. Every number exports as the preset the world loads. */
+
+const offW = document.createElement('canvas'), sea = WaterSea.create(offW), offL = document.createElement('canvas'), life = SeaLife.create(offL);
+const GAUGE = 64;
+let drag = false, lastKey = '';
+const water = Object.assign({}, WaterSea.DEFAULTS, { caustic: .3 });
+function frame(ctx, W, H, t, S, ptr) {
+  const page = H * S.pages, d = S.dive === 'auto' ? (.5 - .5 * Math.cos(t * .05)) : S.depth, y = d * (page - H);
+  const pd = y / Math.max(1, page - H);   // how deep the camera is, 0-1
+  const k = JSON.stringify(S); if (k !== lastKey) { life.set(S); lastKey = k; }
+  const P = Object.assign({}, water, { depth: pd });
+  const res = .5, w = Math.round(W * res), h = Math.round(H * res);
+  if (sea) { sea.draw(P, t, w, h, null, []); ctx.drawImage(offW, 0, 0, W, H); } else { ctx.fillStyle = '#16506e'; ctx.fillRect(0, 0, W, H); }
+  const z = WaterSea.zone(water, pd), fog = v => z.top.map((c, i) => z.bot[i] + (c - z.bot[i]) * Math.pow(1 - v, 1.1));
+  life.frame(t, { y, page, w: W - GAUGE, h: H, depth: pd, fog, pointer: ptr && ptr.in && !drag ? [ptr.x, ptr.y] : null });
+  ctx.drawImage(offL, 0, 0);
+  // the depth gauge
+  const gx = W - GAUGE / 2, top = 30, bot = H - 60, m = SeaLife.metres(pd);
+  ctx.fillStyle = 'rgba(2,12,22,.3)'; ctx.fillRect(W - GAUGE, 0, GAUGE, H);
+  ctx.strokeStyle = 'rgba(255,255,255,.5)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(gx, top); ctx.lineTo(gx, bot); ctx.stroke();
+  ctx.font = '500 9px ui-monospace, Menlo, monospace'; ctx.textAlign = 'right'; ctx.fillStyle = 'rgba(255,255,255,.75)';
+  [[0, '0'], [200, '200'], [1000, '1k'], [4000, '4k']].forEach(([mm, l]) => { const yy = top + SeaLife.frac(mm) * (bot - top); ctx.fillRect(gx - 5, yy - 1, 10, 2); ctx.fillText(l, gx - 8, yy + 3); });
+  ctx.fillStyle = '#63f2d6'; ctx.beginPath(); ctx.arc(gx, top + pd * (bot - top), 7, 0, 7); ctx.fill();
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '600 11px ui-monospace, Menlo, monospace'; ctx.fillText(Math.round(m).toLocaleString() + ' m', gx, bot + 24);
+}
+const D = SeaLife.DEFAULTS;
+const T = Kit.tool({
+  slug: 'sea-life', title: 'Sea Life',
+  lede: 'The Sunken scene and its creatures. Drag the gauge on the right to dive, hover to part the school.',
+  presets: {
+    'Calm': { schoolCount: 70, jellies: 3, squid: 1, rocks: .7, density: .8 },
+    'Busy reef': { schoolCount: 180, jellies: 6, squid: 3, rocks: 1.3, kelp: 1.6 },
+    'Phone': { schoolCount: 60, jellies: 2, squid: 1, rocks: .6, kelp: .6, density: .7 },
+    'Bodies only': { rocks: 0, kelp: 0, floor: 0 },
+  },
+  groups: [
+    { name: 'the dive', controls: [
+      { k: 'dive', type: 'seg', label: 'camera', value: 'auto', options: [['auto', 'scroll the dive'], ['set', 'hold']], rand: false },
+      { k: 'depth', type: 'range', label: 'how far down', min: 0, max: 1, step: .005, value: 0, when: S => S.dive === 'set', rand: false },
+      { k: 'pages', type: 'range', label: 'page length', min: 2, max: 30, step: 1, value: 12, unit: ' screens', help: 'A case study is about 12 screens long.', rand: false },
+      { k: 'parallax', type: 'range', label: 'parallax', min: 0, max: 2, step: .01, value: D.parallax, rand: [.5, 1.4] },
+    ]},
+    { name: 'scenery', controls: [
+      { k: 'rocks', type: 'range', label: 'rocks and pillars', min: 0, max: 2, step: .01, value: D.rocks, rand: [.4, 1.4] },
+      { k: 'kelp', type: 'range', label: 'kelp', min: 0, max: 2, step: .01, value: D.kelp, rand: [.3, 1.6] },
+      { k: 'fogFar', type: 'range', label: 'far fog', min: 0, max: 1, step: .01, value: D.fogFar, rand: [.65, .9] },
+      { k: 'fogMid', type: 'range', label: 'mid fog', min: 0, max: 1, step: .01, value: D.fogMid, rand: [.4, .7] },
+      { k: 'fogNear', type: 'range', label: 'near fog', min: 0, max: 1, step: .01, value: D.fogNear, rand: [.05, .35] },
+      { k: 'floor', type: 'toggle', label: 'sea floor', value: true, rand: false },
+    ]},
+    { name: 'school', controls: [
+      { k: 'schoolCount', type: 'range', label: 'fish', min: 0, max: 300, step: 1, value: D.schoolCount, rand: [60, 220] },
+      { k: 'schoolSpeed', type: 'range', label: 'speed', min: 0, max: 3, step: .01, value: D.schoolSpeed, rand: [.5, 1.6] },
+      { k: 'fishSize', type: 'range', label: 'size', min: .4, max: 2.5, step: .01, value: D.fishSize, rand: [.7, 1.4] },
+      { k: 'schoolColor', type: 'color', label: 'colour', value: D.schoolColor, options: [['#d9eef0', 'silver'], ['#ffd25a', 'yellow'], ['#ff9a4d', 'orange'], ['#9fd8ff', 'blue']] },
+    ]},
+    { name: 'soft bodies', controls: [
+      { k: 'jellies', type: 'range', label: 'jellyfish', min: 0, max: 12, step: 1, value: D.jellies, rand: [2, 8] },
+      { k: 'bell', type: 'range', label: 'bell size', min: .5, max: 2.5, step: .01, value: D.bell, rand: [.7, 1.6] },
+      { k: 'pulse', type: 'range', label: 'pulse', min: .2, max: 2.5, step: .01, value: D.pulse, rand: [.6, 1.4] },
+      { k: 'tentLen', type: 'range', label: 'tentacle length', min: .4, max: 3, step: .01, value: D.tentLen, rand: [.7, 2] },
+      { k: 'tentStiff', type: 'range', label: 'stiffness', min: 0, max: 1, step: .01, value: D.tentStiff, rand: [.3, .8] },
+      { k: 'drag', type: 'range', label: 'water drag', min: .8, max: .995, step: .001, value: D.drag, help: 'Higher keeps more motion: the tentacles trail longer.', rand: [.9, .985] },
+      { k: 'squid', type: 'range', label: 'squid', min: 0, max: 6, step: 1, value: D.squid, rand: [1, 4] },
+    ]},
+    { name: 'light', controls: [
+      { k: 'glow', type: 'range', label: 'bioluminescence', min: 0, max: 2, step: .01, value: D.glow, rand: [.5, 1.5] },
+      { k: 'glowCol', type: 'color', label: 'glow', value: D.glowCol, options: [['#63f2d6', 'cyan'], ['#7fb8ff', 'blue'], ['#b6ff8a', 'green'], ['#ff6a57', 'red signal']] },
+      { k: 'seed', type: 'range', label: 'seed', min: 1, max: 99, step: 1, value: D.seed },
+    ]},
+    { name: 'export', controls: [
+      { type: 'button', label: 'Copy preset for Sunken', primary: true, run: api => { const o = {}; for (const k in D) if (api.S[k] !== D[k]) o[k] = api.S[k]; api.copy('SeaLife preset (differs from defaults):\n' + JSON.stringify(o, null, 2), 'preset copied'); } },
+      { type: 'buttons', buttons: [{ label: 'PNG @2x', run: api => api.png(2) }, { label: 'Record 6s', run: api => api.record(6) }] },
+      { type: 'button', label: 'Copy link to this state', run: api => api.link() },
+    ]},
+  ],
+  draw: frame,
+  onPointer(p, type, S) {
+    const W = T.view.W, H = T.view.H;
+    if (type === 'down') drag = p.x > W - GAUGE;
+    if (drag && p.down) { if (S.dive !== 'set') T.set('dive', 'set'); T.set('depth', Math.round(Math.max(0, Math.min(1, (p.y - 30) / (H - 90))) * 200) / 200); }
+  },
+});
+addEventListener('pointerup', () => { if (drag) { T.commit('depth'); drag = false; } });
+document.fonts.ready.then(() => T.draw());
+</script>
+</body>
+</html>

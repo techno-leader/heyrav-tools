@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Nacre Lab - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js"></script>
+<script src="nacre.js"></script>
+<script>
+/* Nacre Lab - thin-film colour for the Sunken world. The spectrum is real:
+   a film of the set thickness and index reflects each wavelength by the Airy
+   sum, and the colours are what the eye would see. Thickness varies over the
+   surface by noise (davg ± drel), which is what makes nacre swirl. Move the
+   pointer to move the light. Exports the CSS the UI uses for focus and
+   selection, and the preset the world paints pearls and gems with. */
+
+const PR = Nacre.PRESETS, cache = {};
+let light = [.3, .25];
+const nm = v => Math.round(v) + ' nm';
+function piece(S, shape, size) {
+  const key = JSON.stringify([shape, size, S.d, S.drel, S.n, S.sub, S.mix, S.base, S.scale, S.seed, light.map(v => v.toFixed(2))]);
+  if (!cache[key]) { if (Object.keys(cache).length > 40) for (const k in cache) delete cache[k]; cache[key] = Nacre.paint(document.createElement('canvas').getContext('2d'), size, shape, { ...S, light }); }
+  return cache[key];
+}
+function frame(ctx, W, H, t, S, ptr) {
+  if (ptr && ptr.in) light = [ptr.x / W, ptr.y / H];
+  const dark = S.ground === 'deep';
+  ctx.fillStyle = dark ? '#06182a' : '#dff4f1'; ctx.fillRect(0, 0, W, H);
+  const ink = dark ? '#e8f6f5' : '#0b2c36', ink2 = dark ? 'rgba(232,246,245,.65)' : 'rgba(11,44,54,.65)';
+  // the four pieces
+  const size = Math.min(220, (W - 120) / 4.4), shapes = [['pearl', 'pearl'], ['shell', 'shell, from inside'], ['bubble', 'bubble'], ['gem', 'cabochon']];
+  const gap = (W - size * 4) / 5;
+  ctx.font = '500 12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'center';
+  shapes.forEach(([sh, label], i) => { const x = gap + i * (size + gap), y = H * .1; ctx.drawImage(piece(S, sh, Math.round(size)), x, y, size, size); ctx.fillStyle = ink2; ctx.fillText(label, x + size / 2, y + size + 22); });
+  // the film over its thickness range, with a wavelength-true strip and an axis in nm
+  const lut = Nacre.lut({ ...S, angle: S.angle, dMin: Math.max(20, S.d - S.drel), dMax: S.d + S.drel }, 64);
+  const sx = gap, sw = W - gap * 2, syy = H * .1 + size + 54;
+  lut.forEach((c, i) => { ctx.fillStyle = Nacre.hex(c); ctx.fillRect(sx + i / 64 * sw, syy, sw / 64 + 1, 26); });
+  ctx.fillStyle = ink2; ctx.textAlign = 'left'; ctx.fillText(nm(Math.max(20, S.d - S.drel)), sx, syy + 44); ctx.textAlign = 'right'; ctx.fillText(nm(S.d + S.drel), sx + sw, syy + 44);
+  ctx.textAlign = 'center'; ctx.fillText('film thickness at ' + S.angle + '° · n ' + S.n + ' on ' + S.sub, sx + sw / 2, syy + 44);
+  // the UI the world builds from it: a focus ring, a chosen chip, a sheen on a button
+  const uy = syy + 76, grad = (x0, y0, x1, y1, a) => { const gr = ctx.createConicGradient ? ctx.createConicGradient(a, (x0 + x1) / 2, (y0 + y1) / 2) : ctx.createLinearGradient(x0, y0, x1, y1); const st = Nacre.lut({ ...S, dMin: Math.max(20, S.d - S.drel), dMax: S.d + S.drel }, 8); st.forEach((c, i) => gr.addColorStop(i / 8, Nacre.hex(c))); gr.addColorStop(1, Nacre.hex(st[0])); return gr; };
+  const spin = t * .6;
+  ctx.textAlign = 'left'; ctx.font = '500 14px Onest, system-ui';
+  // focus ring
+  let x = gap; ctx.lineWidth = 3; ctx.strokeStyle = grad(x, uy, x + 200, uy + 46, spin); ctx.beginPath(); ctx.roundRect(x - 3, uy - 3, 206, 52, 16); ctx.stroke();
+  ctx.fillStyle = dark ? '#0b2a40' : '#ffffff'; ctx.beginPath(); ctx.roundRect(x, uy, 200, 46, 13); ctx.fill(); ctx.fillStyle = ink2; ctx.fillText('A focused field', x + 16, uy + 28);
+  // chosen chip
+  x += 240; ctx.fillStyle = grad(x, uy, x + 110, uy + 40, -spin * .5); ctx.beginPath(); ctx.roundRect(x, uy + 3, 110, 40, 20); ctx.fill();
+  ctx.fillStyle = dark ? 'rgba(6,24,42,.55)' : 'rgba(255,255,255,.55)'; ctx.beginPath(); ctx.roundRect(x + 2, uy + 5, 106, 36, 18); ctx.fill(); ctx.fillStyle = ink; ctx.fillText('Chosen', x + 28, uy + 28);
+  // sheen
+  x += 150; ctx.fillStyle = dark ? '#123b57' : '#0f4f63'; ctx.beginPath(); ctx.roundRect(x, uy, 170, 46, 14); ctx.fill();
+  ctx.save(); ctx.globalAlpha = .55; ctx.globalCompositeOperation = dark ? 'screen' : 'soft-light'; ctx.fillStyle = grad(x, uy, x + 170, uy + 46, spin * 1.3); ctx.beginPath(); ctx.roundRect(x, uy, 170, 46, 14); ctx.fill(); ctx.restore();
+  ctx.fillStyle = '#f1fbfa'; ctx.fillText('Dive in', x + 58, uy + 28);
+}
+function cssOut(S) {
+  const o = { ...S, dMin: Math.max(20, S.d - S.drel), dMax: S.d + S.drel };
+  return `/* Nacre: ${S.d} nm ± ${S.drel}, n ${S.n} on ${S.sub} */\n--nacre: ${Nacre.gradient(o, 8, 'conic')};\n--nacre-line: ${Nacre.gradient(o, 6, 'linear')};`;
+}
+const T = Kit.tool({
+  slug: 'nacre-lab', title: 'Nacre Lab',
+  lede: 'Thin-film colour, the way soap bubbles, oil on water and mother-of-pearl make it. Move the pointer to move the light.',
+  presets: Object.fromEntries(Object.entries(PR).map(([k, v]) => [k, { base: '#efe9e2', ...v }])),
+  groups: [
+    { name: 'film', controls: [
+      { k: 'd', type: 'range', label: 'thickness', min: 80, max: 1200, step: 1, value: 520, fmt: nm, help: 'Soap bubbles run 300-650 nm; the colours repeat, paler, as it thickens.', rand: [200, 900] },
+      { k: 'drel', type: 'range', label: 'variation', min: 0, max: 500, step: 1, value: 90, fmt: nm, help: 'How much the thickness wanders over the surface (d ± this).', rand: [40, 300] },
+      { k: 'n', type: 'range', label: 'film index', min: 1.2, max: 2.2, step: .01, value: 1.53, help: 'Water 1.33, oil 1.4, aragonite (nacre) 1.53.', rand: [1.3, 1.7] },
+      { k: 'sub', type: 'range', label: 'under the film', min: 1, max: 2.4, step: .01, value: 1.68, help: 'Air 1.0, water 1.33, nacre layers 1.68.', rand: [1, 1.8] },
+      { k: 'angle', type: 'range', label: 'strip angle', min: 0, max: 75, step: 1, value: 0, unit: '°', rand: false },
+    ]},
+    { name: 'surface', controls: [
+      { k: 'base', type: 'color', label: 'body colour', value: '#efe9e2', options: [['#efe9e2', 'pearl'], ['#2f6f86', 'abalone'], ['#a8e8d4', 'sea glass'], ['#1b2b3a', 'black pearl'], ['#f3c9b5', 'pink conch']] },
+      { k: 'mix', type: 'range', label: 'body over film', min: 0, max: 1, step: .01, value: .62, rand: [0, .8] },
+      { k: 'scale', type: 'range', label: 'swirl size', min: .5, max: 8, step: .1, value: 2.4, rand: [1, 5] },
+      { k: 'seed', type: 'range', label: 'seed', min: 1, max: 99, step: 1, value: 1 },
+    ]},
+    { name: 'preview', controls: [
+      { k: 'ground', type: 'seg', label: 'ground', value: 'lagoon', options: [['lagoon', 'lagoon'], ['deep', 'deep']], rand: false, keep: true },
+    ]},
+    { name: 'export', controls: [
+      { type: 'button', label: 'Copy CSS for the UI', primary: true, run: api => api.copy(cssOut(api.S), 'css copied') },
+      { type: 'buttons', buttons: [{ label: 'Copy preset', run: api => api.copy(JSON.stringify((({ d, drel, n, sub, base, mix, scale, seed }) => ({ d, drel, n, sub, base, mix, scale, seed }))(api.S)), 'preset copied') }, { label: 'PNG @2x', run: api => api.png(2) }] },
+      { type: 'button', label: 'Copy link to this state', run: api => api.link() },
+    ]},
+  ],
+  draw: frame,
+});
+document.fonts.ready.then(() => T.draw());
+</script>
+</body>
+</html>

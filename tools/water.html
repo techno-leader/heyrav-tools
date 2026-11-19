@@ -43,7 +43,10 @@ function frame(ctx, W, H, t, S, ptr) {
   const P = Object.assign({}, S, { depth: depthNow(S, t) });
   const res = S.res, w = Math.max(2, Math.round(W * res)), h = Math.max(2, Math.round(H * res));
   const lantern = ptr && ptr.in && !drag && S.lanternOn ? [ptr.x * res, ptr.y * res] : null;
-  if (sea) { sea.draw(P, t, w, h, lantern); ctx.imageSmoothingEnabled = true; ctx.drawImage(off, 0, 0, W, H); }
+  const cw0 = Math.min(460, W * .42), cx0 = W * .08, cy0 = H * .5 - 105;
+  const rects = S.overlay !== 'none' ? [[cx0 * res, cy0 * res, cw0 * res, 210 * res]] : [];
+  const PP = Object.assign({}, P, { radius: P.radius * res, bevel: P.bevel * res, refract: P.refract * res });
+  if (sea) { sea.draw(PP, t, w, h, lantern, rects); ctx.imageSmoothingEnabled = true; ctx.drawImage(off, 0, 0, W, H); }
   else { ctx.fillStyle = '#16506e'; ctx.fillRect(0, 0, W, H); }
 
   const dark = P.depth > .5, ink = dark ? '#eaf7f6' : '#0b2c36';
@@ -62,7 +65,7 @@ function frame(ctx, W, H, t, S, ptr) {
     ctx.save();
     ctx.fillStyle = dark ? `rgba(6,39,68,${S.glass})` : `rgba(235,251,248,${S.glass})`;
     ctx.strokeStyle = dark ? 'rgba(160,220,240,.25)' : 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.5;
-    ctx.beginPath(); ctx.roundRect(cx, cy, cw, ch, 18); ctx.fill(); ctx.stroke();
+    ctx.beginPath(); ctx.roundRect(cx, cy, cw, ch, S.radius); ctx.fill(); if (S.glass > .5) ctx.stroke();
     ctx.fillStyle = ink; ctx.font = '600 22px Onest, system-ui'; ctx.fillText('A card in the water', cx + 26, cy + 48);
     ctx.font = '400 15px Onest, system-ui'; ctx.globalAlpha = .82;
     ['Body copy sits on glass, so the sea can be as', 'loud as it likes behind it. The readout says', 'whether this ink still passes 4.5:1.'].forEach((l, i) => ctx.fillText(l, cx + 26, cy + 86 + i * 24));
@@ -127,6 +130,13 @@ const T = Kit.tool({
       { k: 'raySpeed', type: 'range', label: 'ray drift', min: 0, max: 1.5, step: .01, value: D.raySpeed, rand: [.1, .6] },
       { k: 'raySpread', type: 'range', label: 'ray lean', min: -1.5, max: 1.5, step: .01, value: D.raySpread, rand: [-.8, .8] },
     ]},
+    { name: 'surface and glass', controls: [
+      { k: 'window', type: 'range', label: 'surface window', min: 0, max: 1.5, step: .01, value: D.window, help: 'The bright disc of sky you see looking up from under water.', rand: [.3, 1] },
+      { k: 'refract', type: 'range', label: 'glass bend', min: 0, max: 60, step: 1, value: D.refract, help: 'How far the water bends under a panel, at its edges.', rand: [8, 36] },
+      { k: 'bevel', type: 'range', label: 'glass edge', min: 4, max: 60, step: 1, value: D.bevel, rand: [10, 30] },
+      { k: 'rim', type: 'range', label: 'rim light', min: 0, max: 1, step: .01, value: D.rim, rand: [.15, .6] },
+      { k: 'radius', type: 'range', label: 'corner', min: 0, max: 40, step: 1, value: D.radius, rand: [10, 28] },
+    ]},
     { name: 'caustics', controls: [
       { k: 'caustic', type: 'range', label: 'strength', min: 0, max: 1.5, step: .01, value: D.caustic, rand: [.2, .9] },
       { k: 'causticScale', type: 'range', label: 'scale', min: 1, max: 14, step: .1, value: D.causticScale, rand: [3, 9] },
@@ -161,7 +171,7 @@ const T = Kit.tool({
     ]},
     { name: 'preview', controls: [
       { k: 'overlay', type: 'seg', label: 'over the water', value: 'page', options: [['none', 'nothing'], ['card', 'a card'], ['page', 'card + bare text']], rand: false, keep: true },
-      { k: 'glass', type: 'range', label: 'card glass', min: 0, max: 1, step: .01, value: .78, rand: false, keep: true, help: 'How opaque the card is. The site uses about .8.' },
+      { k: 'glass', type: 'range', label: 'card tint', min: 0, max: 1, step: .01, value: .5, rand: false, keep: true, help: 'A wash over the bent water so text reads. The readout shows if it is enough.' },
       { k: 'res', type: 'range', label: 'render scale', min: .25, max: 1, step: .05, value: .6, rand: false, keep: true, nohash: true, help: 'The site renders the sea at about half resolution.' },
     ]},
     { name: 'export', controls: [
