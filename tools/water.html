@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Water Lab - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css?v=b7e2e0c138">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js?v=96f7f68aa7"></script>
+<script src="water-sea.js?v=f58b8db976"></script>
+<script>
+/* Water Lab - the sea behind the Sunken world, on a bench. Drag across the
+   top to move the sun; drag the gauge on the right to dive. A stand-in card
+   and paragraph sit over the water so legibility is judged on the real
+   pixels: the readout under the depth gauge is the contrast of the page ink
+   on the water behind the card, read back from the canvas. */
+
+const D = WaterSea.DEFAULTS;
+const off = document.createElement('canvas');
+const sea = WaterSea.create(off);
+const ZONES = [[0, 'Sunlight', '0 m'], [1 / 3, 'Twilight', '200 m'], [2 / 3, 'Midnight', '1,000 m'], [1, 'Abyss', '4,000 m']];
+const GAUGE = 72;          // the depth gauge strip on the right, in artboard px
+const lum = c => { const f = v => { v /= 255; return v <= .03928 ? v / 12.92 : ((v + .055) / 1.055) ** 2.4; }; return .2126 * f(c[0]) + .7152 * f(c[1]) + .0722 * f(c[2]); };
+const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + .05) / (Math.min(x, y) + .05); };
+const rgb = h => { const n = parseInt(h.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; };
+const mtr = d => { const m = d <= 1 / 3 ? d * 3 * 200 : d <= 2 / 3 ? 200 + (d - 1 / 3) * 3 * 800 : 1000 + (d - 2 / 3) * 3 * 3000; return Math.round(m).toLocaleString() + ' m'; };
+let drag = null, legible = null;
+
+function depthNow(S, t) { return S.dive === 'auto' ? .5 - .5 * Math.cos(t * .12) : S.depth; }
+
+function frame(ctx, W, H, t, S, ptr) {
+  const P = Object.assign({}, S, { depth: depthNow(S, t) });
+  const res = S.res, w = Math.max(2, Math.round(W * res)), h = Math.max(2, Math.round(H * res));
+  const lantern = ptr && ptr.in && !drag && S.lanternOn ? [ptr.x * res, ptr.y * res] : null;
+  if (sea) { sea.draw(P, t, w, h, lantern); ctx.imageSmoothingEnabled = true; ctx.drawImage(off, 0, 0, W, H); }
+  else { ctx.fillStyle = '#16506e'; ctx.fillRect(0, 0, W, H); }
+
+  const dark = P.depth > .5, ink = dark ? '#eaf7f6' : '#0b2c36';
+  // stand-in UI: a glass card and a paragraph straight on the water
+  if (S.overlay !== 'none') {
+    const cw = Math.min(460, W * .42), ch = 210, cx = W * .08, cy = H * .5 - ch / 2;
+    if (sea) {
+      // sample the water behind the card and behind the loose paragraph
+      const pts = [[cx + 30, cy + 40], [cx + cw - 30, cy + ch - 30], [cx + cw / 2, cy + ch / 2]];
+      const card = pts.map(([x, y]) => sea.sample(x * res, y * res));
+      const tx = W * .58, ty = H * .3, loose = [[tx, ty], [tx + 200, ty + 60], [tx + 100, ty + 120]].map(([x, y]) => sea.sample(x * res, y * res));
+      const glass = S.glass, gcol = dark ? [6, 39, 68] : [235, 251, 248];
+      const under = card.map(c => c.map((v, i) => v * (1 - glass) + gcol[i] * glass));
+      legible = { card: Math.min(...under.map(c => ratio(rgb(ink), c))), loose: Math.min(...loose.map(c => ratio(rgb(ink), c))) };
+    }
+    ctx.save();
+    ctx.fillStyle = dark ? `rgba(6,39,68,${S.glass})` : `rgba(235,251,248,${S.glass})`;
+    ctx.strokeStyle = dark ? 'rgba(160,220,240,.25)' : 'rgba(255,255,255,.7)'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.roundRect(cx, cy, cw, ch, 18); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = ink; ctx.font = '600 22px Onest, system-ui'; ctx.fillText('A card in the water', cx + 26, cy + 48);
+    ctx.font = '400 15px Onest, system-ui'; ctx.globalAlpha = .82;
+    ['Body copy sits on glass, so the sea can be as', 'loud as it likes behind it. The readout says', 'whether this ink still passes 4.5:1.'].forEach((l, i) => ctx.fillText(l, cx + 26, cy + 86 + i * 24));
+    ctx.globalAlpha = 1;
+    if (S.overlay === 'page') {
+      ctx.font = '400 15px Onest, system-ui';
+      ['Text straight on the water, with no glass.', 'This is what a hero caption or a label on', 'a dive section has to survive.'].forEach((l, i) => ctx.fillText(l, W * .58, H * .3 + i * 24 + 10));
+    }
+    ctx.restore();
+  }
+
+  // depth gauge
+  const gx = W - GAUGE / 2, top = 40, bot = H - 70;
+  ctx.save();
+  ctx.fillStyle = 'rgba(2,12,22,.28)'; ctx.fillRect(W - GAUGE, 0, GAUGE, H);
+  ctx.strokeStyle = 'rgba(255,255,255,.55)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(gx, top); ctx.lineTo(gx, bot); ctx.stroke();
+  ctx.font = '500 10px ui-monospace, Menlo, monospace'; ctx.textAlign = 'right';
+  ZONES.forEach(([d, name]) => { const y = top + d * (bot - top); ctx.fillStyle = 'rgba(255,255,255,.75)'; ctx.fillRect(gx - 6, y - 1, 12, 2); ctx.save(); ctx.translate(gx - 10, y + 3); ctx.fillText(name.slice(0, 3).toUpperCase(), 0, 0); ctx.restore(); });
+  const ky = top + P.depth * (bot - top);
+  ctx.fillStyle = S.glowCol; ctx.shadowColor = S.glowCol; ctx.shadowBlur = 14; ctx.beginPath(); ctx.arc(gx, ky, 8, 0, 7); ctx.fill(); ctx.shadowBlur = 0;
+  ctx.textAlign = 'center'; ctx.fillStyle = '#fff'; ctx.font = '600 11px ui-monospace, Menlo, monospace'; ctx.fillText(mtr(P.depth), gx - 2, bot + 22);
+  if (legible && S.overlay !== 'none') {
+    const ok = v => v >= 4.5 ? '#9ff5c8' : '#ffb3a8';
+    ctx.font = '500 10px ui-monospace, Menlo, monospace';
+    ctx.fillStyle = ok(legible.card); ctx.fillText('card ' + legible.card.toFixed(1) + ':1', gx - 2, bot + 38);
+    if (S.overlay === 'page') { ctx.fillStyle = ok(legible.loose); ctx.fillText('bare ' + legible.loose.toFixed(1) + ':1', gx - 2, bot + 52); }
+  }
+  // the sun handle along the top
+  const sx = S.sun * (W - GAUGE);
+  ctx.strokeStyle = 'rgba(255,255,255,.9)'; ctx.fillStyle = 'rgba(255,248,220,.9)'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(sx, 18, 9, 0, 7); ctx.fill();
+  for (let i = 0; i < 8; i++) { const a = i / 8 * 6.283; ctx.beginPath(); ctx.moveTo(sx + Math.cos(a) * 12, 18 + Math.sin(a) * 12); ctx.lineTo(sx + Math.cos(a) * 16, 18 + Math.sin(a) * 16); ctx.stroke(); }
+  ctx.restore();
+}
+
+function siteConfig(S) {
+  const out = {};
+  for (const k in D) if (k in S && S[k] !== D[k]) out[k] = S[k];
+  return 'WaterSea preset for Sunken (only what differs from the defaults):\n' + JSON.stringify(out, null, 2);
+}
+
+const pal = [['#bff3ec', 'lagoon'], ['#5cc2c6', 'shallows'], ['#16506e', 'twilight'], ['#04162a', 'midnight'], ['#01060d', 'abyss'], ['#d9a54a', 'kelp gold']];
+const T = Kit.tool({
+  slug: 'water-lab', title: 'Water Lab',
+  lede: 'The sea behind the Sunken world. Drag along the top to move the sun, drag the gauge on the right to dive, hover to carry a lantern.',
+  presets: {
+    'Lagoon': { depth: 0, sun: .62, rays: .6, caustic: .4, absorb: .45, haze: .2, snow: .35 },
+    'Kelp gold': { depth: .12, sun: .3, rays: .85, rayCount: 9, raySpread: -.6, caustic: .35, z0top: '#e8e2a8', z0bot: '#3f8f7a', z1top: '#8cc0a0', absorb: .5, haze: .35 },
+    'Twilight': { depth: .45, rays: .35, caustic: .2, snow: .7, haze: .4, glow: .5 },
+    'Midnight bloom': { depth: .82, rays: 0, caustic: 0, snow: .8, glow: 1, glowCol: '#63f2d6', lantern: .7 },
+    'Red signal': { depth: .95, rays: 0, caustic: 0, snow: .5, glow: .8, glowCol: '#ff6a57', lantern: .6 },
+  },
+  groups: [
+    { name: 'depth', controls: [
+      { k: 'dive', type: 'seg', label: 'depth', value: 'set', options: [['set', 'set'], ['auto', 'scroll the dive']], rand: false, help: 'Scroll the dive moves from the lagoon to the abyss and back, the way a long page will.' },
+      { k: 'depth', type: 'range', label: 'depth', min: 0, max: 1, step: .01, value: D.depth, fmt: mtr, when: S => S.dive === 'set', rand: [0, 1] },
+    ]},
+    { name: 'sun and rays', controls: [
+      { k: 'sun', type: 'range', label: 'sun across', min: 0, max: 1, step: .01, value: D.sun, rand: [.15, .85] },
+      { k: 'rays', type: 'range', label: 'rays', min: 0, max: 1.5, step: .01, value: D.rays, rand: [.2, 1] },
+      { k: 'rayCount', type: 'range', label: 'ray count', min: 3, max: 30, step: 1, value: D.rayCount, rand: [6, 20] },
+      { k: 'raySpeed', type: 'range', label: 'ray drift', min: 0, max: 1.5, step: .01, value: D.raySpeed, rand: [.1, .6] },
+      { k: 'raySpread', type: 'range', label: 'ray lean', min: -1.5, max: 1.5, step: .01, value: D.raySpread, rand: [-.8, .8] },
+    ]},
+    { name: 'caustics', controls: [
+      { k: 'caustic', type: 'range', label: 'strength', min: 0, max: 1.5, step: .01, value: D.caustic, rand: [.2, .9] },
+      { k: 'causticScale', type: 'range', label: 'scale', min: 1, max: 14, step: .1, value: D.causticScale, rand: [3, 9] },
+      { k: 'causticSpeed', type: 'range', label: 'speed', min: 0, max: 2, step: .01, value: D.causticSpeed, rand: [.3, 1] },
+      { k: 'causticSharp', type: 'range', label: 'line width', min: .03, max: .3, step: .005, value: D.causticSharp, rand: [.06, .18] },
+    ]},
+    { name: 'water', controls: [
+      { k: 'absorb', type: 'range', label: 'absorption', min: 0, max: 1.5, step: .01, value: D.absorb, help: 'How fast the light dims toward the bottom of the screen.', rand: [.2, .9] },
+      { k: 'haze', type: 'range', label: 'haze', min: 0, max: 1, step: .01, value: D.haze, rand: [0, .6] },
+    ]},
+    { name: 'life', controls: [
+      { k: 'snow', type: 'range', label: 'marine snow', min: 0, max: 2, step: .01, value: D.snow, rand: [.2, 1.2] },
+      { k: 'snowSpeed', type: 'range', label: 'snow drift', min: 0, max: 3, step: .01, value: D.snowSpeed, rand: [.3, 1.5] },
+      { k: 'glow', type: 'range', label: 'plankton glow', min: 0, max: 2, step: .01, value: D.glow, help: 'Only shows below the twilight zone.', rand: [.3, 1.4] },
+      { k: 'glowCol', type: 'color', label: 'glow colour', value: D.glowCol, options: [['#63f2d6', 'cyan'], ['#7fb8ff', 'blue'], ['#b6ff8a', 'green'], ['#ff6a57', 'red signal']] },
+    ]},
+    { name: 'lantern', closed: true, controls: [
+      { k: 'lanternOn', type: 'toggle', label: 'carry a lantern', value: true, rand: false },
+      { k: 'lantern', type: 'range', label: 'brightness', min: 0, max: 1.5, step: .01, value: D.lantern, rand: [.2, 1] },
+      { k: 'lanternSize', type: 'range', label: 'size', min: .05, max: .6, step: .01, value: D.lanternSize, rand: [.1, .35] },
+    ]},
+    { name: 'zone colours', closed: true, controls: [
+      { type: 'note', text: 'Each zone has a colour at the surface of the screen and one at the bottom. Depth mixes between the four zones.' },
+      { k: 'z0top', type: 'color', label: 'sunlight · top', value: D.z0top, options: pal, rand: false },
+      { k: 'z0bot', type: 'color', label: 'sunlight · bottom', value: D.z0bot, options: pal, rand: false },
+      { k: 'z1top', type: 'color', label: 'twilight · top', value: D.z1top, options: pal, rand: false },
+      { k: 'z1bot', type: 'color', label: 'twilight · bottom', value: D.z1bot, options: pal, rand: false },
+      { k: 'z2top', type: 'color', label: 'midnight · top', value: D.z2top, options: pal, rand: false },
+      { k: 'z2bot', type: 'color', label: 'midnight · bottom', value: D.z2bot, options: pal, rand: false },
+      { k: 'z3top', type: 'color', label: 'abyss · top', value: D.z3top, options: pal, rand: false },
+      { k: 'z3bot', type: 'color', label: 'abyss · bottom', value: D.z3bot, options: pal, rand: false },
+    ]},
+    { name: 'preview', controls: [
+      { k: 'overlay', type: 'seg', label: 'over the water', value: 'page', options: [['none', 'nothing'], ['card', 'a card'], ['page', 'card + bare text']], rand: false, keep: true },
+      { k: 'glass', type: 'range', label: 'card glass', min: 0, max: 1, step: .01, value: .78, rand: false, keep: true, help: 'How opaque the card is. The site uses about .8.' },
+      { k: 'res', type: 'range', label: 'render scale', min: .25, max: 1, step: .05, value: .6, rand: false, keep: true, nohash: true, help: 'The site renders the sea at about half resolution.' },
+    ]},
+    { name: 'export', controls: [
+      { type: 'button', label: 'Copy preset for Sunken', primary: true, run: api => api.copy(siteConfig(api.S), 'preset copied') },
+      { type: 'buttons', buttons: [{ label: 'PNG @2x', run: api => api.png(2) }, { label: 'Record 6s', run: api => api.record(6) }] },
+      { type: 'button', label: 'Copy link to this state', run: api => api.link() },
+      { type: 'note', text: 'The preset is the settings that differ from the engine defaults. Send it over and it becomes the world\'s sea.' },
+    ]},
+  ],
+  draw: frame,
+  onPointer(p, type, S) {
+    const W = T.view.W, H = T.view.H;
+    if (type === 'down') drag = p.x > W - GAUGE ? 'depth' : p.y < 60 ? 'sun' : null;
+    if (!drag || !p.down) { if (drag && !p.down) { T.commit(drag); drag = null; } return; }
+    if (drag === 'depth') { if (S.dive !== 'set') T.set('dive', 'set'); T.set('depth', Math.round(Math.max(0, Math.min(1, (p.y - 40) / (H - 110))) * 100) / 100); }
+    else T.set('sun', Math.round(Math.max(0, Math.min(1, p.x / (W - GAUGE))) * 100) / 100);
+  },
+});
+addEventListener('pointerup', () => { if (drag) { T.commit(drag); drag = null; } });
+if (!sea) Kit.toast('this browser has no WebGL - the sea cannot render');
+document.fonts.ready.then(() => T.draw());
+</script>
+</body>
+</html>
