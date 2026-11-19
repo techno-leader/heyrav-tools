@@ -26,7 +26,8 @@
       plain: (u, v) => max * (.6 + .3 * v),
     };
     const f = forms[o.form] || forms.shelf;
-    return (u, v) => f(u, v) + (n(u * (o.scale ?? 3), v * (o.scale ?? 3)) - .5) * max * .35 * rough;
+    const asp = o.asp || 1;   // keep features round on wide strips
+    return (u, v) => f(u, v) + (n(u * (o.scale ?? 3) * asp, v * (o.scale ?? 3)) - .5) * max * .35 * rough;
   }
   function field(o, w, h) {
     const z = shape(o), data = new Float32Array(w * h);
@@ -66,7 +67,7 @@
   const rgb = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
   // build the chart once: tint image, lines, labels, soundings
   function build(W, H, o) {
-    const res = o.res ?? 6, w = Math.max(8, Math.round(W / res)), h = Math.max(8, Math.round(H / res)), f = field(o, w, h);
+    const res = o.res ?? 6, w = Math.max(8, Math.round(W / res)), h = Math.max(8, Math.round(H / res)), f = field({ asp: W / H, ...o }, w, h);
     const interval = +(o.interval ?? 200), every = +(o.index ?? 5), max = +(o.max ?? 4000), levels = [];
     for (let lv = interval; lv < max * 1.3; lv += interval) levels.push(lv);
     const sx = W / (w - 1), sy = H / (h - 1), out = { W, H, f, levels: [], soundings: [] };
