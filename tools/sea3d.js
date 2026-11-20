@@ -9,14 +9,14 @@
    - Schools are flocks (separation, alignment, cohesion): every fish steers by
      its neighbours, wags its own tail, glints, and parts around the pointer.
    - Creatures are lofted from cross-sections after their anatomy and placed at
-     the depth they live: turtle and manta, humpbacks that pass when they sing,
+     the depth they live: turtle and manta, humpbacks in the sunlit water and a sperm whale hunting in the deep, passing as they call,
      lanternfish, jellyfish and squid with soft tentacles, a siphonophore, anglerfish
      with a lure that lights their face, tripod fish, sea pigs, glass sponges.
 
    Sea3D.load()                       -> Promise (three.js from cdnjs)
    const s = Sea3D.create(canvas, o)  o: { quality: 0-1 }
    s.frame(t, cam)  cam: { depth 0-1, range [a, b], w, h, pointer, fog [r,g,b], top [r,g,b], whales }
-   s.whales()       sends a pod across
+   s.whales(kind)   sends a pod across ('humpback' near the top, 'sperm' in the deep)
    Sea3D.specimens(o) -> { add(type, canvas2d), frame(t) }  one creature per tile
    Sea3D.metres(d), Sea3D.frac(m)                                                           */
 (function () {
@@ -215,6 +215,25 @@
       fin(k, [[-3.2, 1.05, 0], [-4.1, 1.5, 0], [-4.4, .95, 0]], back);
       g.add(new T.Mesh(k.geo(), swimMat({ amp: .5, k: .32, w: 1.1, len: L, axis: 1, shine: 26 })));
       const eye = new T.Mesh(new T.SphereGeometry(.09, 6, 4), new T.MeshBasicMaterial({ color: 0x05090d })); eye.position.set(5.2, -.15, .95); g.add(eye);
+      return g;
+    },
+    sperm() {        // a sperm whale: a third of it is the blunt square head, narrow underslung jaw with white lips, wrinkled skin, a low hump and knuckles, small paddle flippers, broad flukes
+      const g = new T.Group(), back = hex('#3b3a3f'), belly = hex('#55565d'), L = 16;
+      const U = [0, .06, .2, .35, .5, .62, .7, .8, .9, .97, 1], tb = arr => u => { let i = 0; while (i < U.length - 2 && u > U[i + 1]) i++; const f = (u - U[i]) / (U[i + 1] - U[i]), e = f * f * (3 - 2 * f); return arr[i] + (arr[i + 1] - arr[i]) * e; };
+      const topF = tb([.06, .3, .55, .9, 1.22, 1.36, 1.45, 1.58, 1.64, 1.58, .95]), k = loft({ len: L, seg: 32, rad: 14, tailTip: .1,
+        top: topF, bot: tb([.06, .32, .6, 1.0, 1.3, 1.36, 1.32, 1.22, 1.12, 1.02, .7]), w: tb([.05, .14, .36, .74, 1.12, 1.26, 1.28, 1.25, 1.2, 1.1, .7]),
+        back, belly, grain: .1, seed: 13,
+        pattern: (u, a, b) => { const s = Math.sin(a);
+          if (u > .72 && s < -.5 && Math.abs(Math.cos(a)) < .5) return hex('#d8d6cf');                        // the white of the lips and lower jaw
+          if (u > .72 && s < -.3 && s > -.5) return hex('#141418');                                             // the mouth line, set well back under the head
+          if (u < .72 && hash(Math.floor(u * 70), Math.floor(a * 6), 3) > .6) return mix(b, hex('#24242a'), .5); // prune-like wrinkles behind the head
+          return b; } });
+      for (const s of [1, -1]) { const p = [[-7.9, 0, 0], [-8.5, .05, 1.4 * s], [-9.4, .08, 2.9 * s], [-9.2, .06, 2.4 * s], [-8.9, 0, .9 * s], [-9.05, 0, .1 * s]]; fin(k, p, back); fin(k, p.slice().reverse().map(q => [q[0], q[1] - .03, q[2]]), belly); }
+      for (const s of [1, -1]) { const p = [[2.2, -.95, 1.1 * s], [1.2, -1.55, 1.95 * s], [.8, -1.5, 1.85 * s], [1.6, -.9, 1.05 * s]]; fin(k, s > 0 ? p : p.slice().reverse(), mix(back, belly, .5)); fin(k, s > 0 ? p.slice().reverse() : p, back); }
+      fin(k, [[-1.4, topF(.41) - .05, 0], [-2.3, topF(.36) + .42, 0], [-3.1, topF(.31) - .05, 0]], back);                                               // the hump
+      for (let i = 0; i < 5; i++) { const x = -3.6 - i * .75, y = topF((x + 8.3) / 16) - .04; fin(k, [[x, y, 0], [x - .3, y + .2 - i * .025, 0], [x - .6, y - .05, 0]], back); }   // knuckles toward the tail
+      g.add(new T.Mesh(k.geo(), swimMat({ amp: .45, k: .3, w: .9, len: L, axis: 1, shine: 34 })));
+      for (const s of [1, -1]) { const eye = new T.Mesh(new T.SphereGeometry(.08, 6, 4), new T.MeshBasicMaterial({ color: 0x050507 })); eye.position.set(3.0, -.75, 1.24 * s); g.add(eye); }
       return g;
     },
     jelly(col = '#cfeeff', glowCol = null) {
@@ -440,9 +459,14 @@
       const snow = new T.Points(sg, new T.PointsMaterial({ size: .22, map: glow(), color: 0xdff6f2, transparent: true, opacity: .55, depthWrite: false })); snow.frustumCulled = false; scene.add(snow); live.push(snow);
       built = { a, b, aspect, snow, sp, rockMat };
     }
-    function sendWhales() {
-      const cy = camera.position.y;
-      for (let i = 0; i < 3; i++) { const w = C.whale(); w.position.set(-70 - i * 18, cy - 4 + i * 5, -30 - i * 9); w.rotation.set(0, -.15, .22); w.scale.setScalar(1 + i * .1); scene.add(w); live.push(w); whales.push({ w, born: lastT, v: .32 - i * .02 }); }
+    // humpbacks pass in the sunlit water (0-200 m), a sperm whale hunts squid in the deep (500-2000 m)
+    function sendWhales(kind) {
+      const m = metres(clamp(-camera.position.y / DEPTH, 0, 1));
+      if (kind !== 'sperm' && m < 260) { const y = yOf(clamp(m, 12, 190));
+        for (let i = 0; i < 3; i++) { const w = C.whale(); w.position.set(-70 - i * 18, y - 4 + i * 5, -30 - i * 9); w.rotation.set(0, -.15, .22); w.scale.setScalar(1 + i * .1); scene.add(w); live.push(w); whales.push({ w, born: lastT, v: .32 - i * .02, rise: .015 }); } return 'humpback'; }
+      if (kind !== 'humpback' && m > 420 && m < 2300) { const y = yOf(clamp(m, 500, 2000)), w = C.sperm();
+        w.position.set(-75, y - 6, -26); w.rotation.set(0, -.1, -.28); scene.add(w); live.push(w); whales.push({ w, born: lastT, v: .26, rise: -.006 }); return 'sperm'; }
+      return null;
     }
     const ray = new T.Raycaster(), plane = new T.Plane(new T.Vector3(0, 0, 1), 12), hit = new T.Vector3(), ndc = new T.Vector2();
     function frame(t, cam) {
@@ -463,12 +487,12 @@
         o.traverse && o.children.length && o.children.forEach(c => { if (c.material && c.material.userData && c.material.userData.u) c.material.userData.u.uTime.value = t; });
         const sw = o.userData.swim; if (sw) { if (sw.vx) { o.position.x += sw.vx * dt; if (Math.abs(o.position.x) > sw.range) { sw.vx *= -1; o.rotation.y += Math.PI; } } if (sw.bob) o.position.y += Math.sin(t * .8 + o.id) * .004; }
         if (o.userData.shaft) { o.material.opacity = (.12 + .06 * Math.sin(t * .3 + o.id)) * lit; o.position.x += Math.sin(t * .05 + o.id) * .01; } });
-      whales.forEach(wh => { wh.w.position.x += wh.v * 60 * dt * .1; wh.w.position.y += .015; wh.w.children[0].material.userData.u.uTime.value = t; });
+      whales.forEach(wh => { wh.w.position.x += wh.v * 60 * dt * .1; wh.w.position.y += wh.rise; wh.w.children[0].material.userData.u.uTime.value = t; });
       for (let i = whales.length - 1; i >= 0; i--) if (whales[i].w.position.x > 90) { scene.remove(whales[i].w); live.splice(live.indexOf(whales[i].w), 1); whales.splice(i, 1); }
       // marine snow follows the camera, drifting down
       if (built) { const sp = built.sp; for (let i = 0; i < sp.length; i += 3) { sp[i + 1] -= .01; const rel = sp[i + 1] - (cy - 30); if (rel < 0) sp[i + 1] += 60; else if (rel > 60) sp[i + 1] -= 60; }
         built.snow.geometry.attributes.position.needsUpdate = true; built.snow.material.color.setRGB(.86 - dark * .2, .97, .95); }
-      if (cam.whales) sendWhales();
+      if (cam.whales) sendWhales(cam.whales);
       renderer.render(scene, camera);
     }
     return { frame, whales: sendWhales, renderer, dispose() { clear(); renderer.dispose(); } };
@@ -480,7 +504,7 @@
     const cv = document.createElement('canvas'), renderer = new T.WebGLRenderer({ canvas: cv, alpha: true, antialias: true, preserveDrawingBuffer: true });
     renderer.setClearColor(0, 0); const dpr = Math.min(2, window.devicePixelRatio || 1); renderer.setPixelRatio(1);
     const list = [];
-    const FRAME = { school: [0, 0, 16], turtle: [.4, .2, 6.5], manta: [0, .6, 9], whale: [0, 0, 26], lantern: [0, 0, 3.6], jelly: [0, -1.4, 9], squid: [-1, 0, 7], siphon: [0, -5, 17], angler: [.4, .4, 7], tripod: [.4, 1.2, 8], seapig: [0, .5, 4.6], sponge: [0, 1.6, 7.5], kelp: [0, 15, 34], rock: [0, 0, 5], basalt: [0, 3, 14], glowfish: [0, 0, 3.6] };
+    const FRAME = { school: [0, 0, 16], turtle: [.4, .2, 6.5], manta: [0, .6, 9], whale: [0, 0, 26], sperm: [0, 0, 28], lantern: [0, 0, 3.6], jelly: [0, -1.4, 9], squid: [-1, 0, 7], siphon: [0, -5, 17], angler: [.4, .4, 7], tripod: [.4, 1.2, 8], seapig: [0, .5, 4.6], sponge: [0, 1.6, 7.5], kelp: [0, 15, 34], rock: [0, 0, 5], basalt: [0, 3, 14], glowfish: [0, 0, 3.6] };
     function add(type, canvas, o = {}) {
       const scene = new T.Scene(), cam = new T.PerspectiveCamera(36, 1, .1, 200), top = o.top || [.75, .95, .93], deep = o.deep || 0;
       scene.add(new T.HemisphereLight(new T.Color(...top), 0x0a1c26, .75 + (1 - deep) * .35)); const sun = new T.DirectionalLight(0xffffff, 1.1 * (1 - deep * .45)); sun.position.set(.4, 1, .6); scene.add(sun); scene.add(new T.AmbientLight(0x274250, .4 + deep * .3));
@@ -490,7 +514,7 @@
       else if (type === 'rock') { obj = new T.Mesh(B.rock(7, .8), new T.MeshPhongMaterial({ vertexColors: true, flatShading: true, shininess: 6 })); obj.scale.set(1.8, 1.4, 1.6); }
       else if (type === 'basalt') { obj = new T.Group(); const bm = new T.MeshPhongMaterial({ vertexColors: true, flatShading: true }), r = rng(9); for (let i = 0; i < 9; i++) { const c = new T.Mesh(B.basalt(), bm), h = 2 + r() * 8; c.position.set((i % 3 - 1) * 2.1 + (r() - .5) * .4, h / 2 - 3, (Math.floor(i / 3) - 1) * 2); c.scale.set(1, h, 1); obj.add(c); } }
       else obj = C[type]();
-      if (type === 'whale') obj.rotation.set(.1, .5, .12); else if (type === 'turtle') obj.rotation.set(.1, -.35, 0); else if (type === 'manta') { obj.rotation.order = 'ZYX'; obj.rotation.set(1.0, .25, Math.PI / 2 + .12); } else if (/lantern|glowfish|angler|tripod|seapig|squid/.test(type)) obj.rotation.y = -.45;
+      if (type === 'whale' || type === 'sperm') obj.rotation.set(.1, .5, .12); else if (type === 'turtle') obj.rotation.set(.1, -.35, 0); else if (type === 'manta') { obj.rotation.order = 'ZYX'; obj.rotation.set(1.0, .25, Math.PI / 2 + .12); } else if (/lantern|glowfish|angler|tripod|seapig|squid/.test(type)) obj.rotation.y = -.45;
       scene.add(obj);
       for (let i = 0; i < 40; i++) obj.traverse(o => o.userData.update && o.userData.update(i * .05, .05));
       obj.updateMatrixWorld(true);

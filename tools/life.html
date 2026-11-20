@@ -20,7 +20,7 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="kit.js?v=96f7f68aa7"></script>
 <script src="water-sea.js?v=e44eb7571c"></script>
-<script src="sea3d.js?v=140222a4a2"></script>
+<script src="sea3d.js?v=1e8a4421c4"></script>
 <script>
 /* Sea Life - the Sunken world's scene in 3D, on a bench, over the same water
    the world draws. Dive: drag the gauge on the right, or let the camera scroll a
@@ -30,7 +30,7 @@
 const offW = document.createElement('canvas'), water = WaterSea.create(offW), off3 = document.createElement('canvas');
 const GAUGE = 64, WATER = Object.assign({}, WaterSea.DEFAULTS, { caustic: .05, window: .85 });
 let sea = null, spec = null, specCv = document.createElement('canvas'), specKey = '', drag = false, whaleQ = false;
-const LIVES = { school: 20, turtle: 18, manta: 55, whale: 120, lantern: 500, glowfish: 300, jelly: 700, squid: 800, siphon: 1500, angler: 2300, tripod: 4000, seapig: 4000, sponge: 4000, kelp: 15, rock: 150, basalt: 3600 };
+const LIVES = { school: 20, turtle: 18, manta: 55, whale: 120, sperm: 1000, lantern: 500, glowfish: 300, jelly: 700, squid: 800, siphon: 1500, angler: 2300, tripod: 4000, seapig: 4000, sponge: 4000, kelp: 15, rock: 150, basalt: 3600 };
 const hx = v => 'rgb(' + v.map(q => Math.round(q * 255)).join(',') + ')';
 function frame(ctx, W, H, t, S, ptr) {
   if (!sea) { sea = Sea3D.create(off3, { quality: S.quality }); }
@@ -57,7 +57,7 @@ function frame(ctx, W, H, t, S, ptr) {
 const T = Kit.tool({
   slug: 'sea-life', title: 'Sea Life',
   lede: 'The Sunken scene in 3D, after ABZÛ: walls of broken rock in fog, kelp, schools that flock, and every creature at the depth it lives at.',
-  presets: { 'The dive': { mode: 'dive', dive: 'auto' }, 'Turtle': { mode: 'inspect', creature: 'turtle' }, 'Humpback': { mode: 'inspect', creature: 'whale' }, 'Anglerfish': { mode: 'inspect', creature: 'angler' }, 'Jellyfish': { mode: 'inspect', creature: 'jelly' } },
+  presets: { 'The dive': { mode: 'dive', dive: 'auto' }, 'Turtle': { mode: 'inspect', creature: 'turtle' }, 'Humpback': { mode: 'inspect', creature: 'whale' }, 'Sperm whale': { mode: 'inspect', creature: 'sperm' }, 'Anglerfish': { mode: 'inspect', creature: 'angler' }, 'Jellyfish': { mode: 'inspect', creature: 'jelly' } },
   groups: [
     { name: 'view', controls: [
       { k: 'mode', type: 'seg', label: 'mode', value: 'dive', options: [['dive', 'dive'], ['inspect', 'inspect a creature']], rand: false },
@@ -69,7 +69,7 @@ const T = Kit.tool({
       { k: 'depth', type: 'range', label: 'how far down', min: 0, max: 1, step: .002, value: .02, when: S => S.mode === 'dive' && S.dive === 'set', rand: false },
       { k: 'pages', type: 'range', label: 'page length', min: 2, max: 14, step: 1, value: 11, unit: ' screens', when: S => S.mode === 'dive', help: 'Longer pages dive deeper; eleven screens reach the floor.', rand: false },
       { k: 'quality', type: 'range', label: 'quality', min: .4, max: 1, step: .1, value: 1, help: 'Fewer fish and plants at lower values, as on phones.', rand: false, nohash: true },
-      { type: 'button', label: 'Send the humpbacks past', run: () => { whaleQ = true; } },
+      { type: 'button', label: 'Send the whales past', run: () => { whaleQ = true; } },
     ]},
     { name: 'export', controls: [
       { type: 'buttons', buttons: [{ label: 'PNG @2x', run: api => api.png(2) }, { label: 'Record 6s', run: api => api.record(6) }] },
