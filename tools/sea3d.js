@@ -16,7 +16,7 @@
    Sea3D.load()                       -> Promise (three.js from cdnjs)
    const s = Sea3D.create(canvas, o)  o: { quality: 0-1 }
    s.frame(t, cam)  cam: { depth 0-1, range [a, b], w, h, pointer, fog [r,g,b], top [r,g,b], whales }
-   s.whales(kind)   sends a pod across ('humpback' near the top, 'sperm' in the deep)
+   s.whales(kind)   sends a pod across ('humpback' near the top, 'sperm' in the deep, 'pass': a pod of huge humpbacks close by)
    Sea3D.specimens(o) -> { add(type, canvas2d), frame(t) }  one creature per tile
    Sea3D.metres(d), Sea3D.frac(m)                                                           */
 (function () {
@@ -462,10 +462,17 @@
     // humpbacks pass in the sunlit water (0-200 m), a sperm whale hunts squid in the deep (500-2000 m)
     function sendWhales(kind) {
       const m = metres(clamp(-camera.position.y / DEPTH, 0, 1));
+      // the close pass: a pod of huge humpbacks sliding up past the camera on a diagonal, filling the frame
+      if (kind === 'pass') { if (m > 260) return null; const y = yOf(clamp(m, 12, 200)), a = 0.5, ca = Math.cos(a), sa = Math.sin(a);
+        [[0, 0, 6.2, 0], [-16, 9, 4.4, 2.2], [14, -10, 4.9, 1.1], [-34, 17, 3.4, 3.6], [26, 14, 3.1, 4.4]].forEach(([dz, dy, sc, delay], i) => {
+          const w = C.whale(), sp = 7 - i * 0.45; w.scale.setScalar(sc); w.rotation.set(0, -0.32, a);
+          w.position.set(-48 - sc * 7 - delay * sp * ca, y - 34 + dy - delay * sp * sa, -12 + dz); scene.add(w); live.push(w);
+          whales.push({ w, born: lastT, vx: sp * ca, vy: sp * sa, end: 70 + sc * 8, follow: camera.position.y }); });
+        return 'pass'; }
       if (kind !== 'sperm' && m < 260) { const y = yOf(clamp(m, 12, 190));
-        for (let i = 0; i < 3; i++) { const w = C.whale(); w.position.set(-70 - i * 18, y - 4 + i * 5, -30 - i * 9); w.rotation.set(0, -.15, .22); w.scale.setScalar(1 + i * .1); scene.add(w); live.push(w); whales.push({ w, born: lastT, v: .32 - i * .02, rise: .015 }); } return 'humpback'; }
+        for (let i = 0; i < 3; i++) { const w = C.whale(); w.position.set(-70 - i * 18, y - 4 + i * 5, -30 - i * 9); w.rotation.set(0, -.15, .22); w.scale.setScalar(1 + i * .1); scene.add(w); live.push(w); whales.push({ w, born: lastT, vx: 1.9 - i * .12, vy: .9, end: 90 }); } return 'humpback'; }
       if (kind !== 'humpback' && m > 420 && m < 2300) { const y = yOf(clamp(m, 500, 2000)), w = C.sperm();
-        w.position.set(-75, y - 6, -26); w.rotation.set(0, -.1, -.28); scene.add(w); live.push(w); whales.push({ w, born: lastT, v: .26, rise: -.006 }); return 'sperm'; }
+        w.position.set(-75, y - 6, -26); w.rotation.set(0, -.1, -.28); scene.add(w); live.push(w); whales.push({ w, born: lastT, vx: 1.56, vy: -.36, end: 90 }); return 'sperm'; }
       return null;
     }
     const ray = new T.Raycaster(), plane = new T.Plane(new T.Vector3(0, 0, 1), 12), hit = new T.Vector3(), ndc = new T.Vector2();
@@ -487,8 +494,9 @@
         o.traverse && o.children.length && o.children.forEach(c => { if (c.material && c.material.userData && c.material.userData.u) c.material.userData.u.uTime.value = t; });
         const sw = o.userData.swim; if (sw) { if (sw.vx) { o.position.x += sw.vx * dt; if (Math.abs(o.position.x) > sw.range) { sw.vx *= -1; o.rotation.y += Math.PI; } } if (sw.bob) o.position.y += Math.sin(t * .8 + o.id) * .004; }
         if (o.userData.shaft) { o.material.opacity = (.12 + .06 * Math.sin(t * .3 + o.id)) * lit; o.position.x += Math.sin(t * .05 + o.id) * .01; } });
-      whales.forEach(wh => { wh.w.position.x += wh.v * 60 * dt * .1; wh.w.position.y += wh.rise; wh.w.children[0].material.userData.u.uTime.value = t; });
-      for (let i = whales.length - 1; i >= 0; i--) if (whales[i].w.position.x > 90) { scene.remove(whales[i].w); live.splice(live.indexOf(whales[i].w), 1); whales.splice(i, 1); }
+      whales.forEach(wh => { wh.w.position.x += wh.vx * dt; wh.w.position.y += wh.vy * dt;
+        if (wh.follow != null) { wh.w.position.y += (cy - wh.follow) * 0.9; wh.follow = cy; } /* the close pass keeps company with the camera */ wh.w.children[0].material.userData.u.uTime.value = t; });
+      for (let i = whales.length - 1; i >= 0; i--) if (whales[i].w.position.x > whales[i].end) { scene.remove(whales[i].w); live.splice(live.indexOf(whales[i].w), 1); whales.splice(i, 1); }
       // marine snow follows the camera, drifting down
       if (built) { const sp = built.sp; for (let i = 0; i < sp.length; i += 3) { sp[i + 1] -= .01; const rel = sp[i + 1] - (cy - 30); if (rel < 0) sp[i + 1] += 60; else if (rel > 60) sp[i + 1] -= 60; }
         built.snow.geometry.attributes.position.needsUpdate = true; built.snow.material.color.setRGB(.86 - dark * .2, .97, .95); }
