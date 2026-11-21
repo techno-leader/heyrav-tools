@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Aurora Lab - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css?v=b7e2e0c138">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js?v=96f7f68aa7"></script>
+<script src="aurora-sky.js?v=3096951946"></script>
+<script>
+/* Aurora Lab - the Aurora world's sky on a bench. One shader draws the night:
+   curtains coloured by height (green body, red crown, pink-violet fringe on
+   strong nights), the phases of a night, the fells, spruce and lake. Move over
+   the sky to lean the curtain; click it for a substorm that runs along the arc. */
+const off = document.createElement('canvas');
+let sky = null, burst = [0, 0, -99], t0 = performance.now();
+function frame(ctx, W, H, t, S, ptr) {
+  if (!sky) { sky = AuroraSky.create(off, { scale: S.res, preserve: true }); if (!sky) { ctx.fillText('WebGL is not available here.', 20, 30); return; } }
+  const phase = S.night === 'auto' ? (t * .012) % 1 : S.phase;
+  const P = { phase, kp: S.kp, day: S.day, seed: S.seed, land: S.land, lake: S.lake, curtains: S.curt === 'auto' ? 0 : +S.curt, rays: S.rays,
+    ptr: ptr && ptr.in ? [ptr.x / W, ptr.y / H, 1] : [-1, -1, 0], burst: [burst[0], burst[1], burst[2]] };
+  sky.frame(P, (performance.now() - t0) / 1000, W, H);
+  ctx.imageSmoothingQuality = 'high'; ctx.drawImage(off, 0, 0, W, H);
+  ctx.fillStyle = 'rgba(255,255,255,.85)'; ctx.font = '600 12px ui-monospace, Menlo, monospace'; ctx.textAlign = 'right';
+  ctx.fillText(AuroraSky.clock(phase) + '  ·  ' + AuroraSky.name(phase) + '  ·  Kp ' + S.kp.toFixed(1), W - 18, 26);
+}
+const T = Kit.tool({
+  slug: 'aurora-lab', title: 'Aurora Lab',
+  lede: 'A night in Lapland in one shader: curtains coloured by height, the phases of a night, fells, spruce and a lake that reflects the sky.',
+  presets: Object.fromEntries(Object.entries(AuroraSky.PRESETS).map(([k, v]) => [k, Object.assign({ night: 'set', day: 0 }, v)])),
+  groups: [
+    { name: 'the night', controls: [
+      { k: 'night', type: 'seg', label: 'time', value: 'auto', options: [['auto', 'run the night'], ['set', 'hold']], rand: false },
+      { k: 'phase', type: 'range', label: 'phase', min: 0, max: 1, step: .005, value: .3, when: S => S.night === 'set', help: 'Blue hour, quiet arc, growth, breakup, corona, pulsating, dawn.' },
+      { k: 'kp', type: 'range', label: 'activity (Kp)', min: 0, max: 9, step: .1, value: 4.5, help: 'Strong nights add the red crown and the pink-violet fringe.' },
+      { k: 'day', type: 'range', label: 'blue hour', min: 0, max: 1, step: .01, value: 0, help: 'The light theme: the polar blue hour, with the aurora still showing.' },
+    ]},
+    { name: 'the curtain', controls: [
+      { k: 'curt', type: 'seg', label: 'curtains', value: 'auto', options: [['auto', 'by phase'], ['1', '1'], ['2', '2'], ['3', '3']], rand: false },
+      { k: 'rays', type: 'range', label: 'rays', min: -1, max: 1, step: .01, value: -1, help: 'Below zero follows the phase.' },
+      { k: 'seed', type: 'range', label: 'seed', min: 1, max: 99, step: 1, value: 3 },
+    ]},
+    { name: 'the land', controls: [
+      { k: 'land', type: 'toggle', label: 'fells and spruce', value: true, rand: false },
+      { k: 'lake', type: 'toggle', label: 'the lake', value: true, rand: false },
+      { k: 'res', type: 'range', label: 'render scale', min: .25, max: 1, step: .05, value: .5, help: 'The world draws at half size on desktop and less on phones.', rand: false, nohash: true },
+    ]},
+    { name: 'export', controls: [
+      { type: 'buttons', buttons: [{ label: 'PNG @2x', run: api => api.png(2) }, { label: 'Record 6s', run: api => api.record(6) }] },
+      { type: 'button', label: 'Copy link to this state', run: api => api.link() },
+    ]},
+  ],
+  draw: frame,
+  onPointer(p, type) { if (type === 'down') burst = [p.x / T.view.W, p.y / T.view.H, (performance.now() - t0) / 1000]; },
+});
+document.fonts.ready.then(() => T.draw());
+</script>
+</body>
+</html>
