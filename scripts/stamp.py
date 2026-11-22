@@ -12,7 +12,7 @@ Run before committing:  python3 scripts/stamp.py
 import glob, hashlib, os, re
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SHARED = ['kit.js', 'kit.css', 'brand.js', 'window-light.js', 'scroll-nav.js', 'paper-pixel.js', 'paper-assets.js', 'pixel-sprites.js', 'water-sea.js', 'nacre.js', 'contour.js', 'sea3d.js', 'aurora-sky.js']
+SHARED = ['kit.js', 'kit.css', 'brand.js', 'window-light.js', 'scroll-nav.js', 'paper-pixel.js', 'paper-assets.js', 'pixel-sprites.js', 'water-sea.js', 'nacre.js', 'contour.js', 'sea3d.js', 'aurora-sky.js', 'kolam.js', 'ants.js']
 HASH = {n: hashlib.sha1(open(os.path.join(ROOT, 'tools', n), 'rb').read()).hexdigest()[:10] for n in SHARED}
 
 # a real attribute, optionally under tools/ - never the assets/... paths quoted

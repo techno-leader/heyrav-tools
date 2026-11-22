@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Kolam Set - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css?v=b7e2e0c138">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="kit.js?v=96f7f68aa7"></script>
+<script src="kolam.js?v=802b7f7352"></script>
+<script src="ants.js?v=b49f04769d"></script>
+<script src="paper-pixel.js?v=47ae0fac48"></script>
+<script>
+/* Kolam Set - the named pieces of the Kolam world and the way they are laid
+   out on a floor. A composition is one large kolam with its small ones: kolams
+   beside the doorstep, lamps, buds, leaf coils, vines and a frame. A flower can
+   sit at the centre - folded paper in 3D on a flat kolam - and ants can come to
+   eat. Exports SVG (the kolam, without the flower or the ants) and PNG. */
+
+const A = KolamArt, K = Kolam;
+const PIECES = [['courtyard', 'Courtyard (composition)'], ['threshold', 'Threshold (composition)'], ['knots', 'Five knots (composition)'], ['ring', 'Rings (composition)'],
+  ...Object.entries(A.SET).map(([id, s]) => [id, s.name])];
+const isLayout = id => id in A.LAYOUTS;
+const GROUND = [['auto', 'the piece\'s own'], [A.GROUNDS.stone, 'stone'], [A.GROUNDS.lime, 'lime wash'], [A.GROUNDS.arakku, 'arakku'], [A.GROUNDS.indigo, 'indigo wall'], [A.GROUNDS.turmeric, 'turmeric'], [A.GROUNDS.oxide, 'red oxide'], [A.GROUNDS.ochre, 'ochre'], [A.GROUNDS.cement, 'cement']];
+const LGROUND = { courtyard: A.GROUNDS.stone, threshold: A.GROUNDS.cement, knots: A.GROUNDS.oxide, ring: '#9c8466' };
+
+let pen = null, pKey = '', centre = null;
+const groundOf = S => S.ground !== 'auto' ? S.ground : isLayout(S.piece) ? LGROUND[S.piece] : A.SET[S.piece].ground;
+function build(W, H, S) {
+  const key = JSON.stringify([W, H, S.piece, S.seed, S.ink, S.kaavi, S.ground, S.flame]);
+  if (key === pKey) return pen;
+  pen = A.pen(); pKey = key;
+  const o = { ink: S.ink, kaavi: S.kaavi, seed: S.seed, food: true, ground: groundOf(S), flame: S.flame ? '#f0932b' : null };
+  if (isLayout(S.piece)) centre = A.LAYOUTS[S.piece](pen, W, H, K.rng(S.seed), o); else { A.SET[S.piece].draw(pen, W, H, o); centre = [W / 2, H / 2]; }
+  colony = null; return pen;
+}
+let PP = null, model = null, mKind = '';
+function flower(ctx, W, H, t, S) {
+  if (S.flower === 'none' || !window.THREE || !window.PaperPixel) return;
+  try { PP = PP || PaperPixel.create(THREE); } catch (e) { return; }
+  if (mKind !== S.flower) { model && PP.dispose(model); model = PP.model(A.FLOWERS[S.flower]); mKind = S.flower; }
+  const size = Math.min(W, H) * S.fsize / 100, dpr = Math.min(2, devicePixelRatio || 1), px = Math.round(size * dpr);
+  PP.draw(model, ctx, { w: px, h: px, x: centre[0] - size / 2, y: centre[1] - size / 2, dw: size, dh: size, clear: false, t, prog: Math.min(1, t / 1.6 + .2), yaw: t * S.turn, u: px / 30, base: 9, tilt: A.FLOWERS[S.flower].tilt, sway: .6 });
+}
+let colony = null, eaten = null;
+let noise = null;
+function grain(ctx, W, H, amt) {
+  if (!amt) return; if (!noise) { const c = document.createElement('canvas'); c.width = c.height = 160; const x = c.getContext('2d'), d = x.createImageData(160, 160); for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 26; } x.putImageData(d, 0, 0); noise = c; }
+  ctx.save(); ctx.globalAlpha = amt; ctx.globalCompositeOperation = 'overlay'; ctx.fillStyle = ctx.createPattern(noise, 'repeat'); ctx.fillRect(0, 0, W, H); ctx.restore();
+}
+function draw(ctx, W, H, t, S) {
+  build(W, H, S);
+  ctx.fillStyle = groundOf(S); ctx.fillRect(0, 0, W, H);
+  if (S.ants && pen.food.length) {
+    if (!colony) { eaten = new Float32Array(pen.food.length); colony = Ants.create({ nest: [W * .94, H + 10], size: Math.min(W, H) / 52 * S.antSize, count: S.antCount, color: S.antColor, food: { pts: pen.food, take(i, dt) { for (let j = -5; j <= 5; j++) { const q = i + j; if (q >= 0 && q < eaten.length) eaten[q] = Math.min(1, eaten[q] + dt * .1); } } } }); colony.t = t; }
+  }
+  pen.paint(ctx, { weight: S.weight });
+  // eaten flour: the floor shows through where the ants have been
+  if (S.ants && colony && eaten) { ctx.save(); ctx.fillStyle = groundOf(S); for (let i = 0; i < eaten.length; i += 2) if (eaten[i] > .15) { const q = pen.food[i]; ctx.globalAlpha = Math.min(1, eaten[i]); ctx.beginPath(); ctx.arc(q[0], q[1], Math.min(W, H) / 260 * S.weight, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); }
+  flower(ctx, W, H, t, S);
+  if (S.ants && colony) { const dt = Math.max(0, Math.min(.05, t - colony.t)); colony.t = t; colony.update(dt); colony.draw(ctx); }
+  grain(ctx, W, H, S.grain);
+}
+const T = Kit.tool({
+  slug: 'kolam-set', title: 'Kolam Set',
+  lede: 'The named pieces of the Kolam world, and one large kolam with its small ones laid out on a floor - with a flower at the centre and ants if you wait.',
+  size: S => S.view,
+  presets: {
+    'Courtyard': { piece: 'courtyard', flower: 'marigold' },
+    'Threshold': { piece: 'threshold', flower: 'pumpkin', flame: true },
+    'Five knots': { piece: 'knots', flower: 'pumpkin' },
+    'Rings': { piece: 'ring', flower: 'marigold' },
+    'Kaavi frame': { piece: 'kaavi', flower: 'none' },
+    'Red oxide floor': { piece: 'oxide', flower: 'none' },
+    'Hanging lamp': { piece: 'hanging', flame: true, flower: 'none' },
+    'Kolam candies': { piece: 'mittai', flower: 'none' },
+    'Ants on turmeric': { piece: 'textbook', ground: A.GROUNDS.turmeric, ants: true, flower: 'none' },
+  },
+  groups: [
+    { name: 'piece', controls: [
+      { k: 'piece', type: 'select', label: 'piece', value: 'courtyard', options: PIECES },
+      { k: 'seed', type: 'range', label: 'seed', min: 1, max: 9999, step: 1, value: 7 },
+    ]},
+    { name: 'flour', controls: [
+      { k: 'ground', type: 'select', label: 'floor', value: 'auto', options: GROUND, rand: false },
+      { k: 'ink', type: 'color', label: 'line', value: A.INKS.flour, options: [[A.INKS.flour, 'rice flour'], [A.INKS.kaavi, 'kaavi'], [A.INKS.chalk, 'chalk']] },
+      { k: 'kaavi', type: 'color', label: 'kaavi', value: '#ad3b23', options: [['#ad3b23', 'kaavi'], ['#a5281e', 'arakku'], ['#8c3420', 'kaavi ink']], rand: false },
+      { k: 'flame', type: 'toggle', label: 'flames lit', value: false },
+      { k: 'weight', type: 'range', label: 'line weight', min: .5, max: 2, step: .05, value: 1 },
+      { k: 'grain', type: 'range', label: 'floor grain', min: 0, max: 1, step: .01, value: .5 },
+    ]},
+    { name: 'the flower', controls: [
+      { k: 'flower', type: 'seg', label: 'at the centre', value: 'marigold', options: [['none', 'none'], ['pumpkin', 'pumpkin flower'], ['marigold', 'marigold']] },
+      { k: 'fsize', type: 'range', label: 'size', min: 8, max: 40, step: 1, value: 18, unit: '%', when: S => S.flower !== 'none' },
+      { k: 'turn', type: 'range', label: 'turning', min: 0, max: 40, step: 1, value: 12, unit: '°/s', when: S => S.flower !== 'none' },
+      { type: 'note', text: 'The flower is folded paper drawn in 3D; the kolam under it stays flat.', when: S => S.flower !== 'none' },
+    ]},
+    { name: 'ants', controls: [
+      { k: 'ants', type: 'toggle', label: 'ants come to eat', value: false, rand: false },
+      { k: 'antCount', type: 'range', label: 'how many', min: 2, max: 40, step: 1, value: 16, when: S => S.ants },
+      { k: 'antSize', type: 'range', label: 'size', min: .5, max: 2.5, step: .05, value: 1, when: S => S.ants },
+      { k: 'antColor', type: 'seg', label: 'kind', value: '#1b120c', options: [['#1b120c', 'black'], ['#9a3d1c', 'red']], when: S => S.ants },
+      { type: 'button', label: 'New morning', when: S => S.ants, run: api => { colony = null; api.draw(); } },
+    ]},
+    { name: 'look', controls: [
+      { k: 'view', type: 'select', label: 'artboard', value: 'fill', options: [['fill', 'fill the stage'], [[1280, 840], '1280 × 840'], [[1200, 1200], '1200 × 1200'], [[1600, 900], '1600 × 900']], rand: false, keep: true },
+    ]},
+    { name: 'export', controls: [
+      { type: 'button', label: 'Download SVG', primary: true, run: api => { const p = A.pen(); const o = { ink: api.S.ink, kaavi: api.S.kaavi, seed: api.S.seed, ground: groundOf(api.S), flame: api.S.flame ? '#f0932b' : null }; isLayout(api.S.piece) ? A.LAYOUTS[api.S.piece](p, api.view.W, api.view.H, K.rng(api.S.seed), o) : A.SET[api.S.piece].draw(p, api.view.W, api.view.H, o); api.download(new Blob([p.svg(api.view.W, api.view.H, { bg: groundOf(api.S), weight: api.S.weight })], { type: 'image/svg+xml' }), api.S.piece + '.svg'); } },
+      { type: 'buttons', buttons: [{ label: 'PNG @2x', run: api => api.png(2) }, { label: 'Record 6s', run: api => api.record(6) }] },
+      { type: 'button', label: 'Copy link to this state', run: api => api.link() },
+    ]},
+  ],
+  draw,
+});
+document.fonts.ready.then(() => T.draw());
+</script>
+</body>
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#ffffff">
+<title>Kolam Loom - heyrav tools</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../favicon-32.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400..600&family=Martian+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="kit.css?v=b7e2e0c138">
+</head>
+<body>
+<div class="tool">
+  <aside class="rail" aria-label="Controls"></aside>
+  <main class="stage"></main>
+</div>
+<script src="kit.js?v=96f7f68aa7"></script>
+<script src="kolam.js?v=802b7f7352"></script>
+<script src="ants.js?v=b49f04769d"></script>
+<script>
+/* Kolam Loom - one kolam from rules. Pick the dots, the symmetry and how often
+   the line turns instead of crossing; click between two dots to change the line
+   there (it stays one line). Motion: the line draws itself, the petals breathe,
+   light ripples across the floor, the line keeps walking, or ants come to eat.
+   Exports SVG, PNG and the spec the Kolam world reads. */
+
+const A = KolamArt, K = Kolam;
+const GROUND = [[A.GROUNDS.stone, 'stone'], [A.GROUNDS.lime, 'lime wash'], [A.GROUNDS.arakku, 'arakku'], [A.GROUNDS.indigo, 'indigo wall'], [A.GROUNDS.turmeric, 'turmeric'], [A.GROUNDS.maroon, 'maroon'], [A.GROUNDS.oxide, 'red oxide'], [A.GROUNDS.ochre, 'ochre']];
+const INK = [[A.INKS.flour, 'rice flour'], [A.INKS.kaavi, 'kaavi'], [A.INKS.chalk, 'chalk'], [A.INKS.soot, 'lamp black']];
+
+let G = null, gKey = '', geo = null, gEdit = '';
+function spec(S) {
+  if (S.from === 'day') { const sp = A.specOf(A.daySeed(S.page, S.dated ? new Date() : null)); return sp; }
+  return { shape: S.shape, n: S.shape === 'triangle' ? Math.min(S.n, 9) : S.n, sym: S.sym, density: S.density, bias: S.bias, rings: S.rings, quirks: S.quirks, seed: S.seed, tips: S.tips };
+}
+function kolam(S) {
+  const sp = spec(S), key = JSON.stringify(sp);
+  if (key !== gKey) { G = A.gen(sp); G.base = new Map(G.o.state); gKey = key; gEdit = ''; S.edits = S.edits && S.edits.k === key ? S.edits : { k: key, e: [] }; }
+  const ek = JSON.stringify(S.edits);
+  if (ek !== gEdit) { G.o.state = new Map(G.base); (S.edits.e || []).forEach(([x, y, v]) => { const kk = G.k.key(x, y); v ? G.o.state.set(kk, v) : G.o.state.delete(kk); }); G.k = K.build(G.o); gEdit = ek; }
+  return G;
+}
+/* where the kolam sits on the artboard */
+function frame(W, H, S, sp) {
+  const g = G.o, tips = sp.tips || S.tips, size = Math.min(W, H) * S.scale / 100, St = Math.max(g.rows, g.cols) + (tips === 'petal' ? 1.4 : .6), s = size / (2 * St);
+  return { s, map: (x, y) => [W / 2 + (x - g.cols) * s, H / 2 + (y - g.rows) * s], inv: (X, Y) => [(X - W / 2) / s + g.cols, (Y - H / 2) / s + g.rows] };
+}
+let noise = null;
+function grain(ctx, W, H, amt) {
+  if (!amt) return; if (!noise) { const c = document.createElement('canvas'); c.width = c.height = 160; const x = c.getContext('2d'), d = x.createImageData(160, 160); for (let i = 0; i < d.data.length; i += 4) { const v = Math.random() * 255; d.data[i] = d.data[i + 1] = d.data[i + 2] = v; d.data[i + 3] = 26; } x.putImageData(d, 0, 0); noise = c; }
+  ctx.save(); ctx.globalAlpha = amt; ctx.globalCompositeOperation = 'overlay'; ctx.fillStyle = ctx.createPattern(noise, 'repeat'); ctx.fillRect(0, 0, W, H); ctx.restore();
+}
+let colony = null, colKey = '', eaten = null, food = [];
+function draw(ctx, W, H, t, S, ptr) {
+  const sp = spec(S); kolam(S); const F = frame(W, H, S, sp), tips = sp.tips || S.tips;
+  ctx.fillStyle = S.ground; ctx.fillRect(0, 0, W, H);
+  const lw = Math.max(.8, F.s * .17 * S.weight), dr = Math.max(.8, F.s * .12 * S.dot);
+  const style = { tips, reach: S.reach, endReach: S.endReach };
+  if (S.motion === 'breathe') style.endReach = S.endReach + Math.sin(t * 1.3) * .45;
+  const geos = G.k.loops.map(L => K.geom(L, G.k, style));
+  const ink = S.ink;
+  // dots
+  const dots = G.k.cells.map(([r, c]) => F.map(2 * c + 1, 2 * r + 1));
+  const polys = S.motion === 'still' || S.motion === 'breathe' ? null : geos.map(g => { const pts = K.sample(g, 8).map(q => F.map(q[0], q[1])), cum = [0]; for (let i = 1; i < pts.length; i++) cum.push(cum[i - 1] + Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1])); return { pts, cum, L: cum[cum.length - 1] }; });
+  ctx.lineCap = ctx.lineJoin = 'round';
+  const line = (w, col) => {
+    ctx.strokeStyle = col; ctx.lineWidth = w;
+    if (!polys) { geos.forEach(g => ctx.stroke(new Path2D(K.pathD(g, F.map)))); return; }
+    if (S.motion === 'draw') { const total = polys.reduce((a, p) => a + p.L, 0), dur = 6, ph = (t % (dur + 2.5)) / dur; let left = Math.min(1, ph) * total;
+      polys.forEach(p => { if (left <= 0) return; ctx.beginPath(); ctx.moveTo(...p.pts[0]); for (let i = 1; i < p.pts.length && p.cum[i] <= left; i++) ctx.lineTo(...p.pts[i]); ctx.stroke(); left -= p.L; }); return; }
+    if (S.motion === 'walk') { polys.forEach(p => { const head = (t * p.L / 12) % p.L, span = p.L * .62; for (let i = 1; i < p.pts.length; i++) { let d = head - p.cum[i]; if (d < 0) d += p.L; if (d > span) continue; ctx.globalAlpha = Math.min(1, (1 - d / span) * 1.6); ctx.beginPath(); ctx.moveTo(...p.pts[i - 1]); ctx.lineTo(...p.pts[i]); ctx.stroke(); } }); ctx.globalAlpha = 1; return; }
+    if (S.motion === 'ripple') { const c = [W / 2, H / 2]; polys.forEach(p => { for (let i = 1; i < p.pts.length; i++) { const a = p.pts[i - 1], k = .5 + .5 * Math.cos(Math.hypot(a[0] - c[0], a[1] - c[1]) / Math.min(W, H) * 18 - t * 2.4); ctx.globalAlpha = .35 + .65 * k; ctx.lineWidth = w * (.7 + .6 * k); ctx.beginPath(); ctx.moveTo(...a); ctx.lineTo(...p.pts[i]); ctx.stroke(); } }); ctx.globalAlpha = 1; return; }
+    if (S.motion === 'ants') { polys.forEach(p => { for (let i = 1; i < p.pts.length; i++) { const e = eaten ? eaten[p.off + i] || 0 : 0; if (e > .97) continue; ctx.globalAlpha = 1 - e * .6; ctx.lineWidth = w * (1 - e * .8); ctx.beginPath(); ctx.moveTo(...p.pts[i - 1]); ctx.lineTo(...p.pts[i]); ctx.stroke(); } }); ctx.globalAlpha = 1; return; }
+  };
+  if (S.motion === 'ants' && polys) { let off = 0; food = []; polys.forEach(p => { p.off = off; off += p.pts.length; p.pts.forEach(q => food.push(q)); }); const ck = gKey + gEdit + W + H + S.scale + S.antColor + S.antCount + S.antSize + S.ground; if (ck !== colKey || !colony) { colKey = ck; eaten = new Float32Array(food.length); colony = Ants.create({ nest: [W * .92, H + 10], size: Math.min(W, H) / 46 * S.antSize, count: S.antCount, color: S.antColor === 'auto' ? (lum(S.ground) < .25 ? '#9a3d1c' : '#1b120c') : S.antColor, food: { pts: food, take(i, dt) { for (let j = -4; j <= 4; j++) { const q = i + j; if (q >= 0 && q < eaten.length) eaten[q] = Math.min(1, eaten[q] + dt * .1); } } } }); colony.t = t; } }
+  if (S.double) { line(lw * 2.6, ink); line(lw * 1.1, S.ground); } else line(lw, ink);
+  const dotsOn = S.motion === 'draw' ? Math.min(1, (t % 8.5) / .8) : 1;
+  ctx.fillStyle = ink; dots.forEach(([x, y]) => { ctx.beginPath(); ctx.arc(x, y, dr * dotsOn, 0, Math.PI * 2); ctx.fill(); });
+  if (S.mirrors) { ctx.strokeStyle = '#ad3b23'; ctx.lineWidth = Math.max(1.5, F.s * .16); G.k.internal.forEach(([x, y]) => { const st = G.o.state.get(G.k.key(x, y)); if (!st) return; const v = x % 2 === 0, along = v ? st === 1 : st === 2, h = .62, [a, b] = along ? [F.map(x, y - h), F.map(x, y + h)] : [F.map(x - h, y), F.map(x + h, y)]; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke(); }); }
+  if (S.motion === 'ants' && colony) { const dt = Math.max(0, Math.min(.05, t - (colony.t ?? t))); colony.t = t; colony.update(dt); colony.draw(ctx); }
+  // the gap under the pointer
+  if (ptr && ptr.in && S.from !== 'day') { const q = F.inv(ptr.x, ptr.y), gap = near(q); if (gap) { const [x, y] = F.map(gap[0], gap[1]); ctx.strokeStyle = '#e9b44d'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(x, y, F.s * .45, 0, Math.PI * 2); ctx.stroke(); } }
+  grain(ctx, W, H, S.grain);
+  const lines = G.k.loops.filter(l => !K.isRing(l)).length, rings = G.k.loops.length - lines, turns = [...G.o.state.values()].filter(v => v).length;
+  T && (T.info = `${G.k.cells.length} dots · ${lines === 1 ? 'one line' : lines + ' lines'}${rings ? ' + ' + rings + ' circled' : ''} · ${G.k.internal.length - turns} crossings, ${turns} turns`);
+  ctx.save(); ctx.font = '500 11px "Martian Mono", monospace'; ctx.fillStyle = S.ink; ctx.globalAlpha = .55; ctx.fillText(T ? T.info : '', 16, H - 16); ctx.restore();
+}
+const lum = h => { const c = [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16) / 255); return .2126 * c[0] + .7152 * c[1] + .0722 * c[2]; };
+function near(q) { let best = null, bd = 1.05; G.k.internal.forEach(p => { const d = Math.hypot(p[0] - q[0], p[1] - q[1]); if (d < bd) { bd = d; best = p; } }); return best; }
+function svg(W, H, t, S) {
+  const sp = spec(S); kolam(S); const F = frame(W, H, S, sp), pen = A.pen(), tips = sp.tips || S.tips, lw = Math.max(.8, F.s * .17 * S.weight), dr = Math.max(.8, F.s * .12 * S.dot);
+  G.k.loops.forEach(L => { const d = K.pathD(K.geom(L, G.k, { tips, reach: S.reach, endReach: S.endReach }), F.map); if (S.double) { pen.stroke(d, lw * 2.6, S.ink); pen.stroke(d, lw * 1.1, S.ground); } else pen.stroke(d, lw, S.ink); });
+  G.k.cells.forEach(([r, c]) => { const q = F.map(2 * c + 1, 2 * r + 1); pen.dot(q[0], q[1], dr, S.ink); });
+  return pen.svg(W, H, { bg: S.transparent ? null : S.ground });
+}
+
+let T = null;
+T = Kit.tool({
+  slug: 'kolam-loom', title: 'Kolam Loom',
+  lede: 'One line round every dot, from rules: the same dots give a new kolam every time. Click between two dots to change the line there.',
+  size: S => S.view,
+  presets: {
+    'Textbook sikku': { shape: 'diamond', n: 7, sym: 'C4', density: 0, rings: false, tips: 'round', quirks: 0 },
+    'Petal diamond': { shape: 'diamond', n: 9, sym: 'C4', density: .45, rings: true, tips: 'petal' },
+    'Stepped': { shape: 'stepped', n: 13, sym: 'C4', density: .5, rings: true, tips: 'petal' },
+    'Star': { shape: 'star', n: 13, sym: 'C4', density: .35, rings: true, tips: 'petal' },
+    'Double line': { shape: 'diamond', n: 9, sym: 'D4', density: .3, double: true, weight: .7 },
+    'Mountain': { shape: 'triangle', n: 5, sym: 'mirror', density: .2, rings: false },
+    'On turmeric': { ground: A.GROUNDS.turmeric, ink: A.INKS.flour, shape: 'octagon', n: 9, density: .35 },
+    'Kaavi on lime': { ground: A.GROUNDS.lime, ink: A.INKS.kaavi, shape: 'diamond', n: 11, density: .4 },
+    "Today's kolam": { from: 'day', page: 'home', dated: true },
+  },
+  groups: [
+    { name: 'dots', controls: [
+      { k: 'from', type: 'seg', label: 'kolam from', value: 'rules', options: [['rules', 'these rules'], ['day', 'a page and the day']], rand: false },
+      { k: 'page', type: 'text', label: 'page name', value: 'home', when: S => S.from === 'day' },
+      { k: 'dated', type: 'toggle', label: 'with today\'s date', value: true, when: S => S.from === 'day' },
+      { k: 'shape', type: 'select', label: 'dot shape', value: 'diamond', options: [['diamond', 'diamond (1·3·5…)'], ['stepped', 'stepped'], ['star', 'star'], ['octagon', 'octagon'], ['square', 'square'], ['plus', 'plus'], ['cross', 'cross'], ['triangle', 'triangle (mountain)'], ['blocks', 'blocks of three']], when: S => S.from === 'rules' },
+      { k: 'n', type: 'range', label: 'dots across', min: 3, max: 17, step: 1, value: 9, rand: [5, 13], when: S => S.from === 'rules' },
+      { k: 'seed', type: 'range', label: 'seed', min: 1, max: 9999, step: 1, value: 7, when: S => S.from === 'rules' },
+    ]},
+    { name: 'the line', controls: [
+      { k: 'sym', type: 'seg', label: 'symmetry', value: 'C4', options: [['C4', 'turn ×4'], ['D4', '+ mirror'], ['C2', 'turn ×2'], ['mirror', 'mirror'], ['none', 'free']], when: S => S.from === 'rules' },
+      { k: 'density', type: 'range', label: 'turns', min: 0, max: .8, step: .01, value: .4, fmt: v => Math.round(v * 100) + '%', when: S => S.from === 'rules', help: 'How often the line bounces instead of crossing. Zero is the fully woven kolam.' },
+      { k: 'bias', type: 'range', label: 'round dots vs between', min: 0, max: 1, step: .01, value: .5, adv: true, when: S => S.from === 'rules', help: 'Which way a turn goes: back round a dot, or through the gap between two.' },
+      { k: 'rings', type: 'toggle', label: 'circled dots', value: true, when: S => S.from === 'rules' },
+      { k: 'quirks', type: 'range', label: 'hand drift', min: 0, max: 8, step: 1, value: 1, when: S => S.from === 'rules', help: 'A few single changes that break the symmetry a little, the way a hand drifts.' },
+      { k: 'tips', type: 'seg', label: 'tips', value: 'petal', options: [['petal', 'petal ends'], ['round', 'round'], ['all', 'petals all round']], when: S => S.from === 'rules' },
+      { k: 'endReach', type: 'range', label: 'petal reach', min: 1.3, max: 2.8, step: .05, value: 1.9 },
+      { k: 'reach', type: 'range', label: 'corner reach', min: 1, max: 1.8, step: .05, value: 1.35, adv: true },
+      { k: 'mirrors', type: 'toggle', label: 'show mirrors', value: false, rand: false },
+      { type: 'button', label: 'Undo all gap edits', run: api => { api.S.edits = { k: gKey, e: [] }; api.commit('edits'); } },
+    ]},
+    { name: 'flour', controls: [
+      { k: 'ground', type: 'color', label: 'floor', value: A.GROUNDS.stone, options: GROUND },
+      { k: 'ink', type: 'color', label: 'line', value: A.INKS.flour, options: INK },
+      { k: 'weight', type: 'range', label: 'line weight', min: .4, max: 2, step: .05, value: 1 },
+      { k: 'dot', type: 'range', label: 'dot size', min: 0, max: 2.5, step: .05, value: 1 },
+      { k: 'double', type: 'toggle', label: 'double line', value: false },
+      { k: 'grain', type: 'range', label: 'floor grain', min: 0, max: 1, step: .01, value: .5 },
+      { k: 'scale', type: 'range', label: 'size on the floor', min: 30, max: 100, step: 1, value: 86, unit: '%', rand: false },
+    ]},
+    { name: 'motion', controls: [
+      { k: 'motion', type: 'seg', label: 'motion', value: 'still', options: [['still', 'still'], ['draw', 'draws itself'], ['breathe', 'petals breathe'], ['ripple', 'ripple'], ['walk', 'walks'], ['ants', 'ants']], rand: false },
+      { k: 'antCount', type: 'range', label: 'ants', min: 2, max: 40, step: 1, value: 14, when: S => S.motion === 'ants' },
+      { k: 'antColor', type: 'seg', label: 'ants', value: 'auto', options: [['auto', 'to suit the floor'], ['#1b120c', 'black'], ['#9a3d1c', 'red']], when: S => S.motion === 'ants', rand: false },
+      { k: 'antSize', type: 'range', label: 'ant size', min: .5, max: 2.5, step: .05, value: 1, when: S => S.motion === 'ants' },
+      { type: 'button', label: 'New morning (wash the floor)', when: S => S.motion === 'ants', run: api => { colKey = ''; api.draw(); } },
+    ]},
+    { name: 'look', controls: [
+      { k: 'view', type: 'select', label: 'artboard', value: 'fill', options: [['fill', 'fill the stage'], [[1200, 1200], '1200 × 1200'], [[800, 800], '800 × 800'], [[1600, 900], '1600 × 900']], rand: false, keep: true },
+      { k: 'transparent', type: 'toggle', label: 'SVG without the floor', value: false, rand: false },
+    ]},
+    { name: 'export', controls: [
+      { type: 'button', label: 'Download SVG', primary: true, run: api => api.download(new Blob([svg(api.view.W, api.view.H, 0, api.S)], { type: 'image/svg+xml' }), 'kolam.svg') },
+      { type: 'buttons', buttons: [{ label: 'PNG @2x', run: api => api.png(2) }, { label: 'Copy spec', run: api => api.copy(JSON.stringify(Object.assign(spec(api.S), api.S.edits.e.length ? { edits: api.S.edits.e } : {})), 'spec copied') }, { label: 'Record 6s', run: api => api.record(6) }] },
+      { type: 'button', label: 'Copy link to this state', run: api => api.link() },
+    ]},
+  ],
+  onRandom: S => { S.edits = { k: '', e: [] }; },
+  onPointer: (ptr, type, S) => {
+    if (type !== 'down' || S.from === 'day' || !G) return;
+    const F = frame(T.view.W, T.view.H, S, spec(S)), gap = near(F.inv(ptr.x, ptr.y)); if (!gap) return;
+    // try the other two states; keep the first that leaves the kolam one line
+    const kk = G.k.key(gap[0], gap[1]), cur = G.o.state.get(kk) || 0, base = G.k.loops.filter(l => !K.isRing(l)).length;
+    let pick = (cur + 1) % 3;
+    for (const v of [1, 2, 0].filter(v => v !== cur)) { const st = new Map(G.o.state); v ? st.set(kk, v) : st.delete(kk); if (K.build({ ...G.o, state: st }).loops.filter(l => !K.isRing(l)).length <= base) { pick = v; break; } }
+    const e = (S.edits.e || []).filter(q => !(q[0] === gap[0] && q[1] === gap[1])); e.push([gap[0], gap[1], pick]); S.edits = { k: gKey, e }; T.commit('edits');
+  },
+  draw, svg,
+});
+T.S.edits = T.S.edits || { k: '', e: [] };
+document.fonts.ready.then(() => T.draw());
+</script>
+</body>
+</html>
