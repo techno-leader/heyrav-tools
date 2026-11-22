@@ -18,7 +18,7 @@
   <main class="stage"></main>
 </div>
 <script src="kit.js?v=96f7f68aa7"></script>
-<script src="aurora-sky.js?v=d7a29eb615"></script>
+<script src="aurora-sky.js?v=78e08d93ba"></script>
 <script>
 /* Aurora Lab - the Aurora world's sky on a bench: the aurora as a volume of
    soft curtains coloured by height (green body, red crown, pink-violet fringe on
@@ -27,7 +27,7 @@
 const off = document.createElement('canvas');
 let sky = null, burst = [0, 0, -99], t0 = performance.now();
 function frame(ctx, W, H, t, S, ptr) {
-  if (!sky) { sky = AuroraSky.create(off, { scale: S.res, preserve: true, bakeAll: true }); if (!sky) { ctx.fillText('WebGL is not available here.', 20, 30); return; } }
+  if (!sky) { sky = AuroraSky.create(off, { scale: S.res, preserve: true, bakeAll: true, trees: 'aurora-treeline.webp' }); if (!sky) { ctx.fillText('WebGL is not available here.', 20, 30); return; } }
   const phase = S.night === 'auto' ? (t * .012) % 1 : S.phase;
   const P = { phase, kp: S.kp, day: S.day, seed: S.seed, land: S.land, lake: S.lake,
     ptr: ptr && ptr.in ? [ptr.x / W, ptr.y / H, 1] : [-1, -1, 0], burst: [burst[0], burst[1], burst[2]] };

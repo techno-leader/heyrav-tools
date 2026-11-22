@@ -11,6 +11,8 @@
      overhead, pulsating patches, dawn. `phase` (0..1) runs through them, and
      the drift of the curtains is integrated over time, so a sudden jump in
      phase never makes them race.
+   - The treeline is a photograph (two rows of spruce and pine, cut from the
+     sky into masks), mirrored along the shore and reflected in the lake.
    - The land is real terrain: an erosion-style height field raymarched once
      into a texture when the canvas is sized (normal, snow cover, distance),
      then lit every frame: snow where it settles, rock on the steep faces,
@@ -20,7 +22,7 @@
      the Earth's shadow and the pink band above it, alpenglow on the peaks;
      dawn warming from the east.
 
-   const s = AuroraSky.create(canvas, { scale: .5 })
+   const s = AuroraSky.create(canvas, { scale: .5, trees: 'aurora-treeline.webp' })
    s.frame(P, t, w, h)   P: { phase, kp, day, seed, ptr: [x, y, s], burst: [x, y, t0], land, lake }
    AuroraSky.shape(phase, kp), .clock(phase), .name(phase), .glow(P), .PRESETS        */
 (function () {
@@ -99,7 +101,8 @@
   uniform vec4 uA;   // act, width, rays, red
   uniform vec4 uB;   // fringe, corona, pulse, near
   uniform vec3 uPtr, uBurst;
-  uniform sampler2D uNoise, uTerr;
+  uniform sampler2D uNoise, uTerr, uTreeTex;
+  uniform float uHasTrees;
   const vec3 GR = vec3(.22, 1., .55), RD = vec3(1., .24, .36), VI = vec3(.62, .38, 1.), PK = vec3(1., .42, .78);
   vec4 nz(vec2 p){ return texture2D(uNoise, p); }
   /* the aurora: a slab of sky from 4 to 9 units up, marched from the eye */
@@ -198,13 +201,25 @@
     c = mix(c, horizonCol(uv), fog * .9);                                         // distance is air
     return vec4(c, 1.);
   }
+  /* the treeline, from a photograph: two rows of real spruce and pine (r = near row, g = far ridge row, b = bark and needle detail),
+     mirrored along the shore so it never visibly repeats */
+  vec4 treeline(vec2 uv){
+    float y0 = uLakeY - .006, h = .17; if (uv.y < y0 || uv.y > y0 + h) return vec4(0.);
+    float tx = uv.x * uAspect / (h * 4.18) + .37, m = abs(mod(tx, 2.) - 1.);
+    vec4 T = texture2D(uTreeTex, vec2(m, 1. - (uv.y - y0) / h));
+    float day = max(uBlue, uDawn);
+    vec3 farC = mix(mix(vec3(.014, .022, .036), vec3(.16, .19, .29), day), horizonCol(uv), .34 * (1. - T.r));
+    vec3 nearC = mix(vec3(.006, .01, .018), vec3(.07, .085, .13), day) + (T.b - .5) * .03 * (1. + day * 2.) + glowAt(uv.x) * .05 * T.b;
+    vec3 c = mix(farC, nearC, T.r); float a = max(T.g, T.r);
+    return vec4(c, a);
+  }
   vec3 scene(vec2 uv){
     vec3 rd = rayDir(uv), c = sky(uv, rd) + aurora(uv, rd) * (1. - max(uBlue, uDawn) * .35);
     if (uLand > .5){
       vec4 l = land(uv); c = mix(c, l.rgb, l.a);
       vec2 p = vec2(uv.x * uAspect, uv.y);
-      vec4 tr = trees(p, uLakeY + .05, .013, .025, .06, 1.); c = mix(c, tr.rgb, tr.a);
-      tr = trees(p, uLakeY + .008, .021, .045, .12, 0.); c = mix(c, tr.rgb, tr.a);
+      if (uHasTrees > .5){ vec4 tl = treeline(uv); c = mix(c, tl.rgb, tl.a); }
+      else { vec4 tr = trees(p, uLakeY + .05, .013, .025, .06, 1.); c = mix(c, tr.rgb, tr.a); tr = trees(p, uLakeY + .008, .021, .045, .12, 0.); c = mix(c, tr.rgb, tr.a); }
     }
     return c;
   }
@@ -218,7 +233,9 @@
       vec3 refl = scene(rp) * vec3(.6, .7, .82);
       vec3 ice = mix(vec3(.015, .03, .05), vec3(.34, .4, .58), max(uBlue, uDawn));
       vec3 sn = mix(vec3(.07, .09, .15), vec3(.6, .65, .82), max(uBlue, uDawn)) + glowAt(uv.x) * .25;
-      c = mix(mix(ice, refl, .85), sn, snow * .9);
+      vec3 water = mix(ice, refl, .85);
+      if (uHasTrees > .5){ vec4 tl = treeline(vec2(rp.x, 2. * uLakeY - uv.y)); water = mix(water, tl.rgb * .8, tl.a * .85); }   // the trees in the water
+      c = mix(water, sn, snow * .9);
     } else c = scene(uv);
     c = 1. - exp(-c * 1.35); c = pow(c, vec3(.92));
     gl_FragColor = vec4(c, 1.);
@@ -235,9 +252,12 @@
     const tex = (w, h, data, filter, wrap) => { const t = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, t); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, data);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, filter); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, wrap); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, wrap); return t; };
     const NT = tex(256, 256, noiseTex(256, 7), gl.LINEAR, gl.REPEAT);
+    let TRT = null;
+    if (o.trees) { const im = new Image(); im.crossOrigin = 'anonymous'; im.onload = () => { TRT = gl.createTexture(); gl.bindTexture(gl.TEXTURE_2D, TRT); gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false); gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, im);
+      [gl.TEXTURE_MIN_FILTER, gl.TEXTURE_MAG_FILTER].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.LINEAR)); [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T].forEach(k => gl.texParameteri(gl.TEXTURE_2D, k, gl.CLAMP_TO_EDGE)); }; im.src = o.trees; }
     let TT = null, FB = null, W = 0, H = 0, baked = 0, bakeKey = '', ta = 0, sp = .4, lastT = null;
     const U = (p, n) => gl.getUniformLocation(p, n);
-    const UM = {}; ['uRes', 'uAspect', 'uHorY', 'uSeed', 'uT', 'uTa', 'uLand', 'uLake', 'uLakeY', 'uBlue', 'uDawn', 'uQ', 'uA', 'uB', 'uPtr', 'uBurst', 'uNoise', 'uTerr'].forEach(n => UM[n] = U(PM, n));
+    const UM = {}; ['uRes', 'uAspect', 'uHorY', 'uSeed', 'uT', 'uTa', 'uLand', 'uLake', 'uLakeY', 'uBlue', 'uDawn', 'uQ', 'uA', 'uB', 'uPtr', 'uBurst', 'uNoise', 'uTerr', 'uTreeTex', 'uHasTrees'].forEach(n => UM[n] = U(PM, n));
     const UB = {}; ['uRes', 'uAspect', 'uHorY', 'uSeed'].forEach(n => UB[n] = U(PB, n));
     const HOR = .3, LAKE = .12, STRIPS = 6;
     function bakeStep(seed) {
@@ -264,6 +284,7 @@
       gl.useProgram(PM); gl.viewport(0, 0, W, H);
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, NT); gl.uniform1i(UM.uNoise, 0);
       gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, TT); gl.uniform1i(UM.uTerr, 1);
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, TRT || NT); gl.uniform1i(UM.uTreeTex, 2); gl.uniform1f(UM.uHasTrees, TRT ? 1 : 0); gl.activeTexture(gl.TEXTURE0);
       gl.uniform2f(UM.uRes, W, H); gl.uniform1f(UM.uAspect, W / H); gl.uniform1f(UM.uHorY, HOR); gl.uniform1f(UM.uSeed, P.seed); gl.uniform1f(UM.uLakeY, LAKE);
       gl.uniform1f(UM.uT, t); gl.uniform1f(UM.uTa, ta + P.seed * 97); gl.uniform1f(UM.uLand, P.land ? 1 : 0); gl.uniform1f(UM.uLake, P.lake ? 1 : 0); gl.uniform1f(UM.uQ, o.low ? 0 : 1);
       gl.uniform1f(UM.uBlue, clamp(Math.max(P.day, s.blue * .9))); gl.uniform1f(UM.uDawn, s.dawn);
